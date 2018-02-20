@@ -12,8 +12,8 @@ else
     OBAM=$2
 fi
 
-#TDIR=/scratch/socci/_scratch_ATACSeq/$(uuidgen -t)
-TDIR=_scratch_ATACSeq/$(uuidgen -t)
+TDIR=/scratch/socci/_scratch_ATACSeq/$(uuidgen -t)
+#TDIR=_scratch_ATACSeq/$(uuidgen -t)
 mkdir -p $TDIR
 echo $TDIR
 
@@ -41,4 +41,4 @@ bedtools bamtobed -i $TDIR/step4.bam -bedpe \
     | sort -S20g -k1,1V -k2,2n \
     | gzip -nc >${OBAM/.bam/.shiftedPE.bed}.gz
 
-#rm -rf $TDIR
+rm -rf $TDIR

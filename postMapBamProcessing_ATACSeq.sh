@@ -12,8 +12,8 @@ else
     OBAM=$2
 fi
 
-#TDIR=/scratch/socci/_scratch_ATACSeq/$(uuidgen -t)
-TDIR=_scratch_ATACSeq/$(uuidgen -t)
+TDIR=/scratch/socci/_scratch_ATACSeq/$(uuidgen -t)
+#TDIR=_scratch_ATACSeq/$(uuidgen -t)
 mkdir -p $TDIR
 echo $TDIR
 
@@ -42,4 +42,4 @@ zcat $TDIR/step5.bed.gz \
         'BEGIN {OFS = FS} { if ($6 == "+") {$2 = $2 + 4} else if ($6 == "-") {$3 = $3 - 5} print $0}' \
     | gzip -nc >${OBAM/.bam/.shifted.bed.gz}
 
-#rm -rf $TDIR
+rm -rf $TDIR
