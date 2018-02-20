@@ -1,8 +1,39 @@
 #!/bin/bash
 
 # CMD:
-#    bsub -n 1 -q control -o LSF.CTRL/ -J CTRL.ATAC ./PIPE.sh
+#    bsub -n 1 -q control -o LSF.CTRL/ -J CTRL.ATAC ./pipe.sh
 #
+
+SDIR="$( cd "$( dirname "$0" )" && pwd )"
+
+SCRIPT_VERSION=$(git --git-dir=$SDIR/.git --work-tree=$SDIR describe --always --long)
+PIPENAME="ATAC-Seq"
+
+##
+# Process command args
+
+TAG=q$PIPENAME
+
+COMMAND_LINE=$*
+
+function usage {
+    echo
+    echo "usage: $PIPENAME/pipe.sh BAM1 [BAM2 ... BAMN]"
+    echo "version=$SCRIPT_VERSION"
+    echo ""
+    echo
+    exit
+}
+
+if [ "$#" -lt "1" ]; then
+    usage
+fi
+
+BAMS=$*
+
+echo $BAMS
+
+exit
 
 ls ../results/Proj_06125_*/*/align*/*.bam \
     | xargs -n 1 bsub -o LSF.POST/ -J POST2_$$ -R "rusage[mem=24]" -M 25 ../postMapBamProcessing_ATACSeq.sh
