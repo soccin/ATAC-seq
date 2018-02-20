@@ -31,11 +31,14 @@ picardV2 SortSam I=$TDIR/step4.bam O=$OBAM SO=coordinate MAX_RECORDS_IN_RAM=5000
 #
 # NDS add, remove non-standard chromosomes
 #
+# This code from:
+#    https://www.biostars.org/p/187204/
 
-bedtools bamtobed -i $TDIR/step4.bam -bedpe -mate1 \
+
+bedtools bamtobed -i $TDIR/step4.bam -bedpe \
     | awk '$1 !~ /_/{print $0}' \
-    | awk -F'\t' \
-        'BEGIN {OFS = FS} { if ($9 == "+") {$2 = $2 + 4} else if ($9 == "-") {$3 = $3 - 5} print $0}' \
+    | awk -F'\t' 'BEGIN {OFS = FS}{if($9=="+"){print $1,$2+4,$6+4,$7,$8,$9}else if($9=="-"){print $1,$2-5,$6-5,$7,$8,$9}}' \
+    | sort -S20g -k1,1V -k2,2n \
     | gzip -nc >${OBAM/.bam/.shiftedPE.bed}.gz
 
 #rm -rf $TDIR
