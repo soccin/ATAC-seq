@@ -44,14 +44,12 @@ pval_thres=0.01
 
 $MACS callpeak \
     -t $IBED \
-    -f BED \
+    -f BEDPE \
     -n $PREFIX \
     -g $genome \
     -p $pval_thres \
     --nomodel \
-    --shift $shiftsize \
-    --extsize $smooth_window \
-    -B --SPMR --keep-dup all \
+    -B --keep-dup all \
     --call-summits \
     --outdir $ODIR
 
