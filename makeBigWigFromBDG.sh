@@ -4,7 +4,7 @@ SDIR="$( cd "$( dirname "$0" )" && pwd )"
 BDG=$1
 OUT=$(basename $BDG | sed 's/.bdg/.bw/')
 
-GENOME=mouse_mm10.genome
+GENOME=$SDIR/mouse_mm10.genome
 
 TDIR=/scratch/socci
 mkdir -p $TDIR
