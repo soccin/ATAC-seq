@@ -22,7 +22,7 @@ picardV2 SortSam I=$TDIR/step1.bam O=$TDIR/step2.bam SO=queryname MAX_RECORDS_IN
 samtools view -h $TDIR/step2.bam \
     | $SDIR/assign_multimappers.py -k 60 --paired-end \
     | samtools fixmate -r /dev/stdin $TDIR/step3.bam
-samtools view -f 2 -F 1804 -u $TDIR/step3.bam >$TDIR/step4.bam
+samtools view -q 20 -f 2 -F 1804 -u $TDIR/step3.bam >$TDIR/step4.bam
 picardV2 SortSam I=$TDIR/step4.bam O=$OBAM SO=coordinate MAX_RECORDS_IN_RAM=5000000
 
 #
