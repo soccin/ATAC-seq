@@ -32,7 +32,7 @@ genome=mm
 #   Line: 16
 #
 
-smooth_window=150
+smooth_window=73
 
 # ./modules/callpeak_macs2_atac.bds:    shiftsize := round( smooth_window.parseReal()/2.0 )
 
@@ -51,7 +51,7 @@ $MACS callpeak \
     --nomodel \
     --shift $shiftsize \
     --extsize $smooth_window \
-    -B --SPMR --keep-dup all \
+    -B --keep-dup all \
     --call-summits \
     --outdir $ODIR
 
