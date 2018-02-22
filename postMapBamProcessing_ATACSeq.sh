@@ -17,7 +17,12 @@ TDIR=/scratch/socci/_scratch_ATACSeq/$(uuidgen -t)
 mkdir -p $TDIR
 echo $TDIR
 
-samtools view -f 2 -F 524 $IBAM -u >$TDIR/step1.bam
+#samtools view -f 2 -F 524 $IBAM -u >$TDIR/step1.bam
+
+# f 66 ==> proper pair, first in pair
+# F 524 ==> unmapped, mate unmapped, read fails QC
+samtools view -f 66 -F 524 $IBAM -u >$TDIR/step1.bam
+
 picardV2 SortSam I=$TDIR/step1.bam O=$TDIR/step2.bam SO=queryname MAX_RECORDS_IN_RAM=5000000
 samtools view -h $TDIR/step2.bam \
     | $SDIR/assign_multimappers.py -k 60 --paired-end \
