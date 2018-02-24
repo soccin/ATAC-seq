@@ -33,13 +33,16 @@ BAMS=$*
 echo SDIR=$SDIR
 echo BAMS=$BAMS
 
-
+RUNTIME="-We 59"
 echo $BAMS \
-    | xargs -n 1 bsub -o LSF.POST/ -J ${TAG}_POST2_$$ -R "rusage[mem=24]" -M 25 $SDIR/postMapBamProcessing_ATACSeq.sh
+    | xargs -n 1 bsub $RUNTIME -o LSF.POST/ -J ${TAG}_POST2_$$ -R "rusage[mem=24]" -M 25 $SDIR/postMapBamProcessing_ATACSeq.sh
 
 bSync ${TAG}_POST2_$$
+
 ls *.bed.gz \
-    | xargs -n 1 bsub -o LSF.CALLP/ -J ${TAG}_CALLP2_$$ -n 3 -R "rusage[mem=16]" -M 17 $SDIR/callPeaks_ATACSeq.sh
+    | xargs -n 1 bsub $RUNTIME -o LSF.BW/ -J ${TAG}_BW2_$$ $SDIR/makeBigWigFromBEDZ.sh
+ls *.bed.gz \
+    | xargs -n 1 bsub $RUNTIME -o LSF.CALLP/ -J ${TAG}_CALLP2_$$ -n 3 -R "rusage[mem=16]" -M 17 $SDIR/callPeaks_ATACSeq.sh
 
 # bSync CALLP2_$$
 # ls callpeaks/*/*narrow* | fgrep s_N \
