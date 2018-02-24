@@ -35,11 +35,11 @@ echo BAMS=$BAMS
 
 
 echo $BAMS \
-    | xargs -n 1 bsub -o LSF.POST/ -J ${TAG}_POST2_$$ -R "rusage[mem=24]" -M 25 $SDIR/postMapBamProcessing_ATACSeq.sh
+    | xargs -n 1 bsub -o LSF.POST/ -J ${TAG}_POST2_$$ -R "rusage[mem=24]" -M 25 $SDIR/postMapBamProcessingPE_ATACSeq.sh
 
 bSync ${TAG}_POST2_$$
 ls *.bed.gz \
-    | xargs -n 1 bsub -o LSF.CALLP/ -J ${TAG}_CALLP2_$$ -n 3 -R "rusage[mem=16]" -M 17 $SDIR/callPeaks_ATACSeq.sh
+    | xargs -n 1 bsub -o LSF.CALLP/ -J ${TAG}_CALLP2_$$ -n 3 -R "rusage[mem=16]" -M 17 $SDIR/callPeaksPE_ATACSeq.sh
 
 # bSync CALLP2_$$
 # ls callpeaks/*/*narrow* | fgrep s_N \
