@@ -10,7 +10,10 @@ TDIR=/scratch/socci
 mkdir -p $TDIR
 TMP=$(mktemp -p $TDIR)
 echo $TMP, $OUT
-count=$(zcat $BEDZ | wc -l)
+count=$(zcat $BEDZ | cut -f4 | sort -S20g | uniq | wc -l)
+#count=$(zcat $BEDZ | wc -l)
+
+echo "Total Counts = "$count $(basename $BEDZ)
 
 zcat $BEDZ \
     | bedtools genomecov -bg -g $GENOME -i - \
