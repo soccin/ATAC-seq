@@ -1,16 +1,8 @@
 # ATAC-Seq pipeline
 
-## Version 3.3 (2018-02-24)
+## Version 4 (2018-03-01)
 
-### Notes from R.K.
-
-- Pre-alignment filtering:
-
-    - Trim raw read for quality (?) & adapter sequence
-
-- Alignment:
-
-    - bowtie2 or bwa mem, depending on what we’re trying to do
+Single end version which uses both reads from PE-runs. Using methods from R.K. for bigWig generation.
 
 - Post-alignment filtering:
 
