@@ -2,23 +2,33 @@
 SDIR="$( cd "$( dirname "$0" )" && pwd )"
 
 BEDZ=$1
-OUT=$(basename $BEDZ | sed 's/.bed.gz/.bw/')
+
+if [ "$#" == "2" ]; then
+    scaleFactor=$2
+    echo "$BEDZ sizeFactorNorm scaleFactor "$scaleFactor
+    OUT=$(basename $BEDZ | sed 's/.bed.gz/.sizeFactorNorm.bw/')
+else
+    count=$(zcat $BEDZ | cut -f4 | sort -S20g | uniq | wc -l)
+    scaleFactor=$(bc -l <<< "10000000/$count")
+    echo "$BEDZ 10mNorm scaleFactor "$scaleFactor
+    OUT=$(basename $BEDZ | sed 's/.bed.gz/.sizeFactorNorm.bw/')
+fi
 
 GENOME=$SDIR/mouse_mm10.genome
 
-TDIR=/scratch/socci
-mkdir -p $TDIR
-TMP=$(mktemp -p $TDIR)
-echo $TMP, $OUT
-count=$(zcat $BEDZ | cut -f4 | sort -S20g | uniq | wc -l)
-#count=$(zcat $BEDZ | wc -l)
+# TDIR=/scratch/socci
+# mkdir -p $TDIR
+# TMP=$(mktemp -p $TDIR)
 
-echo "Total Counts = "$count $(basename $BEDZ)
+#
+# N.B. -scale argument is multiplicative
+#
+#    scaledCounts = rawCounts * $scaleFactor
+#
 
 zcat $BEDZ \
-    | bedtools genomecov -bg -g $GENOME -i - \
-    | awk '{print $1,$2,$3,10000000*$4/'$count'}' | tr ' ' '\t' \
-    >${TMP}
-
-$SDIR/bedGraphToBigWig $TMP $GENOME $OUT
+    | bedtools slop -i - -g $GENOME -s -l 0 -r 0 \
+    | egrep -v "chrUn|_random" \
+    | bedtools genomecov -i - -g $GENOME -bg -scale $scaleFactor \
+    | $SDIR/wigToBigWig stdin $GENOME $OUT
 
