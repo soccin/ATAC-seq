@@ -17,24 +17,16 @@ TDIR=/scratch/socci/_scratch_ATACSeq/$(uuidgen -t)
 mkdir -p $TDIR
 echo $TDIR
 
-# f 66 ==> paired, proper pair, first in pair
+# f 3 ==> paired, proper pair
 # F 1804 ==> unmapped, mate unmapped, not primary, fails QC, duplicate
-samtools view -q 10 -f 67 -F 1804 $IBAM -u >$TDIR/step4.bam
-picardV2 SortSam I=$TDIR/step4.bam O=$OBAM SO=coordinate MAX_RECORDS_IN_RAM=5000000
+samtools view -q 10 -f 3 -F 1804 $IBAM -u >$TDIR/step1.bam
+picardV2 SortSam I=$TDIR/step1.bam O=$OBAM SO=coordinate MAX_RECORDS_IN_RAM=5000000
 
 #
-# NDS add, remove non-standard chromosomes
-#
+# Do Tn5 shift
 
-bedtools bamtobed -i $OBAM \
-    | awk -F'\t' 'BEGIN{OFS="\t"}{$5="1000";print $0}' \
-    | awk '$1 !~ /_/{print $0}' \
-    | gzip -nc >$TDIR/step5.bed.gz \
-
-#
-# Do Tn5 shift and get rid of non-standard chromosomes
-
-zcat $TDIR/step5.bed.gz \
+samtools view -b $OBAM \
+    | bedtools bamtobed -i - \
     | awk -F'\t' \
         'BEGIN {OFS = FS} { if ($6 == "+") {$2 = $2 + 4} else if ($6 == "-") {$3 = $3 - 5} print $0}' \
     | gzip -nc >${OBAM/.bam/.shifted.bed.gz}
