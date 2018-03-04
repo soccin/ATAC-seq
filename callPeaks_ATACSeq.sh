@@ -23,6 +23,14 @@ echo $TDIR, $ODIR
 
 export TMPDIR=$TDIR
 
+#
+# Clean up BED file to remove non-main chromosomes
+#
+
+zcat $IBED \
+    | egrep -v "chrUn|_random" \
+    | gzip -c - > $TDIR/cleanBED.bed.gz
+
 # MACS2 args
 genome=mm
 
@@ -43,7 +51,7 @@ shiftsize=$((smooth_window / 2))
 pval_thres=0.01
 
 $MACS callpeak \
-    -t $IBED \
+    -t $TDIR/cleanBED.bed.gz \
     -f BED \
     -n $PREFIX \
     -g $genome \
@@ -51,12 +59,9 @@ $MACS callpeak \
     --nomodel \
     --shift $shiftsize \
     --extsize $smooth_window \
-    -B --SPMR --keep-dup all \
     --call-summits \
     --outdir $ODIR
 
 MACS_ERROR=$?
-
-#deactivate
 
 exit $MACS_ERROR
