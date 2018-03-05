@@ -41,6 +41,22 @@ bSync ${TAG}_POST2_$$
 
 ls *.bed.gz \
     | xargs -n 1 bsub $RUNTIME -o LSF.BW/ -J ${TAG}_BW2_$$ $SDIR/makeBigWigFromBEDZ.sh
+
 ls *.bed.gz \
     | xargs -n 1 bsub $RUNTIME -o LSF.CALLP/ -J ${TAG}_CALLP2_$$ -n 3 -R "rusage[mem=16]" -M 17 \
         $SDIR/callPeaks_ATACSeq.sh
+
+bSync ${TAG}_CALLP2_$$
+
+bsub $RUNTIME -o LSF.CALLP/ -J ${TAG}_MergePeaks_$$ -n 3 -R "rusage[mem=16]" \
+    $SDIR/mergePeaksToSAF.sh callpeaks \>macsPeaksMerged.saf
+
+PBAMS=$(ls *_postProcess.bam)
+bsub $RUNTIME -o LSF.CALLP/ -J ${TAG}_Count_$$ -w "post_done(${TAG}_MergePeaks_$$)" \
+    $SDIR/featureCounts -O -Q 10 -p -T 10 \
+        -F SAF -a macsPeaksMerged.saf \
+        -o peaks_raw_fcCounts.txt \
+        $PBAMS
+
+bSync ${TAG}_Count_$$
+Rscript --no-save $SDIR/getDESeqScaleFactors.R
