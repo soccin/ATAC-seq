@@ -11,7 +11,7 @@ else
     count=$(zcat $BEDZ | cut -f4 | sort -S20g | uniq | wc -l)
     scaleFactor=$(bc -l <<< "10000000/$count")
     echo "$BEDZ 10mNorm scaleFactor "$scaleFactor
-    OUT=$(basename $BEDZ | sed 's/.bed.gz/.sizeFactorNorm.bw/')
+    OUT=$(basename $BEDZ | sed 's/.bed.gz/.10mNorm.bw/')
 fi
 
 GENOME=$SDIR/mouse_mm10.genome
