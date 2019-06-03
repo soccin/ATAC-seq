@@ -33,7 +33,7 @@ BAMS=$*
 echo SDIR=$SDIR
 echo BAMS=$BAMS
 
-RUNTIME="-We 59"
+RUNTIME="-We 119"
 echo $BAMS \
     | xargs -n 1 bsub $RUNTIME -o LSF.POST/ -J ${TAG}_POST2_$$ -R "rusage[mem=24]" $SDIR/postMapBamProcessing_ATACSeq.sh
 
