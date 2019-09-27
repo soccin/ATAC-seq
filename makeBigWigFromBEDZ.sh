@@ -14,7 +14,14 @@ else
     OUT=$(basename $BEDZ | sed 's/.bed.gz/.10mNorm.bw/')
 fi
 
-GENOME=$SDIR/mouse_mm10.genome
+echo
+echo GENOME is hardcoded need to fix this
+echo or reset it by hand
+echo
+echo
+exit -1
+
+GENOME=$SDIR/human_b37.genome
 
 # TDIR=/scratch/socci
 # mkdir -p $TDIR
