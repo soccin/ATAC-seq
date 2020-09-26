@@ -35,28 +35,28 @@ echo BAMS=$BAMS
 
 RUNTIME="-W 59"
 echo $BAMS \
-    | xargs -n 1 bsub $RUNTIME -o LSF.POST/ -J ${TAG}_POST2_$$ -R "rusage[mem=24]" $SDIR/postMapBamProcessing_ATACSeq.sh
+    | xargs -n 1 bsub $RUNTIME -o LSF.01.POST/ -J ${TAG}_POST2_$$ -R "rusage[mem=24]" $SDIR/postMapBamProcessing_ATACSeq.sh
 
 bSync ${TAG}_POST2_$$
 
 ls *.bed.gz \
-    | xargs -n 1 bsub $RUNTIME -o LSF.BW/ -J ${TAG}_BW2_$$ -R "rusage[mem=24]" $SDIR/makeBigWigFromBEDZ.sh
+    | xargs -n 1 bsub $RUNTIME -o LSF.02.BW/ -J ${TAG}_BW2_$$ -R "rusage[mem=24]" $SDIR/makeBigWigFromBEDZ.sh
 
 ls *.bed.gz \
-    | xargs -n 1 bsub $RUNTIME -o LSF.CALLP/ -J ${TAG}_CALLP2_$$ -n 3 -R "rusage[mem=24]" \
+    | xargs -n 1 bsub $RUNTIME -o LSF.03.CALLP/ -J ${TAG}_CALLP2_$$ -n 3 -R "rusage[mem=24]" \
         $SDIR/callPeaks_ATACSeq.sh
 
 bSync ${TAG}_CALLP2_$$
 
-bsub $RUNTIME -o LSF.CALLP/ -J ${TAG}_MergePeaks_$$ -n 3 -R "rusage[mem=24]" \
+bsub $RUNTIME -o LSF.04a.CALLP/ -J ${TAG}_MergePeaks_$$ -n 3 -R "rusage[mem=24]" \
     $SDIR/mergePeaksToSAF.sh callpeaks \>macsPeaksMerged.saf
 
 PBAMS=$(ls *_postProcess.bam)
-bsub $RUNTIME -o LSF.CALLP/ -J ${TAG}_Count_$$ -R "rusage[mem=24]" -w "post_done(${TAG}_MergePeaks_$$)" \
+bsub $RUNTIME -o LSF.04b.CALLP/ -J ${TAG}_Count_$$ -R "rusage[mem=24]" -w "post_done(${TAG}_MergePeaks_$$)" \
     $SDIR/featureCounts -O -Q 10 -p -T 10 \
         -F SAF -a macsPeaksMerged.saf \
         -o peaks_raw_fcCounts.txt \
         $PBAMS
 
-bsub $RUNTIME -o LSF.DESEQ/ -J ${TAG}_DESEQ_$$ -R "rusage[mem=24]" -w "post_done(${TAG}_Count_$$)" \
+bsub $RUNTIME -o LSF.05.DESEQ/ -J ${TAG}_DESEQ_$$ -R "rusage[mem=24]" -w "post_done(${TAG}_Count_$$)" \
     Rscript --no-save $SDIR/getDESeqScaleFactors.R
