@@ -33,6 +33,8 @@ BAMS=$*
 echo SDIR=$SDIR
 echo BAMS=$BAMS
 
+GENOME=$($SDIR/getGenomeBuildBAM.sh $1)
+
 RUNTIME="-W 59"
 echo $BAMS \
     | xargs -n 1 bsub $RUNTIME -o LSF.01.POST/ -J ${TAG}_POST2_$$ -R "rusage[mem=24]" $SDIR/postMapBamProcessing_ATACSeq.sh
@@ -40,7 +42,7 @@ echo $BAMS \
 bSync ${TAG}_POST2_$$
 
 ls *.bed.gz \
-    | xargs -n 1 bsub $RUNTIME -o LSF.02.BW/ -J ${TAG}_BW2_$$ -R "rusage[mem=24]" $SDIR/makeBigWigFromBEDZ.sh
+    | xargs -n 1 bsub $RUNTIME -o LSF.02.BW/ -J ${TAG}_BW2_$$ -R "rusage[mem=24]" $SDIR/makeBigWigFromBEDZ.sh $GENOME
 
 ls *.bed.gz \
     | xargs -n 1 bsub $RUNTIME -o LSF.03.CALLP/ -J ${TAG}_CALLP2_$$ -n 3 -R "rusage[mem=24]" \

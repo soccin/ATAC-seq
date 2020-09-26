@@ -1,7 +1,10 @@
 #!/bin/bash
 SDIR="$( cd "$( dirname "$0" )" && pwd )"
 
-BEDZ=$1
+GENOMEBUILD=$1
+BEDZ=$2
+
+module load bedtools/2.27.1
 
 if [ "$#" == "2" ]; then
     scaleFactor=$2
@@ -14,14 +17,24 @@ else
     OUT=$(basename $BEDZ | sed 's/.bed.gz/.10mNorm.bw/')
 fi
 
-echo
-echo GENOME is hardcoded need to fix this
-echo or reset it by hand
-echo
-echo
-exit -1
+case $GENOMEBUILD in
 
-GENOME=$SDIR/human_b37.genome
+    b37)
+    GENOME=$SDIR/human_b37.genome
+    ;;
+
+    mm10)
+    GENOME=$SDIR/mouse_mm10.genome
+    ;;
+
+    *)
+    echo
+    echo "    Unknown GENOMEBUILD [$GENOMEBUILD]"
+    echo
+    exit 1
+    ;;
+
+esac
 
 # TDIR=/scratch/socci
 # mkdir -p $TDIR
@@ -39,3 +52,5 @@ zcat $BEDZ \
     | bedtools genomecov -i - -g $GENOME -bg -scale $scaleFactor \
     | $SDIR/wigToBigWig stdin $GENOME $OUT
 
+
+module unload bedtools
