@@ -2,8 +2,6 @@
 
 SDIR="$( cd "$( dirname "$0" )" && pwd )"
 
-module load bedtools/2.27.1
-
 IBAM=$1
 
 if [ "$#" == "1" ]; then
@@ -37,4 +35,3 @@ samtools view -b $OBAM \
 
 rm -rf $TDIR
 
-module unload bedtools

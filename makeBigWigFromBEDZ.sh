@@ -4,8 +4,6 @@ SDIR="$( cd "$( dirname "$0" )" && pwd )"
 GENOMEBUILD=$1
 BEDZ=$2
 
-module load bedtools/2.27.1
-
 if [ "$#" == "2" ]; then
     scaleFactor=$2
     echo "$BEDZ sizeFactorNorm scaleFactor "$scaleFactor
@@ -51,6 +49,3 @@ zcat $BEDZ \
     | egrep -v "chrUn|_random" \
     | bedtools genomecov -i - -g $GENOME -bg -scale $scaleFactor \
     | $SDIR/wigToBigWig stdin $GENOME $OUT
-
-
-module unload bedtools

@@ -6,6 +6,8 @@
 
 SDIR="$( cd "$( dirname "$0" )" && pwd )"
 
+module load bedtools/2.27.1
+
 if [ ! -e "$SDIR/venv" ]; then
     echo
     echo "   Need to install macs2"
@@ -70,3 +72,5 @@ bsub $RUNTIME -o LSF.04b.CALLP/ -J ${TAG}_Count_$$ -R "rusage[mem=24]" -w "post_
 
 bsub $RUNTIME -o LSF.05.DESEQ/ -J ${TAG}_DESEQ_$$ -R "rusage[mem=24]" -w "post_done(${TAG}_Count_$$)" \
     Rscript --no-save $SDIR/getDESeqScaleFactors.R
+
+module unload bedtools
