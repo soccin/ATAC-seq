@@ -6,6 +6,14 @@
 
 SDIR="$( cd "$( dirname "$0" )" && pwd )"
 
+if [ ! -e "$SDIR/venv" ]; then
+    echo
+    echo "   Need to install macs2"
+    echo "   Info in README"
+    echo
+    exit 1
+fi
+
 SCRIPT_VERSION=$(git --git-dir=$SDIR/.git --work-tree=$SDIR describe --always --long)
 PIPENAME="ATAC-Seq"
 

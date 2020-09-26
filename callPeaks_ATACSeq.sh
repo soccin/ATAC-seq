@@ -1,9 +1,10 @@
 #!/bin/bash
 
-export PYTHONPATH=/opt/common/CentOS_6/MACS2/MACS2-2.1.1/lib/python2.7/site-packages/:$PYTHONPATH
-MACS=/opt/common/CentOS_6/MACS2/MACS2-2.1.1/bin/macs2
 
 SDIR="$( cd "$( dirname "$0" )" && pwd )"
+
+. $SDIR/venv/bin/activate
+MACS=macs2
 
 IBED=$1
 
@@ -64,4 +65,7 @@ $MACS callpeak \
 
 MACS_ERROR=$?
 
+deactivate
+
 exit $MACS_ERROR
+
