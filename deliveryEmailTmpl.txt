@@ -1,0 +1,23 @@
+Subject: Results for Project 09770 ATACseq ready
+The output for the ATACseq pipeline is now ready. You can access it at:
+
+   https://bicdelivery.mskcc.org/project/09770/chipseq/r_001
+
+The ATACseq specific results are in the folder
+
+   atacSeq
+
+Where you will find the following subfolders:
+
+- bigwig: These are the coverage profiles in bigwig format. Can be loaded into IGV to get a figure of the coverage. 
+
+- macs: the raw output from the MACS peak calling program.
+
+- atlas: this contains a bed and txt file that has the merged list of peaks found in all samples
+
+If you  have any questions please let me know.
+
+Nicholas Socci
+Bioinformatics Core
+MSKCC
+soccin@mskcc.org
