@@ -4,6 +4,8 @@
 
 Single end version which uses both reads from PE-runs. Using methods from R.K. for bigWig generation.
 
+Need to install MACS2 locally in venv. See below
+
 - Post-alignment filtering:
 
     - Mark Duplicates
@@ -16,3 +18,14 @@ Single end version which uses both reads from PE-runs. Using methods from R.K. f
 	- compute density for bigwig formation
 		- normalizing to 10 million mapped reads
 
+
+## MACS2 Installation
+
+```{base}
+python3 -m venv venv
+. venv/bin/activate
+pip install --upgrade pip
+pip install numpy
+pip install MACS2
+deactivate
+```
