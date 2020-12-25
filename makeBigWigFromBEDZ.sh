@@ -26,7 +26,7 @@ case $GENOMEBUILD in
     ;;
 
     sCer+sMik_IFO1815)
-    GENOME=$SDIR/sCer+sMik_IFO1815
+    GENOME=$SDIR/sCer+sMik_IFO1815.genome
     ;;
 
     *)
