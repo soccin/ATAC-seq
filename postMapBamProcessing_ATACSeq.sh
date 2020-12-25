@@ -2,6 +2,13 @@
 
 SDIR="$( cd "$( dirname "$0" )" && pwd )"
 
+if [ "$#" == "0" ]; then
+    echo
+    echo "    usage: postMapBamProcessing_ATAC.sh INPUT_BAM [OUTPUT_BAM]"
+    echo
+    exit
+fi
+
 IBAM=$1
 
 if [ "$#" == "1" ]; then
