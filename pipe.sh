@@ -53,8 +53,6 @@ if [[ $GENOME =~ unknown ]]; then
     exit 1
 fi
 
-if [[ $GENOME ~= "unknown" ]];
-
 RUNTIME="-W 59"
 echo $BAMS \
     | xargs -n 1 bsub $RUNTIME -o LSF.01.POST/ -J ${TAG}_POST2_$$ -R "rusage[mem=24]" $SDIR/postMapBamProcessing_ATACSeq.sh
