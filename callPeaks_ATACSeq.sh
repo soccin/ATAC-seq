@@ -6,13 +6,14 @@ SDIR="$( cd "$( dirname "$0" )" && pwd )"
 . $SDIR/venv/bin/activate
 MACS=macs2
 
-IBED=$1
+GENOMEBUILD=$1
+IBED=$2
 
-if [ "$#" == "1" ]; then
+if [ "$#" == "2" ]; then
     PREFIX=${IBED/.bed}
     echo $PREFIX
 else
-    PREFIX=$2
+    PREFIX=$3
 fi
 
 ODIR=callpeaks/$PREFIX
@@ -29,11 +30,33 @@ export TMPDIR=$TDIR
 #
 
 zcat $IBED \
-    | egrep -v "chrUn|_random" \
+    | egrep -v "chrUn|_random|_unplaced" \
     | gzip -c - > $TDIR/cleanBED.bed.gz
 
 # MACS2 args
-genome=mm
+
+case $GENOMEBUILD in
+
+    b37)
+    genome=hs
+    ;;
+
+    mm10)
+    genome=mm
+    ;;
+
+    sCer+sMik_IFO1815)
+    genome=23606800
+    ;;
+
+    *)
+    echo
+    echo "    Unknown GENOMEBUILD [$GENOMEBUILD]"
+    echo
+    exit 1
+    ;;
+
+esac
 
 #
 # From:

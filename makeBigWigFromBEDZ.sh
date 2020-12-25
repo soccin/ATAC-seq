@@ -25,6 +25,10 @@ case $GENOMEBUILD in
     GENOME=$SDIR/mouse_mm10.genome
     ;;
 
+    sCer+sMik_IFO1815)
+    GENOME=$SDIR/sCer+sMik_IFO1815
+    ;;
+
     *)
     echo
     echo "    Unknown GENOMEBUILD [$GENOMEBUILD]"

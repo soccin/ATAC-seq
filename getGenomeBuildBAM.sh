@@ -65,6 +65,11 @@ case $GENOME_MD5 in
     echo "GRC_m38"
     ;;
 
+    8a300152df87118834c4268ab4b713aa)
+    # Yeast hybrid sCer+sMik_IFO1815
+    echo "sCer+sMik_IFO1815"
+    ;;
+
     *)
     echo "unknown" $GENOME_MD5
     ;;

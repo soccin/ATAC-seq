@@ -45,6 +45,16 @@ echo BAMS=$BAMS
 
 GENOME=$($SDIR/getGenomeBuildBAM.sh $1)
 
+if [[ $GENOME =~ unknown ]]; then
+    echo
+    echo "    FATAL ERROR: UNKNOWN GENOME"
+    echo "    "$GENOME
+    echo
+    exit 1
+fi
+
+if [[ $GENOME ~= "unknown" ]];
+
 RUNTIME="-W 59"
 echo $BAMS \
     | xargs -n 1 bsub $RUNTIME -o LSF.01.POST/ -J ${TAG}_POST2_$$ -R "rusage[mem=24]" $SDIR/postMapBamProcessing_ATACSeq.sh
@@ -56,7 +66,7 @@ ls *.bed.gz \
 
 ls *.bed.gz \
     | xargs -n 1 bsub $RUNTIME -o LSF.03.CALLP/ -J ${TAG}_CALLP2_$$ -n 3 -R "rusage[mem=24]" \
-        $SDIR/callPeaks_ATACSeq.sh
+        $SDIR/callPeaks_ATACSeq.sh $GENOME
 
 bSync ${TAG}_CALLP2_$$
 
