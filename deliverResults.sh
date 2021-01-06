@@ -5,7 +5,7 @@ RESDIR=$1
 if [ "$#" != "1" ]; then
     echo
     echo usage: deliveryResults.sh RESDIR
-    echo     RESDIR=/ifs/res/seq/pi/invest/r_###
+    echo "    RESDIR=/ifs/res/seq/pi/invest/r_###"
     echo
     exit
 fi
