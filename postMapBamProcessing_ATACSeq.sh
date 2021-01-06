@@ -35,7 +35,7 @@ picardV2 SortSam I=$TDIR/step1.bam O=$OBAM SO=coordinate MAX_RECORDS_IN_RAM=5000
 
 samtools view -b $OBAM \
     | bedtools bamtobed -i - \
-    | egrep -v "chrUn|_random|GL|NC_|hs37d5" \
+    | egrep -v "chrUn|_random|GL|NC_|hs37d5|_unplaced" \
     | awk -F'\t' \
         'BEGIN {OFS = FS} { if ($6 == "+") {$2 = $2 + 4} else if ($6 == "-") {$3 = $3 - 5} print $0}' \
     | gzip -nc >${OBAM/.bam/.shifted.bed.gz}

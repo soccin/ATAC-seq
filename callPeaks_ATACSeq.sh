@@ -30,7 +30,7 @@ export TMPDIR=$TDIR
 #
 
 zcat $IBED \
-    | egrep -v "chrUn|_random|_unplaced" \
+    | egrep -v "chrUn|_random|_unplaced|GL|NC_|hs37d5" \
     | gzip -c - > $TDIR/cleanBED.bed.gz
 
 # MACS2 args
