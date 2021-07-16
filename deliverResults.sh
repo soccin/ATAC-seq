@@ -1,5 +1,7 @@
 #!/bin/bash
 
+SDIR="$( cd "$( dirname "$0" )" && pwd )"
+
 RESDIR=$1
 
 if [ "$#" != "1" ]; then
@@ -12,6 +14,13 @@ fi
 
 echo $RESDIR
 
+if [ 0 == 1 ]; then
+    exit
+echo
+echo "sudo needed to set permissions"
+echo
+sudo chmod g+ws $RESDIR
+
 mkdir -p $RESDIR/atacSeq/atlas
 mkdir -p $RESDIR/atacSeq/bigwig
 mkdir -p $RESDIR/atacSeq/macs
@@ -23,3 +32,8 @@ rsync -rvP callpeaks/* $RESDIR/atacSeq/macs
 
 
 #mkdir -p $RESDIR/atacSeq/diffpeaks
+fi
+
+ATAC_PROJECT_NUM=$($SDIR/extractProjectIDFromPath.py $RESDIR | sed 's/^Proj_//')
+
+cat $SDIR/tmpldeliveryEmail.txt | sed 's@ATAC_PROJECT_NUM@'"$ATAC_PROJECT_NUM"'@'
