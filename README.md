@@ -21,6 +21,8 @@ Need to install MACS2 locally in venv. See below
 
 ## MACS2 Installation
 
+In root of ATAC-seq repo
+
 ```{base}
 python3 -m venv venv
 . venv/bin/activate
