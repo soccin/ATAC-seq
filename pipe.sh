@@ -73,7 +73,7 @@ bsub $RUNTIME -o LSF.04a.CALLP/ -J ${TAG}_MergePeaks_$$ -n 3 -R "rusage[mem=24]"
 
 PBAMS=$(ls *_postProcess.bam)
 bsub $RUNTIME -o LSF.04b.CALLP/ -J ${TAG}_Count_$$ -R "rusage[mem=24]" -w "post_done(${TAG}_MergePeaks_$$)" \
-    $SDIR/featureCounts -O -Q 10 -p -T 10 \
+    $SDIR/bin/featureCounts -O -Q 10 -p -T 10 \
         -F SAF -a macsPeaksMerged.saf \
         -o peaks_raw_fcCounts.txt \
         $PBAMS
