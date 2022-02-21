@@ -14,8 +14,6 @@ fi
 
 echo $RESDIR
 
-if [ 0 == 1 ]; then
-    exit
 echo
 echo "sudo needed to set permissions"
 echo
@@ -32,7 +30,6 @@ rsync -rvP callpeaks/* $RESDIR/atacSeq/macs
 
 
 #mkdir -p $RESDIR/atacSeq/diffpeaks
-fi
 
 ATAC_PROJECT_NUM=$($SDIR/extractProjectIDFromPath.py $RESDIR | sed 's/^Proj_//')
 
