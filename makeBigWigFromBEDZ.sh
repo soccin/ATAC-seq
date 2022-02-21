@@ -18,15 +18,15 @@ fi
 case $GENOMEBUILD in
 
     b37)
-    GENOME=$SDIR/human_b37.genome
+    GENOME=$SDIR/lib/genome/human_b37.genome
     ;;
 
     mm10)
-    GENOME=$SDIR/mouse_mm10.genome
+    GENOME=$SDIR/lib/genome/mouse_mm10.genome
     ;;
 
     sCer+sMik_IFO1815)
-    GENOME=$SDIR/sCer+sMik_IFO1815.genome
+    GENOME=$SDIR/lib/genome/sCer+sMik_IFO1815.genome
     ;;
 
     *)
