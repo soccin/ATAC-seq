@@ -177,6 +177,10 @@ doQLFStats<-function(y,design,contrast,fdrCut=0.05) {
 
 }
 
+stop("NOT IMPLEMENTED: Set contrasts")
+
+# Need to write code to allow contrasts to be specified from command line
+
 contrast=c(-1,1,0,0)
 
 res=list()
