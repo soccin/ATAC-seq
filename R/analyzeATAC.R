@@ -192,7 +192,7 @@ names(tbls)=map(res,"comparison") %>% unlist
 stats=map(tbls,nrow) %>% bind_rows %>% gather(Comparison,NumSig)
 
 pp=strsplit(getwd(),"/")[[1]]
-projNo=pp[grep("analysis",pp)-1]
+projNo=grep("^Proj_|^B-\\d+",pp,value=T)
 write.xlsx(c(list(Summary=stats),tbls),cc(projNo,RUNTAG,"DiffPeaksEdgeR.xlsx"))
 
 pfile=cc(projNo,RUNTAG,"DiffPeaks_%02d.png")
