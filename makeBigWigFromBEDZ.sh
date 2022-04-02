@@ -4,7 +4,7 @@ SDIR="$( cd "$( dirname "$0" )" && pwd )"
 GENOMEBUILD=$1
 BEDZ=$2
 
-if [ "$#" == "2" ]; then
+if [ "$#" == "3" ]; then
     scaleFactor=$2
     echo "$BEDZ sizeFactorNorm scaleFactor "$scaleFactor
     OUT=$(basename $BEDZ | sed 's/.bed.gz/.sizeFactorNorm.bw/')
@@ -47,6 +47,8 @@ esac
 #
 #    scaledCounts = rawCounts * $scaleFactor
 #
+
+echo "scaleFactor=${scaleFactor}"
 
 zcat $BEDZ \
     | bedtools slop -i - -g $GENOME -s -l 0 -r 0 \
