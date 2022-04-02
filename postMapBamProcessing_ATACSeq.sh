@@ -52,7 +52,11 @@ echo $TDIR
 
 # f 3 ==> paired, proper pair
 # F 1804 ==> unmapped, mate unmapped, not primary, fails QC, duplicate
-samtools view -q $MAPQ -f 3 -F 1804 $IBAM -u >$TDIR/step1.bam
+# Also remove reads that have an Insert Size <= 30
+#
+samtools view -h -q $MAPQ -f 3 -F 1804 $IBAM \
+    | awk 'substr($0,1,1)=="@" || sqrt($9*$9)>25' \
+    | samtools view -Sb - >$TDIR/step1.bam
 picardV2 SortSam I=$TDIR/step1.bam O=$OBAM SO=coordinate MAX_RECORDS_IN_RAM=5000000
 picardV2 CollectInsertSizeMetrics LEVEL=null LEVEL=SAMPLE I=$OBAM O=${OBAM/.bam/___INS.txt} H=${OBAM/.bam/___INS.pdf} &
 
