@@ -18,7 +18,7 @@ pg=ggplot(dd,aes(insert_size,Count,color=Sample)) +
     scale_x_continuous(breaks=c(0,rep(1:10)*100)) +
     scale_color_brewer(palette="Paired")
 
-pg2=ggplot(dd,aes(insert_size,Count,color=Sample)) +
+pg2=ggplot(dd,aes(insert_size,Density,color=Sample)) +
     theme_light(base_size=16) +
     geom_line() +
     scale_color_brewer(palette="Paired") +
