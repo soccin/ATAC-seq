@@ -46,17 +46,16 @@ done
 
 set -- "${POSITIONAL_ARGS[@]}" # restore positional parameters
 
-echo "MAPQ = ${MAPQ}"
-
 TAG=q$PIPENAME
 
 COMMAND_LINE=$*
 
 function usage {
     echo
-    echo "usage: $PIPENAME/pipe.sh BAM1 [BAM2 ... BAMN]"
+    echo "usage: $PIPENAME/pipe.sh [-q MAPQ] BAM1 [BAM2 ... BAMN]"
     echo "version=$SCRIPT_VERSION"
     echo ""
+    echo "Default MAPQ==$MAPQ"
     echo
     exit
 }
@@ -64,6 +63,8 @@ function usage {
 if [ "$#" -lt "1" ]; then
     usage
 fi
+
+echo "MAPQ = ${MAPQ}"
 
 BAMS=$*
 echo SDIR=$SDIR
