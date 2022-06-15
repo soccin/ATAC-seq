@@ -36,5 +36,6 @@ pip install MACS2
 pip install matplotlib
 cd code/idr
 python3 setup.py install
+cd ../..
 deactivate
 ```
