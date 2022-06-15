@@ -22,15 +22,40 @@ PIPENAME="ATAC-Seq"
 ##
 # Process command args
 
+MAPQ=10
+
+POSITIONAL_ARGS=()
+
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    -q|--mapq)
+      MAPQ="$2"
+      shift # past argument
+      shift # past value
+      ;;
+    -*|--*)
+      echo "Unknown option $1"
+      exit 1
+      ;;
+    *)
+      POSITIONAL_ARGS+=("$1") # save positional arg
+      shift # past argument
+      ;;
+  esac
+done
+
+set -- "${POSITIONAL_ARGS[@]}" # restore positional parameters
+
 TAG=q$PIPENAME
 
 COMMAND_LINE=$*
 
 function usage {
     echo
-    echo "usage: $PIPENAME/pipe.sh BAM1 [BAM2 ... BAMN]"
+    echo "usage: $PIPENAME/pipe.sh [-q MAPQ] BAM1 [BAM2 ... BAMN]"
     echo "version=$SCRIPT_VERSION"
     echo ""
+    echo "Default MAPQ==$MAPQ"
     echo
     exit
 }
@@ -38,6 +63,8 @@ function usage {
 if [ "$#" -lt "1" ]; then
     usage
 fi
+
+echo "MAPQ = ${MAPQ}"
 
 BAMS=$*
 echo SDIR=$SDIR
@@ -53,11 +80,15 @@ if [[ $GENOME =~ unknown ]]; then
     exit 1
 fi
 
-RUNTIME="-W 59"
+RUNTIME="-W 359"
+
 echo $BAMS \
-    | xargs -n 1 bsub $RUNTIME -o LSF.01.POST/ -J ${TAG}_POST2_$$ -R "rusage[mem=24]" $SDIR/postMapBamProcessing_ATACSeq.sh
+    | xargs -n 1 bsub $RUNTIME -o LSF.01.POST/ -J ${TAG}_POST2_$$ -R "rusage[mem=24]" \
+        $SDIR/postMapBamProcessing_ATACSeq.sh -q $MAPQ
 
 bSync ${TAG}_POST2_$$
+
+Rscript --no-save $SDIR/plotINSStats.R
 
 ls *.bed.gz \
     | xargs -n 1 bsub $RUNTIME -o LSF.02.BW/ -J ${TAG}_BW2_$$ -R "rusage[mem=24]" $SDIR/makeBigWigFromBEDZ.sh $GENOME
@@ -73,12 +104,12 @@ bsub $RUNTIME -o LSF.04a.CALLP/ -J ${TAG}_MergePeaks_$$ -n 3 -R "rusage[mem=24]"
 
 PBAMS=$(ls *_postProcess.bam)
 bsub $RUNTIME -o LSF.04b.CALLP/ -J ${TAG}_Count_$$ -R "rusage[mem=24]" -w "post_done(${TAG}_MergePeaks_$$)" \
-    $SDIR/featureCounts -O -Q 10 -p -T 10 \
+    $SDIR/bin/featureCounts -O -Q 10 -p -T 10 \
         -F SAF -a macsPeaksMerged.saf \
         -o peaks_raw_fcCounts.txt \
         $PBAMS
 
 bsub $RUNTIME -o LSF.05.DESEQ/ -J ${TAG}_DESEQ_$$ -R "rusage[mem=24]" -w "post_done(${TAG}_Count_$$)" \
-    Rscript --no-save $SDIR/getDESeqScaleFactors.R
+    Rscript --no-save $SDIR/R/getDESeqScaleFactors.R
 
 module unload bedtools

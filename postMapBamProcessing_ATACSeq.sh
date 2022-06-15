@@ -4,10 +4,36 @@ SDIR="$( cd "$( dirname "$0" )" && pwd )"
 
 if [ "$#" == "0" ]; then
     echo
-    echo "    usage: postMapBamProcessing_ATAC.sh INPUT_BAM [OUTPUT_BAM]"
+    echo "    usage: postMapBamProcessing_ATAC.sh [(-q | --mapq) MAPQ] INPUT_BAM [OUTPUT_BAM]"
     echo
     exit
 fi
+
+MAPQ=10
+
+POSITIONAL_ARGS=()
+
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    -q|--mapq)
+      MAPQ="$2"
+      shift # past argument
+      shift # past value
+      ;;
+    -*|--*)
+      echo "Unknown option $1"
+      exit 1
+      ;;
+    *)
+      POSITIONAL_ARGS+=("$1") # save positional arg
+      shift # past argument
+      ;;
+  esac
+done
+
+set -- "${POSITIONAL_ARGS[@]}" # restore positional parameters
+
+echo "MAPQ = ${MAPQ}"
 
 IBAM=$1
 
@@ -26,8 +52,13 @@ echo $TDIR
 
 # f 3 ==> paired, proper pair
 # F 1804 ==> unmapped, mate unmapped, not primary, fails QC, duplicate
-samtools view -q 10 -f 3 -F 1804 $IBAM -u >$TDIR/step1.bam
+# Also remove reads that have an Insert Size <= 30
+#
+samtools view -h -q $MAPQ -f 3 -F 1804 $IBAM \
+    | awk 'substr($0,1,1)=="@" || sqrt($9*$9)>30' \
+    | samtools view -Sb - >$TDIR/step1.bam
 picardV2 SortSam I=$TDIR/step1.bam O=$OBAM SO=coordinate MAX_RECORDS_IN_RAM=5000000
+picardV2 CollectInsertSizeMetrics LEVEL=null LEVEL=SAMPLE I=$OBAM O=${OBAM/.bam/___INS.txt} H=${OBAM/.bam/___INS.pdf} &
 
 #
 # Do Tn5 shift and remove non-standard chromosomes

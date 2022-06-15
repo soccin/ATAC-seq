@@ -4,7 +4,7 @@ SDIR="$( cd "$( dirname "$0" )" && pwd )"
 GENOMEBUILD=$1
 BEDZ=$2
 
-if [ "$#" == "2" ]; then
+if [ "$#" == "3" ]; then
     scaleFactor=$2
     echo "$BEDZ sizeFactorNorm scaleFactor "$scaleFactor
     OUT=$(basename $BEDZ | sed 's/.bed.gz/.sizeFactorNorm.bw/')
@@ -18,15 +18,15 @@ fi
 case $GENOMEBUILD in
 
     b37)
-    GENOME=$SDIR/human_b37.genome
+    GENOME=$SDIR/lib/genomes/human_b37.genome
     ;;
 
     mm10)
-    GENOME=$SDIR/mouse_mm10.genome
+    GENOME=$SDIR/lib/genomes/mouse_mm10.genome
     ;;
 
     sCer+sMik_IFO1815)
-    GENOME=$SDIR/sCer+sMik_IFO1815.genome
+    GENOME=$SDIR/lib/genomes/sCer+sMik_IFO1815.genome
     ;;
 
     *)
@@ -48,8 +48,10 @@ esac
 #    scaledCounts = rawCounts * $scaleFactor
 #
 
+echo "scaleFactor=${scaleFactor}"
+
 zcat $BEDZ \
     | bedtools slop -i - -g $GENOME -s -l 0 -r 0 \
     | egrep -v "chrUn|_random|_unplaced|GL|NC_|hs37d5" \
     | bedtools genomecov -i - -g $GENOME -bg -scale $scaleFactor \
-    | $SDIR/wigToBigWig stdin $GENOME $OUT
+    | $SDIR/bin/wigToBigWig stdin $GENOME $OUT

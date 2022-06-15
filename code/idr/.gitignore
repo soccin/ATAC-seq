@@ -1,0 +1,4 @@
+build/
+dist/
+idr.egg-info/
+idr/__pycache__/
