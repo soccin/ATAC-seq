@@ -177,6 +177,14 @@ doQLFStats<-function(y,design,contrast,fdrCut=0.05) {
 
 }
 
+pfile=cc(projNo,RUNTAG,"ATACSeqQC.pdf")
+pdf(pfile,width=11,height=8.5)
+print(pg1)
+print(pg2)
+print(pp1)
+print(pp2)
+dev.off()
+
 stop("NOT IMPLEMENTED: Set contrasts")
 
 # Need to write code to allow contrasts to be specified from command line
