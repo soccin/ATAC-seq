@@ -88,8 +88,6 @@ echo $BAMS \
 
 bSync ${TAG}_POST2_$$
 
-Rscript --no-save $SDIR/plotINSStats.R
-
 ls *.bed.gz \
     | xargs -n 1 bsub $RUNTIME -o LSF.02.BW/ -J ${TAG}_BW2_$$ -R "rusage[mem=24]" $SDIR/makeBigWigFromBEDZ.sh $GENOME
 
@@ -111,5 +109,27 @@ bsub $RUNTIME -o LSF.04b.CALLP/ -J ${TAG}_Count_$$ -R "rusage[mem=24]" -w "post_
 
 bsub $RUNTIME -o LSF.05.DESEQ/ -J ${TAG}_DESEQ_$$ -R "rusage[mem=24]" -w "post_done(${TAG}_Count_$$)" \
     Rscript --no-save $SDIR/R/getDESeqScaleFactors.R
+
+echo "SampleID,Group,MapID" > sampleManifest.csv
+ls *postProcess.bam | sed 's/_postProcess.bam//' | sed 's/.*_s_/s_/' | sort >mapid
+cat mapid | sed 's/^s_//' >sid
+cat sid | perl -pe 's/(-|_)\d+$//' >gid
+paste sid gid mapid | tr '\t' ',' >> sampleManifest.csv
+
+mkdir -p atacSeq/atlas
+mkdir atacSeq/bigwig atacSeq/macs atacSeq/motifs atacSeq/postBams
+
+mv macsPeaksMerged* atacSeq/atlas
+mv *_postProcess.shifted.10mNorm.bw atacSeq/bigwig
+cp -val callpeaks/* atacSeq/macs
+
+mkdir -p out/postBams
+mv *_postProcess.bam out/postBams
+mkdir out/metrics
+mv *___INS.* out/metrics/
+mkdir out/bed
+mv *shifted.bed.gz out/bed
+
+Rscript --no-save $SDIR/plotINSStats.R
 
 module unload bedtools
