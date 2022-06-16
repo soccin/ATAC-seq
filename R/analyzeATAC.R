@@ -92,7 +92,7 @@ manifest=manifest %>% filter(!grepl("^EXC",Group))
 
 d=dd %>%
     select(PeakNo=Geneid,matches("Proj.*_s_")) %>%
-    data.frame %>%
+    data.frame(check.names=F) %>%
     column_to_rownames("PeakNo")
 
 colnames(d)=fixSampleNames(colnames(d))
@@ -177,6 +177,9 @@ doQLFStats<-function(y,design,contrast,fdrCut=0.05) {
 
 }
 
+pp=strsplit(getwd(),"/")[[1]]
+projNo=grep("^Proj_|^B-\\d+",pp,value=T)
+
 pfile=cc(projNo,RUNTAG,"ATACSeqQC.pdf")
 pdf(pfile,width=11,height=8.5)
 print(pg1)
@@ -199,8 +202,6 @@ tbls=map(res,"tbl")
 names(tbls)=map(res,"comparison") %>% unlist
 stats=map(tbls,nrow) %>% bind_rows %>% gather(Comparison,NumSig)
 
-pp=strsplit(getwd(),"/")[[1]]
-projNo=grep("^Proj_|^B-\\d+",pp,value=T)
 write.xlsx(c(list(Summary=stats),tbls),cc(projNo,RUNTAG,"DiffPeaksEdgeR.xlsx"))
 
 pfile=cc(projNo,RUNTAG,"DiffPeaks_%02d.png")
