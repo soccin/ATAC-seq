@@ -8,6 +8,7 @@ read_insdat<-function(ff) {
 }
 
 suppressPackageStartupMessages(require(tidyverse))
+suppressPackageStartupMessages(require(ggsci))
 
 
 insFiles=dir("out/metrics",pattern="___INS.txt",full.names=T)
@@ -19,7 +20,8 @@ dd=left_join(dd,manifest)
 pg1=ggplot(dd,aes(insert_size,1000*Density,color=Group,group=SampleID)) +
     theme_light(base_size=16) +
     geom_line(aes(linetype=Rep)) +
-    scale_color_brewer(palette="Set1") +
+    scale_color_uchicago() +
+    guides(color=guide_legend(override.aes=list(size=2.4))) +
     scale_x_continuous(breaks=c(0,rep(1:10)*100),limits=c(0,1000))
 
 minDensity=10^ceiling(log10(max(dd$Density)/1e3))
@@ -27,7 +29,8 @@ minDensity=10^ceiling(log10(max(dd$Density)/1e3))
 pg2=ggplot(dd,aes(insert_size,Density,color=Group,group=SampleID)) +
     theme_light(base_size=16) +
     geom_line(aes(linetype=Rep)) +
-    scale_color_brewer(palette="Set1") +
+    scale_color_uchicago() +
+    guides(color=guide_legend(override.aes=list(size=2.4))) +
     scale_x_continuous(breaks=c(0,rep(1:10)*100),limits=c(0,1000)) +
     scale_y_log10(limits=c(minDensity,NA))
 
