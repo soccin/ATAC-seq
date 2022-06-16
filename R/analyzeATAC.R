@@ -188,7 +188,8 @@ print(pp1)
 print(pp2)
 dev.off()
 
-stop("NOT IMPLEMENTED: Set contrasts")
+cat("\n\nNOT IMPLEMENTED: Set contrasts\n\n")
+quit()
 
 # Need to write code to allow contrasts to be specified from command line
 
