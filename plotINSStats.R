@@ -34,8 +34,10 @@ pg2=ggplot(dd,aes(insert_size,Density,color=Group,group=SampleID)) +
     scale_x_continuous(breaks=c(0,rep(1:10)*100),limits=c(0,1000)) +
     scale_y_log10(limits=c(minDensity,NA))
 
+pp=strsplit(getwd(),"/")[[1]]
+projNo=grep("^Proj_|^B-\\d+",pp,value=T)
 
-pdf(file="postInsDistribution.pdf",width=11,height=8.5)
+pdf(file=cc(projNo,"_postInsDistribution.pdf"),width=11,height=8.5)
 print(pg1)
 print(pg2)
 dev.off()

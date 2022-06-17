@@ -131,5 +131,6 @@ mkdir out/bed
 mv *shifted.bed.gz out/bed
 
 Rscript --no-save $SDIR/plotINSStats.R
+Rscript --no-save $SDIR/R/analyzeATAC.R sampleManifest.csv
 
 module unload bedtools
