@@ -39,6 +39,7 @@ require(patchwork)
 require(scales)
 require(edgeR)
 require(ggrepel)
+require(ggsci)
 
 require(tidyverse)
 require(fs)
@@ -64,12 +65,13 @@ ds=ds %>%
     mutate(Status=gsub("_.*","",Status)) %>%
     group_by(Sample,Status) %>%
     summarize(Counts=sum(Count)) %>%
-    mutate(Status=ifelse(Status=="Assigned","InPeaks","Outside"))
+    mutate(Status=ifelse(Status=="Assigned","InPeaks","Outside")) %>%
+    mutate(Status=factor(Status,levels=c("Outside","InPeaks")))
 
 pg0=ggplot(ds,aes(Sample,Counts,fill=Status)) +
     theme_light(base_size=16) +
     scale_fill_brewer(palette="Paired") +
-    scale_x_discrete(guide=guide_axis(n.dodge=2))
+    coord_flip()
 
 pg1=pg0 + ggtitle("Mapped Reads in MACS Peaks") +
     geom_bar(stat="identity") +
@@ -106,8 +108,16 @@ y <- calcNormFactors(y)
 pr=prcomp(cpm(y,log=T),scale=F)
 dp=pr$rotation %>% data.frame %>% rownames_to_column("SampleID") %>% left_join(manifest)
 
-pp1=ggplot(dp,aes(PC1,PC2,color=Group,label=SampleID)) + theme_light(base_size=16) + geom_point(size=4) + scale_color_brewer(palette="Paired")
-pp2=ggplot(dp,aes(PC1,PC2,color=Group,label=SampleID)) + theme_light(base_size=16) + geom_point(size=2) + scale_color_brewer(palette="Paired") + geom_label_repel(color="black")
+pp1=ggplot(dp,aes(PC1,PC2,color=Group,label=SampleID)) + theme_light(base_size=16) + geom_point(size=4,alpha=.6) + scale_color_uchicago()
+pp2=ggplot(dp,aes(PC1,PC2,color=Group,label=SampleID)) + theme_light(base_size=16) + geom_point(size=2) + scale_color_uchicago() +
+    geom_label_repel(
+        color="black",
+        max.overlaps=Inf,
+        min.segment.length = 0,
+        size=3,
+        force=16,
+        max.time=10,
+        max.iter=100000)
 
 design <- model.matrix(~0+group)
 y <- estimateDisp(y,design)
