@@ -116,6 +116,10 @@ cat mapid | sed 's/^s_//' >sid
 cat sid | perl -pe 's/(-|_)\d+$//' >gid
 paste sid gid mapid | tr '\t' ',' >> sampleManifest.csv
 
+bSync ${TAG}_MergePeaks_$$
+bSync ${TAG}_Count_$$
+bSync ${TAG}_DESEQ_$$
+
 mkdir -p atacSeq/atlas
 mkdir atacSeq/bigwig atacSeq/macs atacSeq/motifs atacSeq/postBams
 
