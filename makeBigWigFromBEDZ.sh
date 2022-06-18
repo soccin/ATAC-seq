@@ -4,6 +4,9 @@ SDIR="$( cd "$( dirname "$0" )" && pwd )"
 GENOMEBUILD=$1
 BEDZ=$2
 
+echo "md5sum ${BEDZ}"
+echo $(md5sum ${BEDZ})
+
 checkMD5=$(md5sum -c ${BEDZ}.md5 | awk '{print $2}'); 
 if [ "$checkMD5" != "OK" ]; then
     echo

@@ -9,6 +9,9 @@ MACS=macs2
 GENOMEBUILD=$1
 IBED=$2
 
+echo "md5sum ${IBED}"
+echo $(md5sum ${IBED})
+
 checkMD5=$(md5sum -c ${IBED}.md5 | awk '{print $2}'); 
 if [ "$checkMD5" != "OK" ]; then 
     echo
