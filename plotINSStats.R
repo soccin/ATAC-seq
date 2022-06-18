@@ -9,6 +9,7 @@ read_insdat<-function(ff) {
 
 suppressPackageStartupMessages(require(tidyverse))
 suppressPackageStartupMessages(require(ggsci))
+suppressPackageStartupMessages(require(ggforce))
 
 
 insFiles=dir("out/metrics",pattern="___INS.txt",full.names=T)
@@ -37,7 +38,15 @@ pg2=ggplot(dd,aes(insert_size,Density,color=Group,group=SampleID)) +
 pp=strsplit(getwd(),"/")[[1]]
 projNo=grep("^Proj_|^B-\\d+",pp,value=T)
 
+pp2=ggplot(dd,aes(insert_size,1000*Density,color=Group,group=SampleID)) + theme_light(base_size=12) + geom_line() + scale_color_uchicago() + guides(color=guide_legend(override.aes=list(size=2.4))) + scale_x_continuous(breaks=c(0,rep(1:5)*200),limits=c(0,1000))
+pw=pp2 + facet_wrap_paginate(~SampleID,nrow=2,ncol=3) + theme(legend.position="none")
+nPages=n_pages(pw)
+
 pdf(file=cc(projNo,"_postInsDistribution.pdf"),width=11,height=8.5)
 print(pg1)
 print(pg2)
+for(ii in seq(nPages)) {
+    print(pp2 + facet_wrap_paginate(~SampleID,nrow=2,ncol=3,page=ii))
+}
 dev.off()
+
