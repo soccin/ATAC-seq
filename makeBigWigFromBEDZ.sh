@@ -4,6 +4,26 @@ SDIR="$( cd "$( dirname "$0" )" && pwd )"
 GENOMEBUILD=$1
 BEDZ=$2
 
+echo "md5sum ${BEDZ}"
+echo $(md5sum ${BEDZ})
+
+checkMD5=$(md5sum -c ${BEDZ}.md5 | awk '{print $2}'); 
+if [ "$checkMD5" != "OK" ]; then
+    echo
+    echo md5check fail
+    echo sleeping for 300 secs 
+    sleep 300
+    checkMD5=$(md5sum -c ${BEDZ}.md5 | awk '{print $2}'); 
+    if [ "$checkMD5" != "OK" ]; then 
+        echo 
+        echo Second md5check fail
+        echo FATAL ERROR Stopping
+        echo
+        exit 1
+    fi
+fi
+
+
 if [ "$#" == "3" ]; then
     scaleFactor=$2
     echo "$BEDZ sizeFactorNorm scaleFactor "$scaleFactor

@@ -72,4 +72,5 @@ samtools view -b $OBAM \
     | gzip -nc >${OBAM/.bam/.shifted.bed.gz}
 
 rm -rf $TDIR
+md5sum ${OBAM/.bam/.shifted.bed.gz} >${OBAM/.bam/.shifted.bed.gz}.md5
 
