@@ -133,6 +133,7 @@ mkdir out/metrics
 mv *___INS.* out/metrics/
 mkdir out/bed
 mv *shifted.bed.gz out/bed
+mv *shifted.bed.gz.md5 out/bed
 
 Rscript --no-save $SDIR/plotINSStats.R
 Rscript --no-save $SDIR/R/analyzeATAC.R sampleManifest.csv
