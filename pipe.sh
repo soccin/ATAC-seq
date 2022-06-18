@@ -137,4 +137,7 @@ mv *shifted.bed.gz out/bed
 Rscript --no-save $SDIR/plotINSStats.R
 Rscript --no-save $SDIR/R/analyzeATAC.R sampleManifest.csv
 
+mkdir -p atacSeq/metrics
+mv *__postInsDistribution.pdf *__ATACSeqQC.pdf atacSeq/metrics
+
 module unload bedtools
