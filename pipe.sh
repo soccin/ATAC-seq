@@ -121,7 +121,7 @@ bSync ${TAG}_Count_$$
 bSync ${TAG}_DESEQ_$$
 
 mkdir -p atacSeq/atlas
-mkdir atacSeq/bigwig atacSeq/macs atacSeq/motifs atacSeq/postBams
+mkdir atacSeq/bigwig atacSeq/macs
 
 mv macsPeaksMerged* atacSeq/atlas
 mv *_postProcess.shifted.10mNorm.bw atacSeq/bigwig
