@@ -15,6 +15,16 @@ Where you will find the following subfolders:
 
 - atlas: this contains a bed and txt file that has the merged list of peaks found in all samples
 
+- metrics: Plots of various QC metrics for the samples.
+
+   - Proj_ATAC_PROJECT_NUM__postInsDistribution.pdf: simple fragment length distribution. There should be some signature of nucleosomal periodicity.
+
+   - Proj_ATAC_PROJECT_NUM__ATACSeqQC.pdf
+
+      - Plots of Signal Portion of Tags (SPoT); which shows both the number and percentage of reads in peaks.
+
+      - PCA from the peak atlas. Can be used to look for potential outliers
+
 If you  have any questions please let me know.
 
 Nicholas Socci
