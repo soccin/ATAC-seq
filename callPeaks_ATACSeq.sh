@@ -9,6 +9,23 @@ MACS=macs2
 GENOMEBUILD=$1
 IBED=$2
 
+checkMD5=$(md5sum -c ${IBED}.md5 | awk '{print $2}'); 
+if [ "$checkMD5" != "OK" ]; then 
+    echo
+    echo md5check fail
+    echo sleeping for 300 secs 
+    sleep 300
+    checkMD5=$(md5sum -c ${IBED}.md5 | awk '{print $2}'); 
+    if [ "$checkMD5" != "OK" ]; then 
+        echo 
+        echo Second md5check fail
+        echo FATAL ERROR Stopping
+        echo
+        exit 1
+    fi
+fi
+
+
 if [ "$#" == "2" ]; then
     PREFIX=${IBED/.bed}
     echo $PREFIX
