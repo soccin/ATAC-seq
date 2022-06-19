@@ -120,25 +120,24 @@ bSync ${TAG}_MergePeaks_$$
 bSync ${TAG}_Count_$$
 bSync ${TAG}_DESEQ_$$
 
-mkdir -p atacSeq/atlas
-mkdir atacSeq/bigwig atacSeq/macs
-
-mv macsPeaksMerged* atacSeq/atlas
-mv *_postProcess.shifted.10mNorm.bw atacSeq/bigwig
-cp -val callpeaks/* atacSeq/macs
-
-mkdir -p out/postBams
-mv *_postProcess.bam out/postBams
-mkdir out/metrics
-mv *___INS.* out/metrics/
-mkdir out/bed
-mv *shifted.bed.gz out/bed
-mv *shifted.bed.gz.md5 out/bed
-
 Rscript --no-save $SDIR/plotINSStats.R
 Rscript --no-save $SDIR/R/analyzeATAC.R sampleManifest.csv
 
+mkdir -p atacSeq/atlas
+mkdir atacSeq/bigwig atacSeq/macs
 mkdir -p atacSeq/metrics
-mv *__postInsDistribution.pdf *__ATACSeqQC.pdf atacSeq/metrics
+mkdir -p out/postBams
+mkdir out/metrics
+mkdir out/bed
+
+#mv macsPeaksMerged* atacSeq/atlas
+#mv *_postProcess.shifted.10mNorm.bw atacSeq/bigwig
+#cp -val callpeaks/* atacSeq/macs
+#mv *_postProcess.bam out/postBams
+#mv *___INS.* out/metrics/
+#mv *shifted.bed.gz out/bed
+#mv *shifted.bed.gz.md5 out/bed
+#
+#mv *__postInsDistribution.pdf *__ATACSeqQC.pdf atacSeq/metrics
 
 module unload bedtools
