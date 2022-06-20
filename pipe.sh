@@ -81,6 +81,7 @@ if [[ $GENOME =~ unknown ]]; then
 fi
 
 RUNTIME="-W 359"
+RUNTIME_SHORT="-W 59"
 
 echo $BAMS \
     | xargs -n 1 bsub $RUNTIME -o LSF.01.POST/ -J ${TAG}_POST2_$$ -R "rusage[mem=24]" \
@@ -92,12 +93,12 @@ ls *.bed.gz \
     | xargs -n 1 bsub $RUNTIME -o LSF.02.BW/ -J ${TAG}_BW2_$$ -R "rusage[mem=24]" $SDIR/makeBigWigFromBEDZ.sh $GENOME
 
 ls *.bed.gz \
-    | xargs -n 1 bsub $RUNTIME -o LSF.03.CALLP/ -J ${TAG}_CALLP2_$$ -n 3 -R "rusage[mem=24]" \
+    | xargs -n 1 bsub $RUNTIME_SHORT -o LSF.03.CALLP/ -J ${TAG}_CALLP2_$$ -n 3 -R "rusage[mem=6]" \
         $SDIR/callPeaks_ATACSeq.sh $GENOME
 
 bSync ${TAG}_CALLP2_$$
 
-bsub $RUNTIME -o LSF.04a.CALLP/ -J ${TAG}_MergePeaks_$$ -n 3 -R "rusage[mem=24]" \
+bsub $RUNTIME_SHORT -o LSF.04a.CALLP/ -J ${TAG}_MergePeaks_$$ -n 3 -R "rusage[mem=24]" \
     $SDIR/mergePeaksToSAF.sh callpeaks \>macsPeaksMerged.saf
 
 PBAMS=$(ls *_postProcess.bam)
@@ -107,7 +108,7 @@ bsub $RUNTIME -o LSF.04b.CALLP/ -J ${TAG}_Count_$$ -R "rusage[mem=24]" -w "post_
         -o peaks_raw_fcCounts.txt \
         $PBAMS
 
-bsub $RUNTIME -o LSF.05.DESEQ/ -J ${TAG}_DESEQ_$$ -R "rusage[mem=24]" -w "post_done(${TAG}_Count_$$)" \
+bsub $RUNTIME_SHORT -o LSF.05.DESEQ/ -J ${TAG}_DESEQ_$$ -R "rusage[mem=24]" -w "post_done(${TAG}_Count_$$)" \
     Rscript --no-save $SDIR/R/getDESeqScaleFactors.R
 
 echo "SampleID,Group,MapID" > sampleManifest.csv
