@@ -80,7 +80,7 @@ if [[ $GENOME =~ unknown ]]; then
     exit 1
 fi
 
-RUNTIME="-W 59"
+RUNTIME="-W 359"
 RUNTIME_SHORT="-W 59"
 
 echo $BAMS \
