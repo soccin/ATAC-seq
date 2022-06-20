@@ -30,7 +30,7 @@ fi
 
 
 if [ "$#" == "2" ]; then
-    PREFIX=$(basename ${IBED/.bed})
+    PREFIX=$(basename ${IBED/.bed.*})
 else
     PREFIX=$3
 fi
