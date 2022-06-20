@@ -89,16 +89,16 @@ echo $BAMS \
 
 bSync ${TAG}_POST2_$$
 
-exit
-
-ls *.bed.gz \
+ls out/*/*.bed.gz \
     | xargs -n 1 bsub $RUNTIME -o LSF.02.BW/ -J ${TAG}_BW2_$$ -R "rusage[mem=24]" $SDIR/makeBigWigFromBEDZ.sh $GENOME
 
-ls *.bed.gz \
+ls out/*/*.bed.gz \
     | xargs -n 1 bsub $RUNTIME_SHORT -o LSF.03.CALLP/ -J ${TAG}_CALLP2_$$ -n 3 -R "rusage[mem=6]" \
         $SDIR/callPeaks_ATACSeq.sh $GENOME
 
 bSync ${TAG}_CALLP2_$$
+
+exit
 
 bsub $RUNTIME_SHORT -o LSF.04a.CALLP/ -J ${TAG}_MergePeaks_$$ -n 3 -R "rusage[mem=24]" \
     $SDIR/mergePeaksToSAF.sh callpeaks \>macsPeaksMerged.saf
