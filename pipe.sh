@@ -98,12 +98,10 @@ ls out/*/*.bed.gz \
 
 bSync ${TAG}_CALLP2_$$
 
-exit
-
 bsub $RUNTIME_SHORT -o LSF.04a.CALLP/ -J ${TAG}_MergePeaks_$$ -n 3 -R "rusage[mem=24]" \
     $SDIR/mergePeaksToSAF.sh callpeaks \>macsPeaksMerged.saf
 
-PBAMS=$(ls *_postProcess.bam)
+PBAMS=$(ls out/*/*_postProcess.bam)
 bsub $RUNTIME -o LSF.04b.CALLP/ -J ${TAG}_Count_$$ -R "rusage[mem=24]" -w "post_done(${TAG}_MergePeaks_$$)" \
     $SDIR/bin/featureCounts -O -Q 10 -p -T 10 \
         -F SAF -a macsPeaksMerged.saf \
