@@ -1,6 +1,6 @@
 # ATAC-Seq pipeline
 
-## Version 4 - fix/qfilt (2022-04-01)
+## Version 4 - DEVS 2022-06-20
 
 Single end version which uses both reads from PE-runs. Using methods from R.K. for bigWig generation.
 
