@@ -80,7 +80,7 @@ if [[ $GENOME =~ unknown ]]; then
     exit 1
 fi
 
-RUNTIME="-W 359"
+RUNTIME="-W 59"
 RUNTIME_SHORT="-W 59"
 
 echo $BAMS \
@@ -88,6 +88,8 @@ echo $BAMS \
         $SDIR/postMapBamProcessing_ATACSeq.sh -q $MAPQ
 
 bSync ${TAG}_POST2_$$
+
+exit
 
 ls *.bed.gz \
     | xargs -n 1 bsub $RUNTIME -o LSF.02.BW/ -J ${TAG}_BW2_$$ -R "rusage[mem=24]" $SDIR/makeBigWigFromBEDZ.sh $GENOME
