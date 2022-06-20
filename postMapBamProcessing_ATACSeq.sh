@@ -38,11 +38,17 @@ echo "MAPQ = ${MAPQ}"
 IBAM=$1
 
 if [ "$#" == "1" ]; then
+
+    ODIR=out/$(basename ${IBAM/.bam/})
+    mkdir -p $ODIR
     OBAM=${IBAM/.bam/_postProcess.bam}
-    OBAM=$(basename $OBAM)
+    OBAM=$ODIR/$(basename $OBAM)
     echo $OBAM
+
 else
+
     OBAM=$2
+
 fi
 
 TDIR=/scratch/socci/_scratch_ATACSeq/$(uuidgen -t)
