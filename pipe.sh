@@ -112,7 +112,7 @@ bsub $RUNTIME_SHORT -o LSF.05.DESEQ/ -J ${TAG}_DESEQ_$$ -R "rusage[mem=24]" -w "
     Rscript --no-save $SDIR/R/getDESeqScaleFactors.R
 
 echo "SampleID,Group,MapID" > sampleManifest.csv
-ls *postProcess.bam | sed 's/_postProcess.bam//' | sed 's/.*_s_/s_/' | sort >mapid
+ls out/*/*bam | sed 's/_postProcess.bam//' | sed 's/.*_s_/s_/' | sort >mapid
 cat mapid | sed 's/^s_//' >sid
 cat sid | perl -pe 's/(-|_)\d+$//' >gid
 paste sid gid mapid | tr '\t' ',' >> sampleManifest.csv
