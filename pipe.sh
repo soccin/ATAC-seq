@@ -89,10 +89,10 @@ echo $BAMS \
 
 bSync ${TAG}_POST2_$$
 
-ls *.bed.gz \
+ls out/*/*.bed.gz \
     | xargs -n 1 bsub $RUNTIME -o LSF.02.BW/ -J ${TAG}_BW2_$$ -R "rusage[mem=24]" $SDIR/makeBigWigFromBEDZ.sh $GENOME
 
-ls *.bed.gz \
+ls out/*/*.bed.gz \
     | xargs -n 1 bsub $RUNTIME_SHORT -o LSF.03.CALLP/ -J ${TAG}_CALLP2_$$ -n 3 -R "rusage[mem=6]" \
         $SDIR/callPeaks_ATACSeq.sh $GENOME
 
@@ -101,7 +101,7 @@ bSync ${TAG}_CALLP2_$$
 bsub $RUNTIME_SHORT -o LSF.04a.CALLP/ -J ${TAG}_MergePeaks_$$ -n 3 -R "rusage[mem=24]" \
     $SDIR/mergePeaksToSAF.sh callpeaks \>macsPeaksMerged.saf
 
-PBAMS=$(ls *_postProcess.bam)
+PBAMS=$(ls out/*/*_postProcess.bam)
 bsub $RUNTIME -o LSF.04b.CALLP/ -J ${TAG}_Count_$$ -R "rusage[mem=24]" -w "post_done(${TAG}_MergePeaks_$$)" \
     $SDIR/bin/featureCounts -O -Q 10 -p -T 10 \
         -F SAF -a macsPeaksMerged.saf \

@@ -30,11 +30,11 @@ fi
 
 
 if [ "$#" == "2" ]; then
-    PREFIX=${IBED/.bed}
-    echo $PREFIX
+    PREFIX=$(basename ${IBED/.bed.*})
 else
     PREFIX=$3
 fi
+echo \$PREFIX=$PREFIX
 
 ODIR=callpeaks/$PREFIX
 mkdir -p $ODIR
