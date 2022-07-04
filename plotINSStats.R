@@ -8,11 +8,12 @@ read_insdat<-function(ff) {
 }
 
 suppressPackageStartupMessages(require(tidyverse))
+suppressPackageStartupMessages(require(fs))
 suppressPackageStartupMessages(require(ggsci))
 suppressPackageStartupMessages(require(ggforce))
 
 
-insFiles=dir("out/metrics",pattern="___INS.txt",full.names=T)
+insFiles=dir_ls("out",recurs=T,regex="___INS.txt")
 dd=map(insFiles,read_insdat) %>% bind_rows %>% group_by(MapID) %>% mutate(Density=Count/sum(Count))
 
 manifest=read_csv("sampleManifest.csv") %>% group_by(Group) %>% mutate(Rep=as.factor(row_number())) %>% ungroup
