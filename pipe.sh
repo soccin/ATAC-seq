@@ -113,11 +113,13 @@ ls out/*/*_postProcess.bam | xargs -n 1 bsub -o LSF.04c.INDEX/ -J ${TAG}_Index_$
 bsub $RUNTIME_SHORT -o LSF.05.DESEQ/ -J ${TAG}_DESEQ_$$ -R "rusage[mem=24]" -w "post_done(${TAG}_Count_$$)" \
     Rscript --no-save $SDIR/R/getDESeqScaleFactors.R
 
-echo "SampleID,Group,MapID" > sampleManifest.csv
-ls out/*/*bam | sed 's/_postProcess.bam//' | sed 's/.*_s_/s_/' | sort >mapid
-cat mapid | sed 's/^s_//' >sid
-cat sid | perl -pe 's/(-|_)\d+$//' >gid
-paste sid gid mapid | tr '\t' ',' >> sampleManifest.csv
+if [ ! -e "sampleManifest.csv" ]; then
+    echo "SampleID,Group,MapID" > sampleManifest.csv
+    ls out/*/*bam | sed 's/_postProcess.bam//' | sed 's/.*_s_/s_/' | sort >mapid
+    cat mapid | sed 's/^s_//' >sid
+    cat sid | perl -pe 's/(-|_)\d+$//' >gid
+    paste sid gid mapid | tr '\t' ',' >> sampleManifest.csv
+fi
 
 bSync ${TAG}_MergePeaks_$$
 bSync ${TAG}_Count_$$
