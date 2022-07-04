@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 # CMD:
 #    bsub -n 1 -q control -o LSF.CTRL/ -J CTRL.ATAC ./pipe.sh
 #
