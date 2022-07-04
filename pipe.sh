@@ -140,10 +140,11 @@ mkdir out/bed
 # mv macsPeaksMerged* atacSeq/atlas
 # mv *_postProcess.shifted.10mNorm.bw atacSeq/bigwig
 # cp -val callpeaks/* atacSeq/macs
+# cp *__postInsDistribution.pdf *__ATACSeqQC.pdf atacSeq/metrics
+
 # mv *_postProcess.bam out/postBams
 # mv *___INS.* out/metrics/
 # mv *shifted.bed.gz out/bed
 # mv *shifted.bed.gz.md5 out/bed
-# mv *__postInsDistribution.pdf *__ATACSeqQC.pdf atacSeq/metrics
 
 module unload bedtools
