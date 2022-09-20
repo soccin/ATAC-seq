@@ -19,15 +19,27 @@ echo "sudo needed to set permissions"
 echo
 sudo chmod g+ws $RESDIR
 
-# mv macsPeaksMerged* atacSeq/atlas
-# mv *_postProcess.shifted.10mNorm.bw atacSeq/bigwig
-# cp -val callpeaks/* atacSeq/macs
-# cp *__postInsDistribution.pdf *__ATACSeqQC.pdf atacSeq/metrics
+if [ -e "macsPeaksMerged.saf" ]; then
+    echo
+    echo "Need to run postProcessing file move/copy"
+    echo
 
-# mv *_postProcess.bam out/postBams
-# mv *___INS.* out/metrics/
-# mv *shifted.bed.gz out/bed
-# mv *shifted.bed.gz.md5 out/bed
+    mv macsPeaksMerged* atacSeq/atlas
+    mv *_postProcess.shifted.10mNorm.bw atacSeq/bigwig
+    cp -val callpeaks/* atacSeq/macs
+    cp *__postInsDistribution.pdf *__ATACSeqQC.pdf atacSeq/metrics
+
+    cp -val out/*/*___INS.* atacSeq/metrics
+
+fi
+
+if [ ! -e atacSeq/atlas/macsPeaksMerged.saf ]; then
+    echo
+    echo ERROR Postprocessing failed
+    echo
+    exit 1
+fi
+
 
 rsync -avP atacSeq $RESDIR
 
