@@ -1,0 +1,16 @@
+- diff: Differential analysis of peaks in atlas using edgeR
+
+   - Proj_ATAC_PROJECT_NUM__DiffPeaksEdgeRv2.xlsx
+
+      - A summary sheet of the number of significant peaks for each comparison
+
+      - For each comparison a sheet with the differentially significant peaks
+
+   - Proj_ATAC_PROJECT_NUM__DiffPeaksV2.pdf
+
+      - PCA from the peak atlas. Can be used to look for potential outliers
+
+      - Fold change vs average signal (log-log) for each comparison
+
+      - Volcano plot
+

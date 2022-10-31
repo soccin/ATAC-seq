@@ -40,9 +40,26 @@ if [ ! -e atacSeq/atlas/macsPeaksMerged.saf ]; then
     exit 1
 fi
 
-
 rsync -avP atacSeq $RESDIR
 
 ATAC_PROJECT_NUM=$($SDIR/extractProjectIDFromPath.py $(realpath $RESDIR) | sed 's/^Proj_//')
 
-cat $SDIR/tmpldeliveryEmail.txt | sed 's@ATAC_PROJECT_NUM@'"$ATAC_PROJECT_NUM"'@'
+cat $SDIR/tmpldeliveryEmail_01.txt \
+    | sed 's@ATAC_PROJECT_NUM@'"$ATAC_PROJECT_NUM"'@' \
+    | tee DELIVERY_EMAIL_${ATAC_PROJECT_NUM}
+
+DIFFANALYSIS=$(ls | fgrep __DiffPeaksEdgeRv2.xlsx)
+if [ -e "$DIFFANALYSIS" ]; then
+
+    mkdir -p $RESDIR/atacSeq/diff
+    cp *__DiffPeaksEdgeRv2.xlsx $RESDIR/atacSeq/diff
+    cp *__DiffPeaksV2.pdf $RESDIR/atacSeq/diff
+
+    cat $SDIR/tmpldeliveryEmail_02.txt \
+        | sed 's@ATAC_PROJECT_NUM@'"$ATAC_PROJECT_NUM"'@' \
+        | tee -a DELIVERY_EMAIL_${ATAC_PROJECT_NUM}
+
+fi
+
+cat $SDIR/tmpldeliveryEmail_99.txt \
+    | tee -a DELIVERY_EMAIL_${ATAC_PROJECT_NUM}
