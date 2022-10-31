@@ -1,6 +1,6 @@
 args=commandArgs(trailing=T)
 if(len(args)<1) {
-    cat("\n   Usage: analyzeATAC.R SampleManifest.csv Comparisons.csv [RUNTAG]\n\n")
+    cat("\n   Usage: analyzeATAC.R GENOME SampleManifest.csv Comparisons.csv [RUNTAG]\n\n")
     quit()
 }
 
@@ -47,12 +47,24 @@ require(openxlsx)
 
 ds=read_tsv("peaks_raw_fcCounts.txt.summary")
 
-MANIFEST_FILE=args[1]
-COMPARISON_FILE=args[2]
-if(len(args)==3) {
-    RUNTAG=args[3]
+GENOME=args[1]
+MANIFEST_FILE=args[2]
+COMPARISON_FILE=args[3]
+if(len(args)==4) {
+    RUNTAG=args[4]
 } else {
     RUNTAG=""
+}
+
+if(GENOME=="human") {
+    txdb=TxDb.Hsapiens.UCSC.hg19.knownGene::TxDb.Hsapiens.UCSC.hg19.knownGene
+    annoDb="org.Hs.eg.db"
+} else if(GENOME=="mouse") {
+    txdb=TxDb.Mmusculus.UCSC.mm10.knownGene::TxDb.Mmusculus.UCSC.mm10.knownGene
+    annoDb="org.Mm.eg.db"
+} else {
+    cat("\n\tUnknown GENOME",GENOME,"\n\n")
+    quit()
 }
 
 manifest=read_csv(MANIFEST_FILE) %>% arrange(SampleID)
@@ -112,8 +124,6 @@ y <- estimateDisp(y,design)
 # qlf <- glmQLFTest(fit,coef=2)
 # topTags(qlf)
 
-txdb=TxDb.Hsapiens.UCSC.hg19.knownGene::TxDb.Hsapiens.UCSC.hg19.knownGene
-
 doQLFStats<-function(y,design,contrast,fdrCut=0.05) {
 
     #fit <- glmQLFit(y,design)
@@ -162,12 +172,17 @@ doQLFStats<-function(y,design,contrast,fdrCut=0.05) {
 
     sig.peaks=ans %>%
         select(V1=Chr,V2=Start,V3=End,V4=PeakNo,V5=PValue) %>%
-        mutate(V5=-10*log10(V5),V1=paste0("chr",V1)) %>%
-        data.frame
+        mutate(V5=-10*log10(V5))
+
+    if(substr(ans$Chr[1],1,3)!="chr") {
+        sig.peaks=sig.peaks %>% mutate(V1=paste0("chr",V1)) %>% data.frame
+    } else {
+        sig.peaks=sig.peaks %>% data.frame
+    }
 
     sig.peaks=ChIPseeker:::peakDF2GRanges(sig.peaks)
 
-    aa=annotatePeak(sig.peaks,TxDb=txdb,tssRegion=c(-5000,5000),annoDb="org.Hs.eg.db")
+    aa=annotatePeak(sig.peaks,TxDb=txdb,tssRegion=c(-5000,5000),annoDb=annoDb)
 
     peak.annote=as.data.frame(aa) %>% tibble %>% dplyr::select(PeakNo=V4,SYMBOL,GENENAME,annotation,distanceToTSS)
 
