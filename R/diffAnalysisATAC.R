@@ -1,5 +1,5 @@
 args=commandArgs(trailing=T)
-if(len(args)<1) {
+if(len(args)<3) {
     cat("\n   Usage: analyzeATAC.R GENOME SampleManifest.csv Comparisons.csv [RUNTAG]\n\n")
     quit()
 }
@@ -63,7 +63,8 @@ if(GENOME=="human") {
     txdb=TxDb.Mmusculus.UCSC.mm10.knownGene::TxDb.Mmusculus.UCSC.mm10.knownGene
     annoDb="org.Mm.eg.db"
 } else {
-    cat("\n\tUnknown GENOME",GENOME,"\n\n")
+    cat("\n\tUnknown GENOME",GENOME,"\n")
+    cat("\tValid genomes: human, mouse\n\n")
     quit()
 }
 
