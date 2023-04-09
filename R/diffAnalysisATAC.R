@@ -171,8 +171,6 @@ doQLFStats<-function(y,design,contrast,fdrCut=0.05) {
                     PValue)
                     )
 
-    browser()
-
     #
     # PValue.mod is a clipped PValue to make the volcano plot look reasonable
     #
