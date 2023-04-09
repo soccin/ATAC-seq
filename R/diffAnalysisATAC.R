@@ -164,8 +164,14 @@ doQLFStats<-function(y,design,contrast,fdrCut=0.05) {
         rownames_to_column("PeakNo") %>%
         tibble %>%
         mutate(FDR=p.adjust(PValue)) %>%
-        arrange(FDR) %>%
-        mutate(PValue.mod=ifelse(PValue<.Machine$double.eps^2,.Machine$double.eps^2,PValue))
+        arrange(FDR,PValue) %>%
+        mutate(PValue.mod=ifelse(
+                    PValue<.Machine$double.eps^2,
+                    .Machine$double.eps^2,
+                    PValue)
+                    )
+
+    browser()
 
     #
     # PValue.mod is a clipped PValue to make the volcano plot look reasonable
