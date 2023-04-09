@@ -4,6 +4,21 @@ if(len(args)<3) {
     quit()
 }
 
+#
+# Example inputs:
+#   SampleManifest.csv
+#
+#        SampleID,Group,MapID
+#        aNSC_loxp15_1,aNSC_loxp15,s_aNSC_loxp15_1
+#        aNSC_loxp15_2,aNSC_loxp15,s_aNSC_loxp15_2
+#        aNSC_p53_1,aNSC_p53,s_aNSC_p53_1
+#
+#   Comparisons.csv
+#
+#        aNSC_loxp15,aNSC_p53
+#
+#
+
 fixSampleNames<-function(ss) {
     sampRename[gsub("_postProcess.*","",ss) %>% gsub(".*_s_","s_",.)] %>%
         unname
