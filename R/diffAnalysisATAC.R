@@ -17,6 +17,7 @@ if(len(args)<3) {
 #
 #        aNSC_loxp15,aNSC_p53
 #
+#   Sign convention X2-X1; e.g., aNSC_p53-aNSC_loxp15
 #
 
 fixSampleNames<-function(ss) {
@@ -122,8 +123,10 @@ y <- calcNormFactors(y)
 pr=prcomp(cpm(y,log=T),scale=F)
 dp=pr$rotation %>% data.frame %>% rownames_to_column("SampleID") %>% left_join(manifest)
 
-pp1=ggplot(dp,aes(PC1,PC2,color=Group,label=SampleID)) + theme_light(base_size=16) + geom_point(size=4,alpha=.6) + scale_color_uchicago()
-pp2=ggplot(dp,aes(PC1,PC2,color=Group,label=SampleID)) + theme_light(base_size=16) + geom_point(size=2) + scale_color_uchicago() +
+colors1=c(pal_uchicago("default")(9),pals::cols25())
+
+pp1=ggplot(dp,aes(PC1,PC2,color=Group,label=SampleID)) + theme_light(base_size=16) + geom_point(size=4,alpha=.6) + scale_color_manual(values=colors1)
+pp2=ggplot(dp,aes(PC1,PC2,color=Group,label=SampleID)) + theme_light(base_size=16) + geom_point(size=2) + scale_color_manual(values=colors1) +
     geom_label_repel(
         color="black",
         max.overlaps=Inf,
@@ -190,19 +193,25 @@ doQLFStats<-function(y,design,contrast,fdrCut=0.05) {
         select(V1=Chr,V2=Start,V3=End,V4=PeakNo,V5=PValue) %>%
         mutate(V5=-10*log10(V5))
 
-    if(substr(ans$Chr[1],1,3)!="chr") {
-        sig.peaks=sig.peaks %>% mutate(V1=paste0("chr",V1)) %>% data.frame
+
+    if(nrow(ans)>0) {
+        if(substr(ans$Chr[1],1,3)!="chr") {
+            sig.peaks=sig.peaks %>% mutate(V1=paste0("chr",V1)) %>% data.frame
+        } else {
+            sig.peaks=sig.peaks %>% data.frame
+        }
+
+        sig.peaks=ChIPseeker:::peakDF2GRanges(sig.peaks)
+
+        aa=annotatePeak(sig.peaks,TxDb=txdb,tssRegion=c(-5000,5000),annoDb=annoDb)
+
+        peak.annote=as.data.frame(aa) %>% tibble %>% dplyr::select(PeakNo=V4,SYMBOL,GENENAME,annotation,distanceToTSS)
+
+        tbl=ans %>% left_join(peak.annote)
     } else {
-        sig.peaks=sig.peaks %>% data.frame
+        cat("\n   No significant peaks",compTag,"at FDR",fdrCut,"\n\n")
+        tbl=ans
     }
-
-    sig.peaks=ChIPseeker:::peakDF2GRanges(sig.peaks)
-
-    aa=annotatePeak(sig.peaks,TxDb=txdb,tssRegion=c(-5000,5000),annoDb=annoDb)
-
-    peak.annote=as.data.frame(aa) %>% tibble %>% dplyr::select(PeakNo=V4,SYMBOL,GENENAME,annotation,distanceToTSS)
-
-    tbl=ans %>% left_join(peak.annote)
 
     list(tbl=tbl,comparison=compTag,p.ma=p.ma,p.vc=p.vc,model=model)
 
@@ -232,7 +241,7 @@ cat("========================================================\n")
 cat("========================================================\n\n")
 
 tbls=map(res,"tbl")
-names(tbls)=map(res,"comparison") %>% unlist
+names(tbls)=map(res,"comparison") %>% unlist %>% substr(.,1,31)
 stats=map(tbls,nrow) %>% bind_rows %>% gather(Comparison,NumSig)
 
 write.xlsx(c(list(Summary=stats),tbls),cc(projNo,RUNTAG,"DiffPeaksEdgeRv2.xlsx"))
