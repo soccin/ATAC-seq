@@ -187,6 +187,12 @@ doQLFStats<-function(y,design,contrast,fdrCut=0.05) {
         arrange(FDR,PValue) %>%
         mutate(PValue.mod=ifelse(PValue<.Machine$double.eps^2,.Machine$double.eps^2,PValue))
 
+    require(IHW)
+    #ihwRes=ihw(PValue ~ logCPM,dat=tt,alpha=.25)
+    ihwRes=ihw(PValue ~ Length,dat=tt%>%left_join(peak.annote),alpha=.25)
+    #browser()
+    cat("ihw rejections =",rejections(ihwRes),"\n")
+
     #
     # PValue.mod is a clipped PValue to make the volcano plot look reasonable
     #
