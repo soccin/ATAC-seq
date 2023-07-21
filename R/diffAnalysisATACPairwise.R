@@ -61,6 +61,8 @@ require(tidyverse)
 require(fs)
 require(openxlsx)
 
+require(ggrastr)
+
 ds=read_tsv("peaks_raw_fcCounts.txt.summary")
 
 GENOME=args[1]
@@ -200,14 +202,14 @@ doQLFStats<-function(y,design,contrast,fdrCut=0.05) {
 
     p.ma=ggplot(arrange(tt,desc(PValue)),aes(logCPM,logFC,color=FDR<fdrCut)) +
         theme_light(base_size=16) +
-        geom_point() +
+        rasterize(geom_point()) +
         scale_color_manual(values=c("#7f7f7f33","#e31a1c")) +
         ggtitle(compTag) +
         scale_y_continuous(limits=c(-1,1)*max.logFC)
 
     p.vc=ggplot(arrange(tt,desc(PValue)),aes(logFC,PValue.mod,color=FDR<fdrCut)) +
         theme_light(base_size=16) +
-        geom_point() +
+        rasterize(geom_point()) +
         scale_y_continuous(trans=reverselog_trans(10)) +
         scale_x_continuous(limits=c(-1,1)*max.logFC) +
         scale_color_manual(values=c("#7f7f7f33","#e31a1c")) +
@@ -272,8 +274,12 @@ stats=map(tbls,nrow) %>% bind_rows %>% gather(Comparison,NumSig)
 
 write.xlsx(c(list(Summary=stats),tbls),cc(projNo,RUNTAG,"DiffPeaksEdgeRv2.xlsx"))
 
-pfile=cc(projNo,RUNTAG,"DiffPeaksV2_%02d.png")
-pngCairo(pfile,width=11,height=8.5)
+# pfile=cc(projNo,RUNTAG,"DiffPeaksV2_%02d.png")
+# pngCairo(pfile,width=11,height=8.5)
+
+pfile=cc(projNo,RUNTAG,"DiffPeaksV2.pdf")
+pdf(pfile,width=11,height=8.5)
+
 print(pp1)
 print(pp2)
 for(ii in seq(len(res))) {
@@ -281,6 +287,7 @@ for(ii in seq(len(res))) {
     print(res[[ii]]$p.vc)
 }
 dev.off()
-mergePNGs(pfile)
+
+# mergePNGs(pfile)
 
 
