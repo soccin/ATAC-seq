@@ -25,6 +25,7 @@ if [ -e "macsPeaksMerged.saf" ]; then
     echo
 
     mv macsPeaksMerged* atacSeq/atlas
+    cp peaks_raw_fcCounts.txt* atacSeq/atlas/
     mv *_postProcess.shifted.10mNorm.bw atacSeq/bigwig
     cp -val callpeaks/* atacSeq/macs
     cp *__postInsDistribution.pdf *__ATACSeqQC.pdf atacSeq/metrics
