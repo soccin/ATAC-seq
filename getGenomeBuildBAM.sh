@@ -1,5 +1,7 @@
 #!/bin/bash
 
+module load samtools
+
 if [ "$#" != "1" ]; then
     echo usage getGenomeBuild.sh BAM
     exit
