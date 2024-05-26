@@ -117,19 +117,24 @@ bsub $RUNTIME_SHORT -o LSF.05.DESEQ/ -J ${TAG}_DESEQ_$$ -R "rusage[mem=24]" -w "
     Rscript --no-save $SDIR/R/getDESeqScaleFactors.R
 
 if [ ! -e "sampleManifest.csv" ]; then
-    echo "SampleID,Group,MapID" > sampleManifest.csv
-    ls out/*/*bam | sed 's/_postProcess.bam//' | sed 's/.*_s_/s_/' | sort >mapid
+    echo "MapID,SampleID,Group" > sampleManifest.csv
+    ls out/*/*bam | sed 's/___MD_postProcess.bam//' | sed 's/.*\/s_/s_/' | sort >mapid
     cat mapid | sed 's/^s_//' >sid
     cat sid | perl -pe 's/(-|_)\d+$//' >gid
-    paste sid gid mapid | tr '\t' ',' >> sampleManifest.csv
+    paste mapid sid gid | tr '\t' ',' >> sampleManifest.csv
 fi
 
 bSync ${TAG}_MergePeaks_$$
 bSync ${TAG}_Count_$$
 bSync ${TAG}_DESEQ_$$
 
-Rscript --no-save $SDIR/plotINSStats.R
-Rscript --no-save $SDIR/R/analyzeATAC.R sampleManifest.csv
+Rscript $SDIR/plotINSStats.R
+Rscript $SDIR/R/analyzeATAC.R sampleManifest.csv
+
+echo -e "\n\nMay want to check sampleManifest.csv"
+echo -e "and rerun"
+echo -e "    Rscript \$SDIR/R/plotINSStats.R\n\n"
+echo -e "    Rscript \$SDIR/R/analyzeATAC.R sampleManifest.csv\n\n"
 
 mkdir -p atacSeq/atlas
 mkdir atacSeq/bigwig atacSeq/macs
