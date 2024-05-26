@@ -9,6 +9,7 @@ set -e
 SDIR="$( cd "$( dirname "$0" )" && pwd )"
 
 module load bedtools/2.27.1
+module load samtools
 
 if [ ! -e "$SDIR/venv" ]; then
     echo
