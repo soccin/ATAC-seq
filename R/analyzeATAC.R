@@ -5,8 +5,7 @@ if(len(args)<1) {
 }
 
 fixSampleNames<-function(ss) {
-    sampRename[gsub("_postProcess.*","",ss) %>% gsub(".*_s_","s_",.)] %>%
-        unname
+    sampRename[gsub("___MD.*","",ss) %>% basename] %>% unname
 }
 
 reverselog_trans <- function(base = exp(1)) {
@@ -93,7 +92,7 @@ peak.annote=dd %>% select(PeakNo=Geneid,Chr,Start,End,Strand,Length)
 manifest=manifest %>% filter(!grepl("^EXC",Group))
 
 d=dd %>%
-    select(PeakNo=Geneid,matches("Proj.*_s_")) %>%
+    select(PeakNo=Geneid,matches("out/")) %>%
     data.frame(check.names=F) %>%
     column_to_rownames("PeakNo")
 
@@ -191,11 +190,11 @@ pp=strsplit(getwd(),"/")[[1]]
 projNo=grep("^Proj_|^B-\\d+",pp,value=T)
 
 pfile=cc(projNo,RUNTAG,"ATACSeqQC.pdf")
-pdf(pfile,width=11,height=8.5)
-print(pg1)
+pdf(file=pfile,width=11,height=8.5)
 print(pg2)
-print(pp1)
+print(pg1)
 print(pp2)
+print(pp1)
 dev.off()
 
 cat("\n\nNOT IMPLEMENTED: Set contrasts\n\n")
