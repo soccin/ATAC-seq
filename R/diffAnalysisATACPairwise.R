@@ -21,8 +21,20 @@ if(len(args)<3) {
 #
 
 fixSampleNames<-function(ss) {
+    if(grepl("___MD",ss[1])) {
+        fixSampleNamesPEmap(ss)
+    } else {
+        fixSampleNameBIC(ss)
+    }
+}
+
+fixSampleNamesBIC<-function(ss) {
     sampRename[gsub("_postProcess.*","",ss) %>% gsub(".*_s_","s_",.)] %>%
         unname
+}
+
+fixSampleNamesPEmap<-function(ss) {
+    sampRename[basename(ss) %>% gsub("___.*","",.)] %>% unname
 }
 
 reverselog_trans <- function(base = exp(1)) {
@@ -110,7 +122,7 @@ peak.annote=dd %>% select(PeakNo=Geneid,Chr,Start,End,Strand,Length)
 manifest=manifest %>% filter(!grepl("^EXC",Group))
 
 d=dd %>%
-    select(PeakNo=Geneid,matches("Proj.*_s_")) %>%
+    select(PeakNo=Geneid,matches("Proj.*_s_|/s_")) %>%
     data.frame(check.names=F) %>%
     column_to_rownames("PeakNo")
 
