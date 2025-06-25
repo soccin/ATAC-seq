@@ -2,3 +2,4 @@ build/
 dist/
 idr.egg-info/
 idr/__pycache__/
+idr/inv_cdf.c
