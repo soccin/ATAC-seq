@@ -116,9 +116,20 @@ ls out/*/*_postProcess.bam | xargs -n 1 bsub -o LSF.04c.INDEX/ -J ${TAG}_Index_$
 bsub $RUNTIME_SHORT -o LSF.05.DESEQ/ -J ${TAG}_DESEQ_$$ -R "rusage[mem=24]" -w "post_done(${TAG}_Count_$$)" \
     Rscript --no-save $SDIR/R/getDESeqScaleFactors.R
 
+getSMTag () {
+    samtools view -H $1 \
+        | fgrep "@RG" \
+        | head -1 \
+        | tr '\t' '\n' \
+        | fgrep SM: \
+        | head -1 \
+        | sed 's/SM://'
+}
+
+
 if [ ! -e "sampleManifest.csv" ]; then
     echo "MapID,SampleID,Group" > sampleManifest.csv
-    ls out/*/*bam | sed 's/___MD_postProcess.bam//' | sed 's/.*\/s_/s_/' | sort >mapid
+    for file in out/*/*bam; do getSMTag $file; done | sort >mapid
     cat mapid | sed 's/^s_//' >sid
     cat sid | perl -pe 's/(-|_)\d+$//' >gid
     paste mapid sid gid | tr '\t' ',' >> sampleManifest.csv
