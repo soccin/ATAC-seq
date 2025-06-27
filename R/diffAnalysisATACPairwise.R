@@ -1,6 +1,16 @@
 args=commandArgs(trailing=T)
 if(len(args)<3) {
-    cat("\n   Usage: analyzeATAC.R GENOME SampleManifest.csv Comparisons.csv [RUNTAG]\n\n")
+    cat("
+    Usage: analyzeATAC.R GENOME SampleManifest.csv Comparisons.csv [RUNTAG]
+
+        Comparisons.csv (NO Column names)
+
+            aNSC_loxp15,aNSC_p53
+
+            Sign convention X2-X1; e.g., aNSC_p53-aNSC_loxp15
+
+
+")
     quit()
 }
 
@@ -24,7 +34,7 @@ fixSampleNames<-function(ss) {
     if(grepl("___MD",ss[1])) {
         fixSampleNamesPEmap(ss)
     } else {
-        fixSampleNameBIC(ss)
+        fixSampleNamesBIC(ss)
     }
 }
 
@@ -122,11 +132,18 @@ peak.annote=dd %>% select(PeakNo=Geneid,Chr,Start,End,Strand,Length)
 manifest=manifest %>% filter(!grepl("^EXC",Group))
 
 d=dd %>%
-    select(PeakNo=Geneid,matches("Proj.*_s_|/s_")) %>%
+    select(PeakNo=Geneid,matches(".bam$")) %>%
     data.frame(check.names=F) %>%
     column_to_rownames("PeakNo")
 
 colnames(d)=fixSampleNames(colnames(d))
+
+if(!all(colnames(d) %in% manifest$MapID)) {
+    cat("\nERROR in creation of count matrix 'd'\n")
+    cat("LINE-141\n\n")
+    rlang::abort("ERROR")
+}
+
 d=d[,manifest$SampleID]
 group=factor(manifest$Group)
 y <- DGEList(counts=d,group=group)
