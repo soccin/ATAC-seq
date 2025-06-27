@@ -144,7 +144,7 @@ Rscript $SDIR/R/analyzeATAC.R sampleManifest.csv
 
 echo -e "\n\nMay want to check sampleManifest.csv"
 echo -e "and rerun"
-echo -e "    Rscript \$SDIR/R/plotINSStats.R\n\n"
+echo -e "    Rscript \$SDIR/plotINSStats.R\n\n"
 echo -e "    Rscript \$SDIR/R/analyzeATAC.R sampleManifest.csv\n\n"
 
 mkdir -p atacSeq/atlas
