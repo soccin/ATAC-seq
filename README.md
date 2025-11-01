@@ -1,6 +1,6 @@
 # ATAC-Seq pipeline
 
-## Version 4 - DEVS 2022-06-20
+## Version 1.0.1 - 2025-11-01
 
 Single end version which uses both reads from PE-runs. Using methods from R.K. for bigWig generation.
 
@@ -21,9 +21,9 @@ Need to install MACS2 locally in venv. See below
 
 ## Differential analysis
 
-- If there are replicates you can do a differential peak analysis using: `R/diffAnalysisATACPairwise.R`. Usage:
+- If there are replicates you can do a differential peak analysis using: `R/diffAnalysisPairwise.R`. Usage:
 ```
-analyzeATAC.R GENOME SampleManifest.csv Comparisons.csv [RUNTAG]
+Rscript R/diffAnalysisPairwise.R GENOME SampleManifest.csv Comparisons.csv [RUNTAG]
 ```
 
 Example inputs:
