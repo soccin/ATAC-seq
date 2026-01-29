@@ -14,11 +14,6 @@ fi
 
 echo \$RESDIR=$RESDIR $(realpath $RESDIR)
 
-echo
-echo "sudo needed to set permissions"
-echo
-sudo chmod g+ws $RESDIR
-
 if [ -e "macsPeaksMerged.saf" ]; then
     echo
     echo "Need to run postProcessing file move/copy"
