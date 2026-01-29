@@ -1,7 +1,7 @@
 Subject: Results for Project ATAC_PROJECT_NUM ATACseq ready
 The output for the ATACseq pipeline is now ready. You can access it at:
 
-   https://bicdelivery.mskcc.org/project/ATAC_PROJECT_NUM/chipseq/r_001
+   https://bicdelivery.mskcc.org/project/ATAC_PROJECT_NUM/atacseq/r_001
 
 The ATACseq specific results are in the folder
 

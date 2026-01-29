@@ -59,3 +59,9 @@ fi
 
 cat $SDIR/tmpldeliveryEmail_99.txt \
     | tee -a DELIVERY_EMAIL_${ATAC_PROJECT_NUM}
+
+
+Rscript ~/Code/BIC/Delivery/Version2j/readme2yaml.R
+
+python3 ~/Code/BIC/Delivery/Version2j/authorization_db/init_impact_project_permissions.py -p project.yaml
+
