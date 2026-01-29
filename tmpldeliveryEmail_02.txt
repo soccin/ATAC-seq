@@ -1,12 +1,12 @@
 - diff: Differential analysis of peaks in atlas using edgeR
 
-   - Proj_ATAC_PROJECT_NUM__DiffPeaksEdgeRv2.xlsx
+   - Proj_ATAC_PROJECT_NUM__DiffPeaksEdgeR_V3.xlsx
 
       - A summary sheet of the number of significant peaks for each comparison
 
       - For each comparison a sheet with the differentially significant peaks
 
-   - Proj_ATAC_PROJECT_NUM__DiffPeaksV2.pdf
+   - Proj_ATAC_PROJECT_NUM__DiffPeaks_V3.pdf
 
       - PCA from the peak atlas. Can be used to look for potential outliers
 
