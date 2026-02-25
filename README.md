@@ -52,6 +52,6 @@ us 3.9.
 In root of ATAC-seq repo
 
 ```{base}
-. CMDS.INSTALL.MACS
+. 00.SETUP.sh
 ```
 
