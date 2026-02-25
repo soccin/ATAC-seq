@@ -88,7 +88,7 @@ RUNTIME_SHORT="-W 59"
 
 echo $BAMS \
     | xargs -n 1 bsub $RUNTIME -o LSF.01.POST/ -J ${TAG}_POST2_$$ -R "rusage[mem=24]" \
-        $SDIR/postMapBamProcessing_ATACSeq.sh -q $MAPQ
+        $SDIR/postMapBamProcessing_ATACSeq.sh -q $MAPQ $GENOME
 
 bSync ${TAG}_POST2_$$
 
