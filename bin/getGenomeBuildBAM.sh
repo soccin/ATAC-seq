@@ -42,6 +42,11 @@ case $GENOME_MD5 in
     echo "GRCh37-lite"
     ;;
 
+    6a02a9445433ae0b01febe3b4f39d5ec)
+    # /H.sapiens/GRCh38_GDC (chr1, chr2, ...)
+    echo "b38"
+    ;;
+
     7f8c5323ff7e0ff6b5d40efe53eaf050)
     # BIC Xeno-graph genome
     echo "b37+mm10"
