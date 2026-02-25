@@ -41,6 +41,10 @@ case $GENOMEBUILD in
     GENOME=$SDIR/lib/genomes/human_b37.genome
     ;;
 
+    b38)
+    GENOME=$SDIR/lib/genomes/human_b38.genome
+    ;;
+
     mm10)
     GENOME=$SDIR/lib/genomes/mouse_mm10.genome
     ;;
@@ -72,6 +76,6 @@ echo "scaleFactor=${scaleFactor}"
 
 zcat $BEDZ \
     | bedtools slop -i - -g $GENOME -s -l 0 -r 0 \
-    | egrep -v "chrUn|_random|_unplaced|GL|NC_|hs37d5" \
+    | bedtools intersect -nonamecheck -a - -b ${GENOME}.bed \
     | bedtools genomecov -i - -g $GENOME -bg -scale $scaleFactor \
     | $SDIR/bin/wigToBigWig stdin $GENOME $OUT
