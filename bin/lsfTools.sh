@@ -13,8 +13,8 @@
 bCheck() {
     local jobname=$1
     local n_exit
-    n_exit=$(bjobs -noheader -a -J "$jobname" 2>/dev/null \
-             | awk '$3 == "EXIT" {n++} END {print n+0}')
+    n_exit=$(bjobs -noheader -a -J "$jobname" \
+             | grep -w "EXIT" | wc -l)
     if [ "$n_exit" -gt 0 ]; then
         echo
         echo "    FATAL: $n_exit job(s) failed for [$jobname]"

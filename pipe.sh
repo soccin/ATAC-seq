@@ -102,6 +102,8 @@ ls out/*/*.bed.gz \
     | xargs -n 1 bsub $RUNTIME_SHORT -o LSF.03.CALLP/ -J ${TAG}_CALLP2_$$ -n 3 -R "rusage[mem=6]" \
         $SDIR/callPeaks_ATACSeq.sh $GENOME
 
+bSync ${TAG}_BW2_$$
+bCheck ${TAG}_BW2_$$
 bSync ${TAG}_CALLP2_$$
 bCheck ${TAG}_CALLP2_$$
 
