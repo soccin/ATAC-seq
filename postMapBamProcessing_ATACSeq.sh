@@ -2,12 +2,16 @@
 
 SDIR="$( cd "$( dirname "$0" )" && pwd )"
 
-if [ "$#" == "0" ]; then
+usage() {
     echo
-    echo "    usage: postMapBamProcessing_ATAC.sh [(-q | --mapq) MAPQ] GENOME INPUT_BAM [OUTPUT_BAM]"
+    echo "    usage: postMapBamProcessing_ATACSeq.sh [(-q | --mapq) MAPQ] GENOME INPUT_BAM [OUTPUT_BAM]"
     echo
-    exit
-fi
+    echo "    GENOME : b37 | b38 | mm10"
+    echo
+    exit "${1:-0}"
+}
+
+[ "$#" == "0" ] && usage
 
 MAPQ=10
 
@@ -58,12 +62,7 @@ case $GENOME in
 esac
 
 
-if [ "$#" == "0" ]; then
-    echo
-    echo "    usage: postMapBamProcessing_ATAC.sh [(-q | --mapq) MAPQ] GENOME INPUT_BAM [OUTPUT_BAM]"
-    echo
-    exit
-fi
+[ "$#" == "0" ] && usage 1
 
 IBAM=$1
 
