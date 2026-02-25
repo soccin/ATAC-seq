@@ -73,7 +73,7 @@ BAMS=$*
 echo SDIR=$SDIR
 echo BAMS=$BAMS
 
-GENOME=$($SDIR/getGenomeBuildBAM.sh $1)
+GENOME=$($SDIR/bin/getGenomeBuildBAM.sh $1)
 
 if [[ $GENOME =~ unknown ]]; then
     echo
