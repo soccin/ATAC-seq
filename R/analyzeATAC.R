@@ -118,74 +118,6 @@ pp2=ggplot(dp,aes(PC1,PC2,color=Group,label=SampleID)) + theme_light(base_size=1
         max.time=10,
         max.iter=100000)
 
-design <- model.matrix(~0+group)
-y <- estimateDisp(y,design)
-
-# fit <- glmQLFit(y,design)
-# qlf <- glmQLFTest(fit,coef=2)
-# topTags(qlf)
-
-txdb=TxDb.Hsapiens.UCSC.hg19.knownGene::TxDb.Hsapiens.UCSC.hg19.knownGene
-
-doQLFStats<-function(y,design,contrast,fdrCut=0.05) {
-
-    #fit <- glmQLFit(y,design)
-    #qlf <- glmQLFTest(fit,contrast=contrast)
-    #model=qlf
-
-    fit <- glmFit(y,design)
-    lrt <- glmLRT(fit,contrast=contrast)
-    model=lrt
-
-    cp=model$comparison
-    compTag=paste0(sort(strsplit(cp," ")[[1]],decreasing=T),collapse="") %>%
-        gsub("-1\\*","-",.) %>%
-        gsub("^1\\*","",.) %>%
-        gsub("group","",.)
-
-    tt=model$table %>%
-        data.frame %>%
-        rownames_to_column("PeakNo") %>%
-        tibble %>%
-        mutate(FDR=p.adjust(PValue)) %>%
-        arrange(FDR)
-
-    max.logFC=max(abs(tt$logFC))
-
-    p.ma=ggplot(arrange(tt,desc(PValue)),aes(logCPM,logFC,color=FDR<fdrCut)) +
-        theme_light(base_size=16) +
-        geom_point() +
-        scale_color_manual(values=c("#7f7f7f33","#e31a1c")) +
-        ggtitle(compTag) +
-        scale_y_continuous(limits=c(-1,1)*max.logFC)
-
-    p.vc=ggplot(arrange(tt,desc(PValue)),aes(logFC,PValue,color=FDR<fdrCut)) +
-        theme_light(base_size=16) +
-        geom_point() +
-        scale_y_continuous(trans=reverselog_trans(10)) +
-        scale_x_continuous(limits=c(-1,1)*max.logFC) +
-        scale_color_manual(values=c("#7f7f7f33","#e31a1c")) +
-        ggtitle(compTag)
-
-    ans=tt %>% filter(FDR<fdrCut) %>% left_join(peak.annote) %>% select(-matches("^F$|^LR")) %>% filter(Chr!="MT")
-
-    sig.peaks=ans %>%
-        select(V1=Chr,V2=Start,V3=End,V4=PeakNo,V5=PValue) %>%
-        mutate(V5=-10*log10(V5),V1=paste0("chr",V1)) %>%
-        data.frame
-
-    sig.peaks=ChIPseeker:::peakDF2GRanges(sig.peaks)
-
-    aa=annotatePeak(sig.peaks,TxDb=txdb,tssRegion=c(-5000,5000),annoDb="org.Hs.eg.db")
-
-    peak.annote=as.data.frame(aa) %>% tibble %>% dplyr::select(PeakNo=V4,SYMBOL,GENENAME,annotation,distanceToTSS)
-
-    tbl=ans %>% left_join(peak.annote)
-
-    list(tbl=tbl,comparison=compTag,p.ma=p.ma,p.vc=p.vc,model=model)
-
-}
-
 pp=strsplit(getwd(),"/")[[1]]
 projNo=grep("^Proj_|^B-\\d+",pp,value=T)
 
@@ -196,35 +128,4 @@ print(pg1)
 print(pp2)
 print(pp1)
 dev.off()
-
-cat("\n\nNOT IMPLEMENTED: Set contrasts\n\n")
-quit()
-
-# Need to write code to allow contrasts to be specified from command line
-
-contrast=c(-1,1,0,0)
-
-res=list()
-res[[1]]=doQLFStats(y,design,c(-1,1,0,0))
-res[[2]]=doQLFStats(y,design,c(0,0,-1,1))
-
-tbls=map(res,"tbl")
-names(tbls)=map(res,"comparison") %>% unlist
-stats=map(tbls,nrow) %>% bind_rows %>% gather(Comparison,NumSig)
-
-write.xlsx(c(list(Summary=stats),tbls),cc(projNo,RUNTAG,"DiffPeaksEdgeR.xlsx"))
-
-pfile=cc(projNo,RUNTAG,"DiffPeaks_%02d.png")
-pngCairo(pfile,width=11,height=8.5)
-print(pg1)
-print(pg2)
-print(pp1)
-print(pp2)
-for(ii in seq(len(res))) {
-    print(res[[ii]]$p.ma)
-    print(res[[ii]]$p.vc)
-}
-dev.off()
-mergePNGs(pfile)
-
 
