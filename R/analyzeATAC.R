@@ -1,3 +1,5 @@
+cat("## START: analyzeATAC.R\n")
+
 args=commandArgs(trailing=T)
 if(len(args)<1) {
     cat("\n   Usage: analyzeATAC.R SampleManifest.csv [RUNTAG]\n\n")
@@ -5,7 +7,7 @@ if(len(args)<1) {
 }
 
 fixSampleNames<-function(ss) {
-    sampRename[gsub("___MD.*","",ss) %>% basename] %>% unname
+    sampRename[str_remove(ss,"_postProcess.*") %>% basename] %>% unname
 }
 
 reverselog_trans <- function(base = exp(1)) {
@@ -31,20 +33,20 @@ mergePNGs<-function(fileSpec) {
 
 #halt("INCLUDE")
 
-library(ChIPseeker)
-library(AnnotationDbi)
+suppressPackageStartupMessages(library(ChIPseeker))
+suppressPackageStartupMessages(library(AnnotationDbi))
 
-require(patchwork)
-require(scales)
-require(edgeR)
-require(ggrepel)
-require(ggsci)
+suppressPackageStartupMessages(require(patchwork))
+suppressPackageStartupMessages(require(scales))
+suppressPackageStartupMessages(require(edgeR))
+suppressPackageStartupMessages(require(ggrepel))
+suppressPackageStartupMessages(require(ggsci))
 
-require(tidyverse)
-require(fs)
-require(openxlsx)
+suppressPackageStartupMessages(require(tidyverse))
+suppressPackageStartupMessages(require(fs))
+suppressPackageStartupMessages(require(openxlsx))
 
-ds=read_tsv("peaks_raw_fcCounts.txt.summary")
+ds=read_tsv("peaks_raw_fcCounts.txt.summary",show_col_types = FALSE)
 
 MANIFEST_FILE=args[1]
 if(len(args)==2) {
@@ -53,7 +55,7 @@ if(len(args)==2) {
     RUNTAG=""
 }
 
-manifest=read_csv(MANIFEST_FILE) %>% arrange(SampleID)
+manifest=read_csv(MANIFEST_FILE,show_col_types = FALSE) %>% arrange(SampleID)
 
 sampRename=manifest$SampleID
 names(sampRename)=manifest$MapID
@@ -63,7 +65,7 @@ ds=ds %>%
     mutate(Sample=fixSampleNames(Sample)) %>%
     mutate(Status=gsub("_.*","",Status)) %>%
     group_by(Sample,Status) %>%
-    summarize(Counts=sum(Count)) %>%
+    summarize(Counts=sum(Count),.groups="drop") %>%
     mutate(Status=ifelse(Status=="Assigned","InPeaks","Outside")) %>%
     mutate(Status=factor(Status,levels=c("Outside","InPeaks")))
 
@@ -81,7 +83,7 @@ pg2=pg0 + geom_bar(stat="identity",position="fill") +
     scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
     ylab("Percentage")
 
-dd=read_tsv("peaks_raw_fcCounts.txt",comment="#")
+dd=read_tsv("peaks_raw_fcCounts.txt",comment="#",show_col_types = FALSE)
 
 peak.annote=dd %>% select(PeakNo=Geneid,Chr,Start,End,Strand,Length)
 
@@ -105,7 +107,10 @@ y <- y[keep,,keep.lib.sizes=FALSE]
 y <- calcNormFactors(y)
 
 pr=prcomp(cpm(y,log=T),scale=F)
-dp=pr$rotation %>% data.frame %>% rownames_to_column("SampleID") %>% left_join(manifest)
+dp=pr$rotation %>%
+  data.frame %>%
+  rownames_to_column("SampleID") %>%
+  left_join(manifest,by = join_by(SampleID))
 
 pp1=ggplot(dp,aes(PC1,PC2,color=Group,label=SampleID)) + theme_light(base_size=16) + geom_point(size=4,alpha=.6) + scale_color_uchicago()
 pp2=ggplot(dp,aes(PC1,PC2,color=Group,label=SampleID)) + theme_light(base_size=16) + geom_point(size=2) + scale_color_uchicago() +
@@ -128,4 +133,6 @@ print(pg1)
 print(pp2)
 print(pp1)
 dev.off()
+
+cat("## END: analyzeATAC.R\n")
 
