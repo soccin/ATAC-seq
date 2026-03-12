@@ -72,13 +72,14 @@ IBAM=$1
 
 samtools quickcheck "$IBAM" || { echo "ERROR: [$IBAM] is not a valid BAM file"; exit 1; }
 
+SID=$(samtools view -H $IBAM | perl -ne '/^@RG.*SM:(\S+)/ && print "$1\n"' | head -1)
+
 if [ "$#" == "1" ]; then
 
-    ODIR=out/$(basename ${IBAM/.bam/})
+    ODIR=out/$SID
     mkdir -p $ODIR
-    OBAM=${IBAM/.bam/_postProcess.bam}
-    OBAM=$ODIR/$(basename $OBAM)
-    echo $OBAM
+    OBAM=$ODIR/${SID}_postProcess.bam
+    echo \$OBAM=$OBAM
 
 else
 
