@@ -3,19 +3,18 @@ args <- commandArgs(trailingOnly=TRUE)
 DEBUG <- "-d" %in% args
 args  <- args[args != "-d"]
 
-if (length(args) < 3) {
+if (length(args) < 2) {
     cat("
 ================================================================================
   ENCODE-exact TSS Enrichment Score and Profile
 ================================================================================
 
 USAGE:
-  Rscript encodeTSS.R [-d] GENOME READ_LENGTH BED_FILE [SAMPLE_NAME] [OUT_PREFIX]
+  Rscript encodeTSS.R [-d] GENOME BED_FILE [SAMPLE_NAME] [OUT_PREFIX]
 
 ARGUMENTS:
   -d           Debug: dump full normalized enrichment profile to CSV
   GENOME       Genome: hg19, b38, or mouse
-  READ_LENGTH  Sequencing read length in bp (e.g. 50, 75, 100)
   BED_FILE     Tn5-shifted reads BED file (can be gzipped)
   SAMPLE_NAME  Label for plots (default: BED_FILE basename)
   OUT_PREFIX   Output file prefix (default: BED_FILE without extension)
@@ -34,19 +33,18 @@ DETAILS:
     greenleaf_norm=True
     num_edge_bins = 10       -> background from outermost 100 bp each side
     score = max over all 401 bins (no +-200 bp restriction)
+
+  Center shift applied per-read: each read shifted by width(read) %/% 2 so that
+  its midpoint lands at the Tn5 cut site (handles variable read lengths).
 ================================================================================
 ")
     quit()
 }
 
 GENOME      <- args[1]
-READ_LENGTH <- as.integer(args[2])
-BED_FILE    <- args[3]
-SAMPLE_NAME <- if (length(args) >= 4) args[4] else basename(BED_FILE)
-OUT_PREFIX  <- if (length(args) >= 5) args[5] else sub("\\.bed(\\.gz)?$", "", BED_FILE)
-
-if (is.na(READ_LENGTH) || READ_LENGTH < 1L)
-    stop("READ_LENGTH must be a positive integer (e.g. 50)")
+BED_FILE    <- args[2]
+SAMPLE_NAME <- if (length(args) >= 3) args[3] else basename(BED_FILE)
+OUT_PREFIX  <- if (length(args) >= 4) args[4] else sub("\\.bed(\\.gz)?$", "", BED_FILE)
 
 # ENCODE hardcoded defaults (encode_task_tss_enrich.py make_tss_plot())
 HALFWIN       <- 2000L  # bp_edge
@@ -93,22 +91,20 @@ getTSSWindows <- function(txdb, halfwin=2000L, binsize=10L) {
 # Matches ENCODE stranded=True: negative-strand windows reversed so pos 1 = TSS.
 # Same implementation as computeTSSEnrichment.R computeProfile().
 
-computeProfile <- function(bedFile, windows, read_length, halfwin=2000L, binsize=10L) {
+computeProfile <- function(bedFile, windows, halfwin=2000L, binsize=10L) {
     cat("Loading reads:", bedFile, "\n")
     reads <- import(bedFile, format="BED")
 
     # Center reads on cut sites (ENCODE shift_width = -read_len/2).
     # Tn5-shifted BED: + strand reads START at cut site, - strand reads END at cut site.
-    # Shift each read so its midpoint is at the cut site:
-    #   + strand: shift by -half_len
-    #   - strand: shift by +half_len
-    half_len  <- read_length %/% 2L
+    # Shift each read by its own half-width so its midpoint lands at the cut site.
+    # Per-read centering handles variable read lengths (trimmed reads differ in length).
     plus_idx  <- which(as.character(strand(reads)) == "+")
     minus_idx <- which(as.character(strand(reads)) == "-")
     other_idx <- which(as.character(strand(reads)) == "*")
-    reads[plus_idx]  <- shift(reads[plus_idx],  -half_len)
-    reads[minus_idx] <- shift(reads[minus_idx], +half_len)
-    reads[other_idx] <- shift(reads[other_idx], -half_len)
+    reads[plus_idx]  <- shift(reads[plus_idx],  -(width(reads[plus_idx])  %/% 2L))
+    reads[minus_idx] <- shift(reads[minus_idx], +(width(reads[minus_idx]) %/% 2L))
+    reads[other_idx] <- shift(reads[other_idx], -(width(reads[other_idx]) %/% 2L))
 
     cov <- coverage(reads)
 
@@ -196,13 +192,13 @@ plotProfile <- function(normed, sample_name) {
 
 cat("Genome:", GENOME, "\n")
 cat("Sample:", SAMPLE_NAME, "\n")
-cat(sprintf("Read length: %d bp (center shift: +/-%d bp)\n", READ_LENGTH, READ_LENGTH %/% 2L))
+cat("Center shift: per-read (width %/% 2), handles variable read lengths\n")
 cat("Method: ENCODE-exact (background=100bp, score=max all bins)\n")
 
 txdb    <- getTxDb(GENOME)
 windows <- getTSSWindows(txdb, HALFWIN, BINSIZE)
 
-res    <- computeProfile(BED_FILE, windows, READ_LENGTH, HALFWIN, BINSIZE)
+res    <- computeProfile(BED_FILE, windows, HALFWIN, BINSIZE)
 normed <- normProfile(res, NUM_EDGE_BINS)
 
 cat(sprintf("ENCODE TSS enrichment score: %.4f  (n = %s TSSs)\n",
