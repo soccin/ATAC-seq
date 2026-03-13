@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript
 # TSS Enrichment analysis - R port of ENCODE encode_task_tss_enrich.py
-# Outputs: {prefix}.tss_enrich.qc, {prefix}.tss_enrich.png, {prefix}.large_tss_enrich.png
+# Outputs: {prefix}.tss_enrich.csv, {prefix}.tss_enrich.pdf, {prefix}.large_tss_enrich.png
 #
 # IMPORTANT - BAM INPUT REQUIREMENT:
 #   Duplicate reads MUST be physically REMOVED from the BAM before running
@@ -29,6 +29,8 @@ suppressPackageStartupMessages({
     library(Rsamtools)
     library(ggplot2)
     library(dplyr)
+    library(stringr)
+    library(readr)
 })
 
 # ---------------------------------------------------------------------------
@@ -56,15 +58,18 @@ if (!is.null(read_len_log))
 if (is.null(read_len))
     stop("Must supply --read-len or --read-len-log")
 
+# Always extract sampleId from BAM @RG SM tag for use in QC output.
+# out_dir may be supplied independently; sampleId is needed regardless.
+hdr      <- system2("samtools", c("view", "-H", bam_file), stdout=TRUE)
+rg_lines <- str_subset(hdr, "^@RG")
+sm_vals  <- unique(str_extract(rg_lines, "(?<=SM:)[^\t]+"))
+sm_vals  <- sm_vals[!is.na(sm_vals)]
+if (length(sm_vals) == 0) stop("No SM tag found in BAM @RG header; use --out-dir")
+if (length(sm_vals) > 1) warning("Multiple SM values found; using first: ", sm_vals[1])
+sampleId <- sm_vals[1]
+
 if (is.null(out_dir)) {
-    hdr     <- system2("samtools", c("view", "-H", bam_file), stdout=TRUE)
-    rg_lines <- grep("^@RG", hdr, value=TRUE)
-    sm_vals  <- regmatches(rg_lines, regexpr("(?<=SM:)[^\t]+", rg_lines, perl=TRUE))
-    sm_vals  <- unique(sm_vals)
-    if (length(sm_vals) == 0) stop("No SM tag found in BAM @RG header; use --out-dir")
-    if (length(sm_vals) > 1) warning("Multiple SM values found; using first: ", sm_vals[1])
-    sampleId <- sm_vals[1]
-    out_dir  <- file.path("out", "tssEnrich", sampleId)
+    out_dir <- file.path("out", "tssEnrich", sampleId)
     message("--out-dir not specified; using: ", out_dir)
 }
 if (!file.exists(chrsz))
@@ -121,21 +126,23 @@ x_interp <- seq(0, WIN-1, length.out=BINS)
 # Load chromosome sizes and TSS BED
 # ---------------------------------------------------------------------------
 message("Loading TSS file...")
-chrom_sizes <- read.table(chrsz, header=FALSE, sep="\t",
-                          col.names=c("chrom","size"), stringsAsFactors=FALSE)
+chrom_sizes <- read_tsv(chrsz, col_names=c("chrom","size"), show_col_types=FALSE)
 
-tss_df <- read.table(tss_file, header=FALSE, sep="\t", stringsAsFactors=FALSE,
-                     col.names=c("chrom","start","end","name","score","strand")) %>%
-    left_join(chrom_sizes, by="chrom") %>%
-    filter(!is.na(size)) %>%
+tss_raw <- read_tsv(tss_file, col_names=c("chrom","start","end","name","score","strand"),
+                    show_col_types=FALSE)
+n_tss_total <- nrow(tss_raw)
+
+tss_df <- tss_raw |>
+    left_join(chrom_sizes, by="chrom") |>
+    filter(!is.na(size)) |>
     # slop: expand by BP_EDGE on each side, clip to chrom bounds
     mutate(start = pmax(0L, start - BP_EDGE),
-           end   = pmin(size, end + BP_EDGE)) %>%
+           end   = pmin(size, end + BP_EDGE)) |>
     # keep only full-width windows
-    filter((end - start) == WIN) %>%
+    filter((end - start) == WIN) |>
     select(chrom, start, end, name, score, strand)
 
-message(sprintf("Using %d TSS windows", nrow(tss_df)))
+message(sprintf("Using %d / %d TSS windows (after edge filter)", nrow(tss_df), n_tss_total))
 
 # ---------------------------------------------------------------------------
 # Ensure BAM is indexed
@@ -161,25 +168,29 @@ if (!file.exists(paste0(bam_file, ".bai"))) {
 message("Checking BAM for duplicate reads...")
 flagstat_out <- system2("samtools", c("flagstat", bam_file),
                         stdout=TRUE, stderr=FALSE)
-dup_line <- grep("^[0-9]+ \\+ [0-9]+ duplicate", flagstat_out, value=TRUE)
+
+# Parse mapped reads: "N + 0 mapped (X% : N/A)" line
+mapped_line   <- str_subset(flagstat_out, "mapped \\(")
+n_mapped_reads <- if (length(mapped_line) > 0L)
+    as.integer(str_extract(mapped_line[1], "^[0-9]+"))
+else NA_integer_
+
+dup_line <- str_subset(flagstat_out, "^[0-9]+ \\+ [0-9]+ duplicate")
 if (length(dup_line) > 0L) {
-    n_dups <- as.integer(sub("^([0-9]+) .*", "\\1", dup_line))
+    n_dups <- as.integer(str_extract(dup_line, "^[0-9]+"))
     if (n_dups > 0L) {
-        stop(sprintf(
-            paste0(
-                "\n\n",
-                "ERROR: BAM file contains %d reads with the duplicate flag set (SAM FLAG 0x400).\n",
-                "\n",
-                "This script requires that duplicate reads be PHYSICALLY REMOVED from the BAM,\n",
-                "not merely marked. Marked-but-present duplicates are counted as signal and\n",
-                "will produce an inflated, incorrect TSS enrichment score.\n",
-                "\n",
-                "To fix, filter out duplicate-flagged reads before running this script:\n",
-                "  samtools view -F 1024 -b %s > nodup.bam\n",
-                "  samtools index nodup.bam\n",
-                "Then rerun with --nodup-bam nodup.bam\n"
-            ),
-            n_dups, bam_file
+        stop(str_glue(
+            "\n\n",
+            "ERROR: BAM file contains {n_dups} reads with the duplicate flag set (SAM FLAG 0x400).\n",
+            "\n",
+            "This script requires that duplicate reads be PHYSICALLY REMOVED from the BAM,\n",
+            "not merely marked. Marked-but-present duplicates are counted as signal and\n",
+            "will produce an inflated, incorrect TSS enrichment score.\n",
+            "\n",
+            "To fix, filter out duplicate-flagged reads before running this script:\n",
+            "  samtools view -F 1024 -b {bam_file} > nodup.bam\n",
+            "  samtools index nodup.bam\n",
+            "Then rerun with --nodup-bam nodup.bam\n"
         ))
     }
 }
@@ -325,16 +336,33 @@ tss_score <- max(bin_means)
 message(sprintf("TSS Enrichment Score: %.6f", tss_score))
 
 # ---------------------------------------------------------------------------
-# Write QC file
+# Write QC CSV
 # ---------------------------------------------------------------------------
-qc_file <- paste0(prefix, ".tss_enrich.qc")
-writeLines(as.character(tss_score), qc_file)
+x_pos        <- seq(-BP_EDGE, BP_EDGE, length.out=BINS)
+peak_bin     <- which.max(bin_means)
+peak_pos_bp  <- x_pos[peak_bin]
+pct_tss_used <- nrow(tss_df) / n_tss_total
+
+qc_df <- tibble(
+    sample_id       = sampleId,
+    tss_enrich      = tss_score,
+    peak_pos_bp     = peak_pos_bp,
+    avg_noise       = avg_noise,
+    n_tss_used      = nrow(tss_df),
+    n_tss_total     = n_tss_total,
+    pct_tss_used    = round(pct_tss_used, 4),
+    n_mapped_reads  = n_mapped_reads,
+    read_len        = read_len,
+    bam_file        = basename(bam_file)
+)
+
+qc_file <- str_c(prefix, ".tss_enrich.csv")
+write_csv(qc_df, qc_file)
 message("Written: ", qc_file)
 
 # ---------------------------------------------------------------------------
 # Simple line plot  (matching Python's simple tss_enrich.png)
 # ---------------------------------------------------------------------------
-x_pos   <- seq(-BP_EDGE, BP_EDGE, length.out=BINS)
 plot_df <- data.frame(pos=x_pos, signal=bin_means)
 
 p <- ggplot(plot_df, aes(x=pos, y=signal)) +
