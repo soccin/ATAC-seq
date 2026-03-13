@@ -162,7 +162,7 @@ bCheck ${TAG}_TSSE_$$
 Rscript $SDIR/plotINSStats.R
 Rscript $SDIR/R/analyzeATAC.R sampleManifest.csv
 
-tee -a CHECK_RUN.txt << 'EOF'
+tee -a 00.POST_RUN.txt << 'EOF'
 
 May want to check sampleManifest.csv
 and rerun
