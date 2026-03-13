@@ -81,11 +81,7 @@ fix_sample_names <- function(sample_names) {
 #' @param sample_names Character vector of BIC-format sample names
 #' @return Character vector of cleaned sample names
 fix_sample_names_bic <- function(sample_names) {
-  sample_names |>
-    gsub("_postProcess.*", "", x = _) |>
-    gsub(".*_s_", "s_", x = _) |>
-    (\(x) sampRename[x])() |>
-    unname()
+  sample_names |> basename() |> str_remove("_postProcess.*") |> unname()
 }
 
 #' Fix sample names using PEmap naming convention
@@ -178,7 +174,7 @@ if (len(peak_counts_file) == 0) {
                                  regex = "peaks_raw_fcCounts.txt.summary")
 }
 
-feature_summary <- read_tsv(peak_counts_file)
+feature_summary <- read_tsv(peak_counts_file,show_col_types = FALSE)
 
 # Parse command line arguments
 GENOME <- args[1]
@@ -203,7 +199,7 @@ if (GENOME == "hg19") {
 }
 
 # Load sample manifest and create renaming lookup
-manifest <- read_csv(MANIFEST_FILE) |> arrange(SampleID)
+manifest <- read_csv(MANIFEST_FILE,show_col_types = FALSE) |> arrange(SampleID)
 
 sampRename <- manifest$SampleID
 names(sampRename) <- manifest$MapID
@@ -219,7 +215,7 @@ feature_summary <- feature_summary |>
 
 # Load raw feature counts matrix
 raw_counts <- read_tsv(gsub(".txt.summary$", ".txt", peak_counts_file),
-                       comment = "#")
+                       comment = "#", show_col_types = FALSE)
 
 # Extract peak annotation
 peak.annote <- raw_counts |>
@@ -428,7 +424,7 @@ project_id <- grep("^Proj_|^B-\\d+", working_dir_parts, value = TRUE)
 
 # Load comparisons file and extract group names from design matrix
 group_names <- gsub("group", "", colnames(design))
-comparisons <- read_csv(COMPARISON_FILE, col_names = FALSE)
+comparisons <- read_csv(COMPARISON_FILE, col_names = FALSE, show_col_types = FALSE)
 
 # Run differential analysis for each comparison
 results_list <- list()
