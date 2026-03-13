@@ -25,3 +25,9 @@ Where you will find the following subfolders:
 
       - PCA from the peak atlas. Can be used to look for potential outliers
 
+   - tssEnrich: TSS Enrichment scores per sample.
+
+      - Proj_ATAC_PROJECT_NUM__tssEnrich.csv: per-sample TSS enrichment scores. The tss_enrich column is the key QC metric; values above 6 are generally considered high quality.
+
+      - Per-sample TSS enrichment plots (tss_enrich.pdf) showing read coverage centered on transcription start sites.
+

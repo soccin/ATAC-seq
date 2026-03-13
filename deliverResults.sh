@@ -26,6 +26,7 @@ if [ -e "macsPeaksMerged.saf" ]; then
     cp *__postInsDistribution.pdf *__ATACSeqQC.pdf atacSeq/metrics
 
     cp -val out/*/*___INS.* atacSeq/metrics
+    cp -val out/*/*enrich* atacSeq/metrics
 
 fi
 
