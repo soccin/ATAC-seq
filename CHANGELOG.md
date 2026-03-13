@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [v1.1.0-pre] — devs branch
+## [v1.1.0] — 2026-03-12
 
 ### Features
 
@@ -55,6 +55,13 @@ All notable changes to this project will be documented in this file.
   by `quit()` and never executed. Original archived to `R/attic/analyzeATAC.R`.
 - Add BAM validation (`samtools quickcheck`) on the `INPUT_BAM` argument in
   `postMapBamProcessing_ATACSeq.sh` to catch argument-order mistakes early.
+- `postMapBamProcessing_ATACSeq.sh`: derive sample ID (SID) and output
+  paths from BAM `@RG SM:` header tag instead of stripping `.bam` suffix.
+- `R/analyzeATAC.R`, `R/getDESeqScaleFactors.R`, `plotINSStats.R`: wrap
+  all `library()`/`require()` calls in `suppressPackageStartupMessages`
+  to suppress Bioconductor startup noise in pipeline logs.
+- All pipeline R scripts: add `cat("## START/END: <script>\n")` messages
+  for log tracing.
 
 ---
 

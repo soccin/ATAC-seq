@@ -1,6 +1,6 @@
 # ATAC-Seq pipeline
 
-## Version 1.0.1 - 2025-11-01
+## Version 1.1.0 - 2026-03-12
 
 Single end version which uses both reads from PE-runs. Using methods from R.K. for bigWig generation.
 
