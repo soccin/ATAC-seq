@@ -171,9 +171,11 @@ flagstat_out <- system2("samtools", c("flagstat", bam_file),
 
 # Parse mapped reads: "N + 0 mapped (X% : N/A)" line
 mapped_line   <- str_subset(flagstat_out, "mapped \\(")
-n_mapped_reads <- if (length(mapped_line) > 0L)
+n_mapped_reads <- if (length(mapped_line) > 0L) {
     as.integer(str_extract(mapped_line[1], "^[0-9]+"))
-else NA_integer_
+} else {
+    NA_integer_
+}
 
 dup_line <- str_subset(flagstat_out, "^[0-9]+ \\+ [0-9]+ duplicate")
 if (length(dup_line) > 0L) {
