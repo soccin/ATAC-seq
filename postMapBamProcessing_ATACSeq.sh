@@ -2,12 +2,16 @@
 
 SDIR="$( cd "$( dirname "$0" )" && pwd )"
 
-if [ "$#" == "0" ]; then
+usage() {
     echo
-    echo "    usage: postMapBamProcessing_ATAC.sh [(-q | --mapq) MAPQ] INPUT_BAM [OUTPUT_BAM]"
+    echo "    usage: postMapBamProcessing_ATACSeq.sh [(-q | --mapq) MAPQ] GENOME INPUT_BAM [OUTPUT_BAM]"
     echo
-    exit
-fi
+    echo "    GENOME : b37 | b38 | mm10"
+    echo
+    exit "${1:-0}"
+}
+
+[ "$#" == "0" ] && usage
 
 MAPQ=10
 
@@ -35,15 +39,47 @@ set -- "${POSITIONAL_ARGS[@]}" # restore positional parameters
 
 echo "MAPQ = ${MAPQ}"
 
+GENOME=$1
+shift 1
+
+case $GENOME in
+  b37)
+  GENOME_BED=$SDIR/lib/genomes/human_b37.genome.bed
+  ;;
+
+  b38)
+  GENOME_BED=$SDIR/lib/genomes/human_b38.genome.bed
+  ;;
+
+  mm10)
+  GENOME_BED=$SDIR/lib/genomes/mouse_mm10.genome.bed
+  ;;
+
+  *)
+  echo -e "\n\nunknown" \$GENOME=$GENOME "\n\n"
+  exit 1
+  ;;
+esac
+
+
+[ "$#" == "0" ] && usage 1
+
 IBAM=$1
+
+#
+# Check that this is a bam file (ie that we did not forget GENOME)
+#
+
+samtools quickcheck "$IBAM" || { echo "ERROR: [$IBAM] is not a valid BAM file"; exit 1; }
+
+SID=$(samtools view -H $IBAM | perl -ne '/^@RG.*SM:(\S+)/ && print "$1\n"' | head -1)
 
 if [ "$#" == "1" ]; then
 
-    ODIR=out/$(basename ${IBAM/.bam/})
+    ODIR=out/$SID
     mkdir -p $ODIR
-    OBAM=${IBAM/.bam/_postProcess.bam}
-    OBAM=$ODIR/$(basename $OBAM)
-    echo $OBAM
+    OBAM=$ODIR/${SID}_postProcess.bam
+    echo \$OBAM=$OBAM
 
 else
 
@@ -67,12 +103,12 @@ picardV2 SortSam I=$TDIR/step1.bam O=$OBAM SO=coordinate MAX_RECORDS_IN_RAM=5000
 picardV2 CollectInsertSizeMetrics LEVEL=null LEVEL=SAMPLE I=$OBAM O=${OBAM/.bam/___INS.txt} H=${OBAM/.bam/___INS.pdf} &
 
 #
-# Do Tn5 shift and remove non-standard chromosomes
+# Do Tn5 shift and remove non-standard chromosomes (keep those in genome)
 #
 
 samtools view -b $OBAM \
     | bedtools bamtobed -i - \
-    | egrep -v "chrUn|_random|GL|NC_|hs37d5|_unplaced" \
+    | bedtools intersect -nonamecheck -a - -b $GENOME_BED \
     | awk -F'\t' \
         'BEGIN {OFS = FS} { if ($6 == "+") {$2 = $2 + 4} else if ($6 == "-") {$3 = $3 - 5} print $0}' \
     | gzip -nc >${OBAM/.bam/.shifted.bed.gz}

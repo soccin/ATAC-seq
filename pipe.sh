@@ -8,6 +8,8 @@ set -e
 
 SDIR="$( cd "$( dirname "$0" )" && pwd )"
 
+source $SDIR/bin/lsfTools.sh
+
 module load bedtools/2.27.1
 module load samtools
 
@@ -73,7 +75,7 @@ BAMS=$*
 echo SDIR=$SDIR
 echo BAMS=$BAMS
 
-GENOME=$($SDIR/getGenomeBuildBAM.sh $1)
+GENOME=$($SDIR/bin/getGenomeBuildBAM.sh $1)
 
 if [[ $GENOME =~ unknown ]]; then
     echo
@@ -88,9 +90,10 @@ RUNTIME_SHORT="-W 59"
 
 echo $BAMS \
     | xargs -n 1 bsub $RUNTIME -o LSF.01.POST/ -J ${TAG}_POST2_$$ -R "rusage[mem=24]" \
-        $SDIR/postMapBamProcessing_ATACSeq.sh -q $MAPQ
+        $SDIR/postMapBamProcessing_ATACSeq.sh -q $MAPQ $GENOME
 
 bSync ${TAG}_POST2_$$
+bCheck ${TAG}_POST2_$$
 
 ls out/*/*.bed.gz \
     | xargs -n 1 bsub $RUNTIME -o LSF.02.BW/ -J ${TAG}_BW2_$$ -R "rusage[mem=24]" $SDIR/makeBigWigFromBEDZ.sh $GENOME
@@ -99,7 +102,10 @@ ls out/*/*.bed.gz \
     | xargs -n 1 bsub $RUNTIME_SHORT -o LSF.03.CALLP/ -J ${TAG}_CALLP2_$$ -n 3 -R "rusage[mem=6]" \
         $SDIR/callPeaks_ATACSeq.sh $GENOME
 
+bSync ${TAG}_BW2_$$
+bCheck ${TAG}_BW2_$$
 bSync ${TAG}_CALLP2_$$
+bCheck ${TAG}_CALLP2_$$
 
 bsub $RUNTIME_SHORT -o LSF.04a.CALLP/ -J ${TAG}_MergePeaks_$$ -n 3 -R "rusage[mem=24]" \
     $SDIR/mergePeaksToSAF.sh callpeaks \>macsPeaksMerged.saf
@@ -136,8 +142,11 @@ if [ ! -e "sampleManifest.csv" ]; then
 fi
 
 bSync ${TAG}_MergePeaks_$$
+bCheck ${TAG}_MergePeaks_$$
 bSync ${TAG}_Count_$$
+bCheck ${TAG}_Count_$$
 bSync ${TAG}_DESEQ_$$
+bCheck ${TAG}_DESEQ_$$
 
 Rscript $SDIR/plotINSStats.R
 Rscript $SDIR/R/analyzeATAC.R sampleManifest.csv

@@ -1,3 +1,5 @@
+cat("## START: plotINSStats.R\n")
+
 read_insdat<-function(ff) {
     rr=readLines(ff)
     start=grep("^insert_size",rr)
@@ -50,4 +52,6 @@ for(ii in seq(nPages)) {
     print(pp2 + facet_wrap_paginate(~SampleID,nrow=2,ncol=3,page=ii))
 }
 dev.off()
+
+cat("## END: plotINSStats.R\n")
 

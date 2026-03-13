@@ -49,24 +49,28 @@ export TMPDIR=$TDIR
 # Clean up BED file to remove non-main chromosomes
 #
 
-zcat $IBED \
-    | egrep -v "chrUn|_random|_unplaced|GL|NC_|hs37d5" \
-    | gzip -c - > $TDIR/cleanBED.bed.gz
-
 # MACS2 args
 
 case $GENOMEBUILD in
 
     b37)
     genome=hs
+    GENOME_BED=$SDIR/lib/genomes/human_b37.genome.bed
+    ;;
+
+    b38)
+    genome=hs
+    GENOME_BED=$SDIR/lib/genomes/human_b38.genome.bed
     ;;
 
     mm10)
     genome=mm
+    GENOME_BED=$SDIR/lib/genomes/mouse_mm10.genome.bed
     ;;
 
     sCer+sMik_IFO1815)
     genome=23606800
+    GENOME_BED=$SDIR/lib/genomes/sCer+sMik_IFO1815.genome.bed
     ;;
 
     *)
@@ -77,6 +81,10 @@ case $GENOMEBUILD in
     ;;
 
 esac
+
+zcat $IBED \
+  | bedtools intersect -nonamecheck -a - -b ${GENOME_BED} \
+  | gzip -c - > $TDIR/cleanBED.bed.gz
 
 #
 # From:

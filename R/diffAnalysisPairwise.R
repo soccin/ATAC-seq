@@ -187,8 +187,11 @@ COMPARISON_FILE <- args[3]
 RUNTAG <- if (len(args) == 4) args[4] else ""
 
 # Set genome-specific annotation databases
-if (GENOME == "human") {
+if (GENOME == "hg19") {
   txdb <- TxDb.Hsapiens.UCSC.hg19.knownGene::TxDb.Hsapiens.UCSC.hg19.knownGene
+  annoDb <- "org.Hs.eg.db"
+} else if (GENOME == "b38") {
+  txdb <- TxDb.Hsapiens.UCSC.hg38.knownGene::TxDb.Hsapiens.UCSC.hg38.knownGene
   annoDb <- "org.Hs.eg.db"
 } else if (GENOME == "mouse") {
   txdb <- TxDb.Mmusculus.UCSC.mm10.knownGene::TxDb.Mmusculus.UCSC.mm10.knownGene
