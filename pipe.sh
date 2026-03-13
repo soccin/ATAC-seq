@@ -151,7 +151,8 @@ bCheck ${TAG}_DESEQ_$$
 bSync ${TAG}_Index_$$
 
 ls out/*/*_postProcess.bam \
-  | xargs -n 1 bsub -o LSF.06.INDEX/ -J ${TAG}_TSSE_$$ -W 59 \
+  | xargs -n 1 bsub -o LSF.06.QC/ -J ${TAG}_TSSE_$$ \
+    -W 359 -n 16 -R "rusage[mem=8]" \
     $SDIR/bin/computeTSSEnrich.sh
 
 Rscript $SDIR/plotINSStats.R
