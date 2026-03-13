@@ -67,6 +67,17 @@ if (is.null(out_dir)) {
     out_dir  <- file.path("out", "tssEnrich", sampleId)
     message("--out-dir not specified; using: ", out_dir)
 }
+if (!file.exists(chrsz))
+    stop(sprintf(
+        "Chromosome sizes file not found: %s\n  This genome may not be supported.",
+        basename(chrsz)
+    ))
+if (!file.exists(tss_file))
+    stop(sprintf(
+        "TSS BED file not found: %s\n  This genome may not be supported.",
+        basename(tss_file)
+    ))
+
 if (!dir.exists(out_dir)) dir.create(out_dir, recursive=TRUE)
 
 prefix <- file.path(out_dir, sub("\\.bam$", "", basename(bam_file)))
@@ -75,6 +86,7 @@ message("Output prefix: ", prefix)
 # ---------------------------------------------------------------------------
 # Parameters (matching Python defaults)
 # ---------------------------------------------------------------------------
+BASE_SIZE     <- 16L             # base font size for plots
 BP_EDGE       <- 2000L          # bp on each side of TSS
 BINS          <- 400L           # number of output bins
 WIN           <- 2L*BP_EDGE+1L  # window size = 4001 bp
@@ -326,13 +338,16 @@ x_pos   <- seq(-BP_EDGE, BP_EDGE, length.out=BINS)
 plot_df <- data.frame(pos=x_pos, signal=bin_means)
 
 p <- ggplot(plot_df, aes(x=pos, y=signal)) +
-    geom_line(color="red") +
+    geom_line(color="darkred") +
     geom_vline(xintercept=0, linetype="dotted", color="black") +
+    annotate("label", x=-BP_EDGE, y=max(bin_means), hjust=0, vjust=1,
+             label=sprintf("TSS score: %.2f", tss_score), size=BASE_SIZE/ggplot2::.pt,
+             label.size=0.3, fill="white") +
     labs(x="Distance from TSS (bp)", y="TSS Enrichment") +
-    theme_classic()
+    theme_light(BASE_SIZE)
 
-tss_plot_file <- paste0(prefix, ".tss_enrich.png")
-ggsave(tss_plot_file, plot=p, width=6, height=4, dpi=150)
+tss_plot_file <- paste0(prefix, ".tss_enrich.pdf")
+ggsave(tss_plot_file, plot=p, width=11/1.2, height=8.5/1.2)
 message("Written: ", tss_plot_file)
 
 # ---------------------------------------------------------------------------
@@ -365,16 +380,14 @@ scale_y  <- n_rows / max(bin_means, 1)
 
 p_large <- ggplot() +
     geom_raster(data=hm_df, aes(x=bin, y=row, fill=val)) +
-    scale_fill_gradient(low="white", high="black", name="Signal") +
-    geom_line(data=line_df, aes(x=pos, y=signal*scale_y),
-              color="black", linewidth=0.5) +
+    scale_fill_gradient(low="white", high="darkred", name="Signal") +
     geom_vline(xintercept=0, linetype="dotted", color="grey50") +
     labs(x="Distance from TSS (bp)", y="TSS (sorted by strength)") +
     theme_classic() +
     theme(legend.position="right")
 
 large_plot_file <- paste0(prefix, ".large_tss_enrich.png")
-ggsave(large_plot_file, plot=p_large, width=5, height=10, dpi=150)
+ggsave(large_plot_file, plot=p_large, width=6, height=8, dpi=150)
 message("Written: ", large_plot_file)
 
 message("All done.")
