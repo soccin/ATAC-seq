@@ -21,9 +21,15 @@ READ_LEN=$(
         | uniq -c \
         | sort -nr \
         | head -1 \
-        | awk '{print $2}'
+        | awk '{print $2}' \
+    || true
 )
 echo "\$READ_LEN=$READ_LEN"
+
+if [[ -z $READ_LEN ]]; then
+    echo "ERROR: could not determine read length from BAM: $BAM" >&2
+    exit 1
+fi
 
 Rscript $RDIR/TSSEnrich/tss_enrich.R \
     --nodup-bam $BAM \
