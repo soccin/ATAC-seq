@@ -149,19 +149,31 @@ bSync ${TAG}_DESEQ_$$
 bCheck ${TAG}_DESEQ_$$
 
 bSync ${TAG}_Index_$$
+bCheck ${TAG}_Index_$$
 
 ls out/*/*_postProcess.bam \
   | xargs -n 1 bsub -o LSF.06.QC/ -J ${TAG}_TSSE_$$ \
     -W 359 -n 16 -R "rusage[mem=8]" \
     $SDIR/bin/computeTSSEnrich.sh
 
+bSync ${TAG}_TSSE_$$
+bCheck ${TAG}_TSSE_$$
+
 Rscript $SDIR/plotINSStats.R
 Rscript $SDIR/R/analyzeATAC.R sampleManifest.csv
 
-echo -e "\n\nMay want to check sampleManifest.csv"
-echo -e "and rerun"
-echo -e "    Rscript \$SDIR/plotINSStats.R\n\n"
-echo -e "    Rscript \$SDIR/R/analyzeATAC.R sampleManifest.csv\n\n"
+tee -a CHECK_RUN.txt << 'EOF'
+
+May want to check sampleManifest.csv
+and rerun
+
+    Rscript $SDIR/plotINSStats.R
+
+    Rscript $SDIR/R/analyzeATAC.R sampleManifest.csv
+
+and copy output to `atacSeq/metrics`
+
+EOF
 
 mkdir -p atacSeq/atlas
 mkdir atacSeq/bigwig atacSeq/macs
@@ -170,14 +182,26 @@ mkdir -p out/postBams
 mkdir out/metrics
 mkdir out/bed
 
-# mv macsPeaksMerged* atacSeq/atlas
-# mv *_postProcess.shifted.10mNorm.bw atacSeq/bigwig
-# cp -val callpeaks/* atacSeq/macs
-# cp *__postInsDistribution.pdf *__ATACSeqQC.pdf atacSeq/metrics
+FAILED_JOBS=$(find LSF* -name "*.out" | fgrep -v LSF.CTRL | xargs parseLSF.py | fgrep -v Successfully || true)
 
-# mv *_postProcess.bam out/postBams
-# mv *___INS.* out/metrics/
-# mv *shifted.bed.gz out/bed
-# mv *shifted.bed.gz.md5 out/bed
+if [ "$FAILED_JOBS" != "" ]; then
+  echo -e "\n\n\nFailed LSF jobs\n\n"
+  find LSF* -name "*.out" | fgrep -v LSF.CTRL | xargs parseLSF.py | fgrep -v Successfully
+  echo -e "\n\n"
+  exit 1
+fi
 
-module unload bedtools
+mv macsPeaksMerged* atacSeq/atlas
+cp peaks_raw_fcCounts.txt* atacSeq/atlas/
+mv *_postProcess.shifted.10mNorm.bw atacSeq/bigwig
+cp -val callpeaks/* atacSeq/macs
+cp *__postInsDistribution.pdf *__ATACSeqQC.pdf atacSeq/metrics
+
+cp -val out/*/*___INS.* atacSeq/metrics
+
+if [ ! -e atacSeq/atlas/macsPeaksMerged.saf ]; then
+    echo
+    echo ERROR Postprocessing failed
+    echo
+    exit 1
+fi
