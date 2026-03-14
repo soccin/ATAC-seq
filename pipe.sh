@@ -198,6 +198,7 @@ cp -val callpeaks/* atacSeq/macs
 cp *__postInsDistribution.pdf *__ATACSeqQC.pdf atacSeq/metrics
 
 cp -val out/*/*___INS.* atacSeq/metrics
+cp -val out/*/*enrich* atacSeq/metrics
 
 if [ ! -e atacSeq/atlas/macsPeaksMerged.saf ]; then
     echo

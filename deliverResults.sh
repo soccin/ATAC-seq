@@ -14,22 +14,6 @@ fi
 
 echo \$RESDIR=$RESDIR $(realpath $RESDIR)
 
-if [ -e "macsPeaksMerged.saf" ]; then
-    echo
-    echo "Need to run postProcessing file move/copy"
-    echo
-
-    mv macsPeaksMerged* atacSeq/atlas
-    cp peaks_raw_fcCounts.txt* atacSeq/atlas/
-    mv *_postProcess.shifted.10mNorm.bw atacSeq/bigwig
-    cp -val callpeaks/* atacSeq/macs
-    cp *__postInsDistribution.pdf *__ATACSeqQC.pdf atacSeq/metrics
-
-    cp -val out/*/*___INS.* atacSeq/metrics
-    cp -val out/*/*enrich* atacSeq/metrics
-
-fi
-
 if [ ! -e atacSeq/atlas/macsPeaksMerged.saf ]; then
     echo
     echo ERROR Postprocessing failed
