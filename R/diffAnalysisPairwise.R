@@ -9,7 +9,10 @@ USAGE:
   Rscript diffAnalysisPairwise.R GENOME MANIFEST COMPARISONS [RUNTAG]
 
 REQUIRED ARGUMENTS:
-  GENOME        Genome assembly: 'human' or 'mouse'
+  GENOME        Genome assembly, one of:
+                  hg19   human, UCSC hg19 (org.Hs.eg.db)
+                  b38    human, UCSC hg38 (org.Hs.eg.db)
+                  mm10   mouse, UCSC mm10 (org.Mm.eg.db)
   MANIFEST      Sample manifest CSV file (with header row)
   COMPARISONS   Comparison pairs CSV file (NO header row)
 
@@ -50,8 +53,8 @@ COMPARISONS FILE FORMAT (NO header):
 
 --------------------------------------------------------------------------------
 EXAMPLE USAGE:
-  Rscript diffAnalysisPairwise.R mouse R/sampleManifest.csv R/comparisions.csv
-  Rscript diffAnalysisPairwise.R mouse manifest.csv comps.csv run1
+  Rscript diffAnalysisPairwise.R mm10 R/sampleManifest.csv R/comparisions.csv
+  Rscript diffAnalysisPairwise.R b38 manifest.csv comps.csv run1
 
 ================================================================================
 
@@ -189,12 +192,12 @@ if (GENOME == "hg19") {
 } else if (GENOME == "b38") {
   txdb <- TxDb.Hsapiens.UCSC.hg38.knownGene::TxDb.Hsapiens.UCSC.hg38.knownGene
   annoDb <- "org.Hs.eg.db"
-} else if (GENOME == "mouse") {
+} else if (GENOME == "mm10") {
   txdb <- TxDb.Mmusculus.UCSC.mm10.knownGene::TxDb.Mmusculus.UCSC.mm10.knownGene
   annoDb <- "org.Mm.eg.db"
 } else {
   cat("\n\tUnknown GENOME", GENOME, "\n")
-  cat("\tValid genomes: human, mouse\n\n")
+  cat("\tValid genomes: hg19, b38, mm10\n\n")
   quit()
 }
 
