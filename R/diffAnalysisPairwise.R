@@ -297,10 +297,12 @@ dge <- estimateDisp(dge, design)
 #' @param dge_object DGEList object containing normalized counts
 #' @param design Design matrix from full dataset
 #' @param contrast Contrast vector defining comparison
+#' @param group1 Character name of the baseline group (X1 in comparisons file)
+#' @param group2 Character name of the test group (X2 in comparisons file)
 #' @param fdr_cut FDR cutoff for significance (default: 0.05)
-#' @return List with results table, comparison name, MA plot, and volcano plot
+#' @return List with results table, comparison label/tag, MA plot, volcano plot
 do_differential_analysis <- function(dge_object, design, contrast,
-                                     fdr_cut = 0.05) {
+                                     group1, group2, fdr_cut = 0.05) {
 
   cat("Num peaks =", nrow(dge_object), "\n")
   cat("\nRefiltering peaks for this comparison\n\n")
@@ -325,13 +327,11 @@ do_differential_analysis <- function(dge_object, design, contrast,
   lrt <- glmLRT(fit, contrast = comp_contrast)
   model <- lrt
 
-  # Create comparison tag for labeling
-  comparison_string <- model$comparison
-  comp_tag <- paste0(sort(strsplit(comparison_string, " ")[[1]],
-                          decreasing = TRUE), collapse = "") |>
-    gsub("-1\\*", "-", x = _) |>
-    gsub("^1\\*", "", x = _) |>
-    gsub("gComp", "", x = _)
+  # Build comparison labels from the group names (contrast is group2 - group1)
+  # comp_label: human readable, used for plot titles
+  # comp_tag:   filename/sheet safe, used for Excel worksheet names
+  comp_label <- str_c(group2, " vs ", group1)
+  comp_tag <- str_c(group2, "_v_", group1)
 
   # Extract and process results table
   results_table <- model$table |>
@@ -358,7 +358,7 @@ do_differential_analysis <- function(dge_object, design, contrast,
     theme_light(base_size = 16) +
     rasterize(geom_point()) +
     scale_color_manual(values = c("#7f7f7f33", "#e31a1c")) +
-    ggtitle(comp_tag) +
+    ggtitle(comp_label) +
     scale_y_continuous(limits = c(-1, 1) * max_logfc)
 
   # Create volcano plot (PValue.mod clipped for readability)
@@ -369,7 +369,7 @@ do_differential_analysis <- function(dge_object, design, contrast,
     scale_y_continuous(trans = reverselog_trans(10)) +
     scale_x_continuous(limits = c(-1, 1) * max_logfc) +
     scale_color_manual(values = c("#7f7f7f33", "#e31a1c")) +
-    ggtitle(comp_tag)
+    ggtitle(comp_label)
 
   # Filter for significant peaks (exclude mitochondrial)
   sig_results <- results_table |>
@@ -408,13 +408,14 @@ do_differential_analysis <- function(dge_object, design, contrast,
 
     final_table <- sig_results |> left_join(gene_info, by = "PeakNo")
   } else {
-    cat("\n   No significant peaks for", comp_tag, "at FDR", fdr_cut, "\n\n")
+    cat("\n   No significant peaks for", comp_label, "at FDR", fdr_cut, "\n\n")
     final_table <- sig_results
   }
 
   list(
     tbl = final_table,
     comparison = comp_tag,
+    label = comp_label,
     p.ma = ma_plot,
     p.vc = volcano_plot,
     model = model
@@ -448,7 +449,9 @@ for (comparison_pair in transpose(comparisons)) {
   }
 
   results_list[[len(results_list) + 1]] <-
-    do_differential_analysis(dge, design, contrast)
+    do_differential_analysis(dge, design, contrast,
+                             group1 = comparison_pair$X1,
+                             group2 = comparison_pair$X2)
 }
 cat("========================================================\n")
 cat("========================================================\n\n")
@@ -465,11 +468,21 @@ summary_stats <- map(result_tables, nrow) |>
   gather(Comparison, NumSig)
 
 # Write results to Excel file
+# Built sheet-by-sheet rather than with write.xlsx() because zoom can only be
+# set when the worksheet is created; the Summary sheet gets 150% zoom and
+# auto-fitted column widths.
 output_xlsx <- cc(project_id, RUNTAG, "DiffPeaksEdgeR_V3.xlsx")
-write.xlsx(
-  c(list(Summary = summary_stats), result_tables),
-  output_xlsx
-)
+xlsx_sheets <- c(list(Summary = summary_stats), result_tables)
+
+wb <- createWorkbook()
+iwalk(xlsx_sheets, \(sheet_data, sheet_name) {
+  addWorksheet(wb, sheet_name, zoom = if (sheet_name == "Summary") 150 else 100)
+  writeData(wb, sheet_name, sheet_data)
+})
+setColWidths(wb, "Summary", cols = seq_len(ncol(summary_stats)),
+             widths = "auto")
+
+saveWorkbook(wb, output_xlsx, overwrite = TRUE)
 
 # Generate PDF with PCA and differential analysis plots
 output_pdf <- cc(project_id, RUNTAG, "DiffPeaks_V3.pdf")
