@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Features
+
+- **b37 TSS enrichment references** (2026-08-23): Stage 7
+  (`bin/computeTSSEnrich.sh` / `tss_enrich.R`) can now score b37 alignments.
+  Add `R/TSSEnrich/lib/b37_tss.bed` (ENCODE hg19 unique GENCODE TSS with the
+  `chr` prefix stripped to match b37 contig names `1`, `2`, …, `MT`) and
+  `R/TSSEnrich/lib/b37.chrom.sizes` (contig sizes taken from a b37 BAM
+  `@SQ` header, not from ENCODE or UCSC). Add `R/TSSEnrich/lib/getB37.sh` to
+  regenerate both files from any b37 BAM.
+
+### Documentation
+
+- Add `R/TSSEnrich/README.md` documenting the TSS enrichment module: where
+  `lib/b38_tss.bed` and `lib/b38.chrom.sizes` actually came from (ENCODE's
+  ATAQC reference bucket and the GDC GRCh38.d1.vd1 sequence set respectively,
+  with verifying md5s dated 2026-08-23), the juno porting/validation history
+  behind `tss_enrich.R`, and download recipes for adding hg19, mm9, and mm10
+  lib files or building a TSS BED from a GENCODE GTF for unsupported builds.
+
 ## [v1.1.0] — 2026-03-12
 
 ### Features
