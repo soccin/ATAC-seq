@@ -27,8 +27,17 @@ ATAC_START=${ATAC_START:-$(date -d '-1 hour' +%Y-%m-%dT%H:%M:%S)}
 # running. bSync.sh takes a regex, so anchor it: unanchored, JOBNAME would
 # also match JOBNAME<more digits> from a concurrent run.
 #
+# bSync.sh runs in the background and is waited on. scancel and the time
+# limit send SIGTERM to the batch shell only, and bash runs a trap only
+# after its foreground child exits, so with bSync.sh in the foreground the
+# caller's trap never ran before the SIGKILL KillWait (30 s) later. The
+# wait builtin returns as soon as a trapped signal arrives. BSYNC_PID lets
+# the trap stop the orphaned bSync.sh.
+#
 bSync() {
-    bSync.sh "^$1\$"
+    bSync.sh "^$1\$" &
+    BSYNC_PID=$!
+    wait $BSYNC_PID
 }
 
 # sacctByName JOBNAME

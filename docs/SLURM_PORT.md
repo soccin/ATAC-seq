@@ -55,12 +55,49 @@ for every job with the stage name since `ATAC_START` and aborts on any
 State other than `COMPLETED`. Match State, never ExitCode: an OOM kill
 reports `OUT_OF_MEMORY` with `ExitCode=0:125`. `pipe.sh` ends with
 `bCheckAll "^qATAC-Seq_.*_<pid>$"`, the replacement for the old
-`parseLSF.py | fgrep -v Successfully` sweep, and an `EXIT` trap that
-`scancel`s the rest of the run's queue when the control job aborts.
+`parseLSF.py | fgrep -v Successfully` sweep.
+
+That is enough for the control job to stop on a failure, but not for a
+person to find out afterwards whether a run worked. Under LSF every log
+ended with `Successfully completed.` or `Exited with exit code N`; under
+Slurm a killed control job leaves a log that just stops. `pipe.sh`
+therefore keeps three records in the analysis directory, following the
+PEMapper port:
+
+| Record | Written by | Content |
+| --- | --- | --- |
+| `00.RUNSTATUS.txt` | `pipe.sh` | `STATUS=RUNNING`, then `COMPLETED` or `FAILED`; the `STAGE` reached, `RC`, `MESSAGE`, control job id and log, `ATAC_START`, version, genome, samples, BAMs. Once the R reports have run, the post-run notes (formerly `00.POST_RUN.txt`) follow the `KEY=VALUE` block |
+| `SLURM.CTRL/jobs.tsv` | `pipe.sh` (`atacSub`) | one line per stage job: job id, stage, sample, log path |
+| `#ATAC_EXIT=<rc>` | `bin/runStage.sh` | last line of every stage log; every `bsub` goes through this runner |
+
+`STATUS=COMPLETED` is written only as the last action of `pipe.sh`, after a
+check that every sample has its bigWig, peak file, insert-size metrics and
+TSS enrichment and that the atlas, count matrix, scale factors and QC
+PDFs exist. Any earlier exit runs the `EXIT` trap, which writes
+`STATUS=FAILED` with the stage and cancels the rest of the run's jobs.
+
+`bin/checkRun.sh`, run from the analysis directory (or given its path),
+reads the three records with `sacct` and exits 0 if the run worked, 1 if
+it failed and 2 if it is still running. It does not take `STATUS=RUNNING`
+at its word: if the control job was killed outright (SIGKILL on its
+memory cap, node failure) the trap cannot run, the file stays at
+`RUNNING`, and `checkRun.sh` reports `FAILED` because `sacct` shows the
+control job ended. A stage log without an `#ATAC_EXIT=` line belongs to a
+job that never reached the end of its script.
 
 ```bash
+/path/to/ATAC-seq/bin/checkRun.sh          # in the analysis directory
+grep -L "#ATAC_EXIT=0" SLURM.0*/*.out      # stage logs that did not exit 0
 sacct -X -u $USER -S <ATAC_START> --format=JobID,JobName%40,State,ExitCode,Elapsed
 ```
+
+`scancel` and the time limit send SIGTERM to the batch shell only, and
+bash runs a trap only once its foreground child exits; Slurm sends
+SIGKILL 30 s later (`KillWait`). `bSync` therefore runs `bSync.sh` in the
+background and `wait`s on it, so the trap runs at once while the control
+job is waiting on a stage, which is nearly all of its run time. During
+the R reports at the end of the run the trap may not get to run; then
+`checkRun.sh` still reports the run `FAILED` from `sacct`.
 
 ## Environment changes
 
@@ -81,6 +118,13 @@ under Slurm the job ends when the script exits and picard would be killed
 mid-write. It now `wait`s, runs under `pipefail`, and exits non-zero on any
 failed step so `bCheck` sees it. `makeBigWigFromBEDZ.sh` and
 `mergePeaksToSAF.sh` run under `pipefail` for the same reason.
+
+Added after v1.5.0: `callPeaks_ATACSeq.sh` runs under `pipefail` and stops
+if its chromosome filter fails, rather than running MACS2 on a truncated
+BED. `makeBigWigFromBEDZ.sh` checks the read count that sets its scale
+factor (and rejects zero) and the bigWig build itself. `pipe.sh` `usage`
+exits 1, and `pipe.sh` stops up front if a BAM has no `@RG SM` tag or two
+BAMs share one.
 
 ## Validation
 
