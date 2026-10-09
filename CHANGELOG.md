@@ -16,6 +16,9 @@ All notable changes to this project will be documented in this file.
   that was killed before it could update the status file. `COMPLETED`
   now requires every sample's bigWig, peak file, insert-size metrics and
   TSS enrichment, not just `macsPeaksMerged.saf`.
+- `00.POST_RUN.txt` is gone: its notes now follow the status block in
+  `00.RUNSTATUS.txt` once the R reports have run, with `$SDIR` expanded
+  to the real path.
 
 ### Fixes
 

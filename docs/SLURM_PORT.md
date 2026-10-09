@@ -66,7 +66,7 @@ PEMapper port:
 
 | Record | Written by | Content |
 | --- | --- | --- |
-| `00.RUNSTATUS.txt` | `pipe.sh` | `STATUS=RUNNING`, then `COMPLETED` or `FAILED`; the `STAGE` reached, `RC`, `MESSAGE`, control job id and log, `ATAC_START`, version, genome, samples, BAMs |
+| `00.RUNSTATUS.txt` | `pipe.sh` | `STATUS=RUNNING`, then `COMPLETED` or `FAILED`; the `STAGE` reached, `RC`, `MESSAGE`, control job id and log, `ATAC_START`, version, genome, samples, BAMs. Once the R reports have run, the post-run notes (formerly `00.POST_RUN.txt`) follow the `KEY=VALUE` block |
 | `SLURM.CTRL/jobs.tsv` | `pipe.sh` (`atacSub`) | one line per stage job: job id, stage, sample, log path |
 | `#ATAC_EXIT=<rc>` | `bin/runStage.sh` | last line of every stage log; every `bsub` goes through this runner |
 
