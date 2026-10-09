@@ -128,7 +128,9 @@ RUNRE="^${TAG}_.*_$$\$"
 #                        trap. If the control job is killed outright
 #                        (SIGKILL on its memory cap, node failure) the
 #                        file stays at RUNNING and checkRun.sh finds the
-#                        control job dead in sacct.
+#                        control job dead in sacct. Once the R reports
+#                        have run, the post-run notes (formerly
+#                        00.POST_RUN.txt) follow the KEY=VALUE block.
 #
 #   SLURM.CTRL/jobs.tsv  one line per stage job: job id, stage, sample
 #                        and log path, written at submission.
@@ -151,8 +153,30 @@ RUN_MESSAGE=""
 RUN_STARTED=$(date '+%Y-%m-%d %H:%M:%S')
 RUN_FINISHED=""
 RUN_DONE=0
+RUN_REPORTS_DONE=0
 GENOME=""
 SAMPLES=""
+
+#
+# Post-run notes, appended below the status block once the R reports
+# exist. checkRun.sh reads only the KEY=VALUE lines at the top, so no
+# line here may start with KEY=.
+#
+postRunNotes() {
+    cat <<EOF
+
+# Post-run notes
+
+May want to check sampleManifest.csv
+and rerun
+
+    Rscript $SDIR/plotINSStats.R
+
+    Rscript $SDIR/R/analyzeATAC.R sampleManifest.csv
+
+and copy output to atacSeq/metrics
+EOF
+}
 
 writeRunStatus() {
     cat >$RUNSTATUS.tmp <<EOF
@@ -174,6 +198,9 @@ SAMPLES=$SAMPLES
 BAMS=$BAMS
 JOBS=$JOBS
 EOF
+    if [ "$RUN_REPORTS_DONE" == "1" ]; then
+        postRunNotes >>$RUNSTATUS.tmp
+    fi
     mv $RUNSTATUS.tmp $RUNSTATUS
 }
 
@@ -412,18 +439,8 @@ setStage REPORTS
 Rscript $SDIR/plotINSStats.R
 Rscript $SDIR/R/analyzeATAC.R sampleManifest.csv
 
-tee -a 00.POST_RUN.txt << 'EOF'
-
-May want to check sampleManifest.csv
-and rerun
-
-    Rscript $SDIR/plotINSStats.R
-
-    Rscript $SDIR/R/analyzeATAC.R sampleManifest.csv
-
-and copy output to `atacSeq/metrics`
-
-EOF
+RUN_REPORTS_DONE=1
+postRunNotes
 
 setStage STAGING
 
