@@ -2,8 +2,9 @@
 
 #
 # Control job for IRIS/Slurm. Run it from the analysis directory; every
-# stage is fanned out with ~/bin/bsub onto the short partitions and the
-# control job blocks between stages with bSync/bCheck. The control job
+# stage is fanned out with ~/bin/bsub, onto the short partitions unless
+# its input is too large (see runClass), and the control job blocks
+# between stages with bSync/bCheck. The control job
 # itself can run for hours on full-size BAMs, so the directives below put
 # it on the long partition with --qos=priority. Flags given to sbatch on
 # the command line override them.
@@ -303,37 +304,121 @@ writeRunStatus
 #
 # Scrub the Slurm variables of the control job itself. bsub submits with
 # the default --export=ALL, so they would otherwise ride along into every
-# stage job. SLURM_CONF stays; the client tools need it.
+# stage job. SLURM_CONF stays; the client tools need it. The SBATCH_*
+# input variables go too (SDIR has already been taken from
+# SBATCH_SCRIPT_DIR): one left in the submitting shell would apply to
+# every stage job, and SBATCH_QOS=priority there gets every SHORT job
+# rejected. Stage partition, walltime and qos come only from atacSub.
 #
 for V in ${!SLURM_@}; do
     if [ "$V" != "SLURM_CONF" ]; then
         unset $V
     fi
 done
+for V in ${!SBATCH_@}; do
+    unset $V
+done
 
 #
-# Short partitions for every stage: ~/bin/bsub sends anything under two
-# hours to cmobic_short,cpushort. -M is the total memory for the job and
-# a hard cgroup limit, unlike the LSF rusage[] request, which was a
-# per-slot scheduling hint.
+# Walltime classes. Every stage job is SHORT or LONG.
 #
-RUNTIME="-W 1:59:00"
+#   SHORT  -W 1:59:00, no qos. ~/bin/bsub sends anything under two hours
+#          to cmobic_short,cpushort. cpushort allows only qos=normal and
+#          EnforcePartLimits=ALL is set, so a SHORT job must not carry
+#          a qos or it is rejected ("Invalid qos specification").
+#   LONG   -W 12:00:00 and qos priority. bsub sends it to cmobic_cpu;
+#          SBATCH_QOS=priority is set on that one bsub call only.
+#
+# SHORT whenever possible: on 2026-10-08 jobs on cmobic_cpu waited 41 min
+# on average and up to 7.4 h to start. Stages whose run time grows with
+# the size of their input pick their class per job with runClass; the
+# others are always SHORT. -M is the total memory for the job and a hard
+# cgroup limit, unlike the LSF rusage[] request, which was a per-slot
+# scheduling hint.
+#
+SHORT_W=1:59:00
+LONG_W=12:00:00
 
 #
-# atacSub STAGE SAMPLE LOGDIR "BSUB_OPTS" CMD [ARG ...]
+# Minutes per GB of input, the slowest measured on a full-size run
+# (Proj_18143_B: 12 b38 samples, 4.6 to 14.1 GB BAMs, 2026-10-09) rounded
+# up; the measured range is in the comment. See docs/SLURM_PORT.md.
 #
-# Submit one stage job as ${TAG}_STAGE_$$ through bin/runStage.sh, which
-# appends #ATAC_EXIT=<rc> to the job log, and record it in $JOBS.
+RATE_POST=6        # input BAM                     3.5 to 5.3
+RATE_BW=30         # shifted.bed.gz                24.5 to 26.0
+RATE_CALLP=10      # shifted.bed.gz                8.1 to 9.5
+RATE_TSSE=3.5      # postProcess BAM               1.6 to 2.9
+RATE_COUNT=1.2     # all postProcess BAMs, summed  0.94
+
+#
+# A job is SHORT if its estimated run time is at most SHORT_MAX_MIN, half
+# the SHORT walltime, to leave room for slower nodes and a loaded shared
+# filesystem. ATAC_SHORT_MAX_MIN overrides it (0 makes every estimated
+# stage LONG).
+#
+SHORT_MAX_MIN=${ATAC_SHORT_MAX_MIN:-60}
+
+#
+# runClass MIN_PER_GB FILE [FILE ...]
+#
+# Print SHORT or LONG for a job whose input is FILE..., and log the
+# estimate on stderr.
+#
+runClass() {
+    local rate=$1
+    local bytes=0
+    local f size
+    shift
+
+    for f in "$@"; do
+        size=$(stat -L -c %s "$f") || return 1
+        bytes=$((bytes + size))
+    done
+
+    awk -v b=$bytes -v r=$rate -v m=$SHORT_MAX_MIN 'BEGIN {
+        est = b / 1e9 * r
+        class = (est <= m) ? "SHORT" : "LONG"
+        printf "    runClass %.1f GB x %s min/GB = %.0f min -> %s\n", \
+            b / 1e9, r, est, class >"/dev/stderr"
+        print class
+    }'
+}
+
+#
+# atacSub STAGE SAMPLE LOGDIR CLASS "BSUB_OPTS" CMD [ARG ...]
+#
+# Submit one stage job as ${TAG}_STAGE_$$ in walltime class CLASS (SHORT
+# or LONG) through bin/runStage.sh, which appends #ATAC_EXIT=<rc> to the
+# job log, and record it in $JOBS.
 #
 atacSub() {
     local stage=$1
     local sample=$2
     local logdir=$3
-    local opts=$4
-    local out jobid
-    shift 4
+    local class=$4
+    local opts=$5
+    local out jobid runtime
+    local qos=()
+    shift 5
 
-    if ! out=$(bsub $RUNTIME -o $logdir/ -J ${TAG}_${stage}_$$ $opts \
+    case $class in
+        SHORT)
+            runtime=$SHORT_W
+            ;;
+        LONG)
+            runtime=$LONG_W
+            qos=(SBATCH_QOS=priority)
+            ;;
+        *)
+            echo
+            echo "    FATAL: bad class [$class] for stage $stage sample $sample"
+            echo
+            exit 1
+            ;;
+    esac
+
+    if ! out=$(env "${qos[@]}" bsub -W $runtime -o $logdir/ \
+                   -J ${TAG}_${stage}_$$ $opts \
                    $SDIR/bin/runStage.sh "$@"); then
         echo "$out"
         echo
@@ -369,7 +454,8 @@ waitStage() {
 setStage SUBMIT
 
 for BAM in $BAMS; do
-    atacSub POST2 $(getSMTag $BAM) SLURM.01.POST "-M 32G" \
+    CLASS=$(runClass $RATE_POST $BAM)
+    atacSub POST2 $(getSMTag $BAM) SLURM.01.POST $CLASS "-M 32G" \
         $SDIR/postMapBamProcessing_ATACSeq.sh -q $MAPQ $GENOME $BAM
 done
 
@@ -377,14 +463,16 @@ waitStage POST2
 
 for BEDZ in out/*/*.bed.gz; do
     SID=$(basename $(dirname $BEDZ))
-    atacSub BW2 $SID SLURM.02.BW "-M 24G" \
+    CLASS=$(runClass $RATE_BW $BEDZ)
+    atacSub BW2 $SID SLURM.02.BW $CLASS "-M 24G" \
         $SDIR/makeBigWigFromBEDZ.sh $GENOME $BEDZ
-    atacSub CALLP2 $SID SLURM.03.CALLP "-n 3 -M 18G" \
+    CLASS=$(runClass $RATE_CALLP $BEDZ)
+    atacSub CALLP2 $SID SLURM.03.CALLP $CLASS "-n 3 -M 18G" \
         $SDIR/callPeaks_ATACSeq.sh $GENOME $BEDZ
 done
 
 for PBAM in out/*/*_postProcess.bam; do
-    atacSub Index $(basename $(dirname $PBAM)) SLURM.04c.INDEX "-M 4G" \
+    atacSub Index $(basename $(dirname $PBAM)) SLURM.04c.INDEX SHORT "-M 4G" \
         samtools index $PBAM
 done
 
@@ -397,13 +485,14 @@ waitStage CALLP2
 # numeric job ids, and an afterok whose parent failed pends forever in
 # DependencyNeverSatisfied.
 #
-atacSub MergePeaks all SLURM.04a.CALLP "-n 3 -M 24G" \
+atacSub MergePeaks all SLURM.04a.CALLP SHORT "-n 3 -M 24G" \
     $SDIR/mergePeaksToSAF.sh callpeaks \>macsPeaksMerged.saf
 
 waitStage MergePeaks
 
 PBAMS=$(ls out/*/*_postProcess.bam)
-atacSub Count all SLURM.04b.CALLP "-n 10 -M 24G" \
+CLASS=$(runClass $RATE_COUNT $PBAMS)
+atacSub Count all SLURM.04b.CALLP $CLASS "-n 10 -M 24G" \
     $SDIR/bin/featureCounts -O -Q 10 -p -T 10 \
         -F SAF -a macsPeaksMerged.saf \
         -o peaks_raw_fcCounts.txt \
@@ -411,7 +500,7 @@ atacSub Count all SLURM.04b.CALLP "-n 10 -M 24G" \
 
 waitStage Count
 
-atacSub DESEQ all SLURM.05.DESEQ "-M 24G" \
+atacSub DESEQ all SLURM.05.DESEQ SHORT "-M 24G" \
     Rscript --no-save $SDIR/R/getDESeqScaleFactors.R
 
 setStage MANIFEST
@@ -428,7 +517,8 @@ waitStage DESEQ
 waitStage Index
 
 for PBAM in out/*/*_postProcess.bam; do
-    atacSub TSSE $(basename $(dirname $PBAM)) SLURM.06.QC "-n 2 -M 32G" \
+    CLASS=$(runClass $RATE_TSSE $PBAM)
+    atacSub TSSE $(basename $(dirname $PBAM)) SLURM.06.QC $CLASS "-n 2 -M 32G" \
         $SDIR/bin/computeTSSEnrich.sh $PBAM
 done
 
