@@ -2,7 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [v1.5.0] — 2026-10-09
+
+### Breaking changes
+
+- The pipeline runs only on IRIS/Slurm. LSF support is removed; there is
+  no backward compatibility with JUNO. Submit with
+  `sbatch /path/to/ATAC-seq/pipe.sh` through the `~/bin/sbatch` wrapper
+  after `mkdir -p SLURM.CTRL`. `pipe.sh` stops with an error if
+  `SBATCH_SCRIPT_DIR` is not set. Stage logs move from `LSF.*/` to
+  `SLURM.*/`.
 
 ### Features
 
@@ -21,9 +30,17 @@ All notable changes to this project will be documented in this file.
   `-w post_done()` (Slurm dependencies need numeric ids). `bin/lsfTools.sh`
   moved to `attic/`. See `docs/SLURM_PORT.md`. Validated end to end
   2026-10-08 on 11 b38 BAMs downsampled 100x (control job 18237528,
-  70 stage jobs, all COMPLETED, 5m38s wall).
+  70 stage jobs, all COMPLETED, 5m38s wall), and again with the control
+  job submitted through `~/bin/sbatch` (18243589, COMPLETED, 5m26s).
 - `00.SETUP.sh`: build the venv from the `python3` on PATH; MACS2 2.2.9.1
   and IDR 2.0.3 install under python 3.10, so the 3.9 requirement is gone.
+- **b37 TSS enrichment references** (2026-08-23): Stage 7
+  (`bin/computeTSSEnrich.sh` / `tss_enrich.R`) can now score b37 alignments.
+  Add `R/TSSEnrich/lib/b37_tss.bed` (ENCODE hg19 unique GENCODE TSS with the
+  `chr` prefix stripped to match b37 contig names `1`, `2`, …, `MT`) and
+  `R/TSSEnrich/lib/b37.chrom.sizes` (contig sizes taken from a b37 BAM
+  `@SQ` header, not from ENCODE or UCSC). Add `R/TSSEnrich/lib/getB37.sh` to
+  regenerate both files from any b37 BAM.
 
 ### Fixes
 
@@ -34,14 +51,6 @@ All notable changes to this project will be documented in this file.
 - `callPeaks_ATACSeq.sh`: remove the scratch directory after MACS2.
 - `R/analyzeATAC.R`: drop the unused `ChIPseeker` import.
 
-- **b37 TSS enrichment references** (2026-08-23): Stage 7
-  (`bin/computeTSSEnrich.sh` / `tss_enrich.R`) can now score b37 alignments.
-  Add `R/TSSEnrich/lib/b37_tss.bed` (ENCODE hg19 unique GENCODE TSS with the
-  `chr` prefix stripped to match b37 contig names `1`, `2`, …, `MT`) and
-  `R/TSSEnrich/lib/b37.chrom.sizes` (contig sizes taken from a b37 BAM
-  `@SQ` header, not from ENCODE or UCSC). Add `R/TSSEnrich/lib/getB37.sh` to
-  regenerate both files from any b37 BAM.
-
 ### Documentation
 
 - Add `R/TSSEnrich/README.md` documenting the TSS enrichment module: where
@@ -50,6 +59,15 @@ All notable changes to this project will be documented in this file.
   with verifying md5s dated 2026-08-23), the juno porting/validation history
   behind `tss_enrich.R`, and download recipes for adding hg19, mm9, and mm10
   lib files or building a TSS BED from a GENCODE GTF for unsupported builds.
+- Add `docs/SLURM_PORT.md` (flag translation, resource choices, validation
+  runs) and update `README.md` and `CLAUDE.md` for IRIS/Slurm.
+
+### Known issues
+
+- `deliverResults.sh` still points at the JUNO paths
+  `/ifs/res/seq/pi/invest` and `~/Code/BIC/Delivery`. Deliver by hand.
+- Stage walltimes and memory were measured only on downsampled BAMs. All
+  stages run under the two-hour short partition limit.
 
 ## [v1.1.0] — 2026-03-12
 

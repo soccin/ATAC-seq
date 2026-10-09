@@ -52,11 +52,9 @@ two hours) with `-M` as a hard total-memory cap. If a stage needs longer on
 real data, give it `-W` over two hours so the shim picks `cmobic_cpu`, and
 export `SBATCH_QOS=priority` for that call only.
 
-Deliver results after a successful run:
-
-```bash
-./deliverResults.sh /ifs/res/seq/pi/invest/r_###
-```
+`deliverResults.sh` has not been ported: it still points at the JUNO
+paths `/ifs/res/seq/pi/invest` and `~/Code/BIC/Delivery`. Deliver the
+`atacSeq/` directory by hand until it is updated.
 
 ## Pipeline stages (pipe.sh)
 
@@ -107,8 +105,9 @@ Chromosome filtering is allowlist-driven: `lib/genomes/<build>.genome` (chrom
 sizes) and `lib/genomes/<build>.genome.bed` (regions to keep) are intersected
 with `bedtools intersect -nonamecheck`. Do not reintroduce `egrep -v` denylists.
 
-`R/TSSEnrich/lib/` currently ships **only** `b38_tss.bed` / `b38.chrom.sizes`,
-so stage 7 fails for any other build until the matching files are added.
+`R/TSSEnrich/lib/` ships only `b38` and `b37` files (`<build>_tss.bed`,
+`<build>.chrom.sizes`), so stage 7 fails for any other build until the
+matching files are added.
 
 ## Cross-stage conventions
 

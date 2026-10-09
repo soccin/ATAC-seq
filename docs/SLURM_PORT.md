@@ -1,8 +1,9 @@
 # Porting the ATAC-seq pipeline from JUNO/LSF to IRIS/Slurm
 
-Done 2026-10-08 on `feat/slurm`. JUNO is gone, so there is no LSF path left
-in the code; `attic/lsfTools.sh` is reference only. The PEMapper port
-(`Proj_18143_B/PEMapper/docs/LSF_SLURM_PORT.md`) was the guide; the cluster
+Done 2026-10-08 on `feat/slurm`; released in v1.5.0. JUNO is gone, so
+there is no LSF path left in the code; `attic/lsfTools.sh` is reference
+only. The PEMapper port (`Proj_18143_B/PEMapper/docs/LSF_SLURM_PORT.md`)
+was the guide; the cluster
 facts measured there (hard memory caps, no epilogue in the job log, no
 name-glob dependencies, `kill_invalid_depend` off) all apply here.
 
