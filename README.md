@@ -16,6 +16,16 @@ mkdir -p SLURM.CTRL
 sbatch /path/to/ATAC-seq/pipe.sh [-q MAPQ] BAM1 [BAM2 ...]
 ```
 
+To find out whether the run worked, at any time, from the same directory:
+
+```
+/path/to/ATAC-seq/bin/checkRun.sh
+```
+
+It prints `ATAC STATUS: OK`, `FAILED` or `RUNNING` with the stage, the
+failed jobs and their logs, and exits 0, 1 or 2. The raw status is in
+`00.RUNSTATUS.txt`.
+
 - Post-alignment filtering:
 
     - Mark Duplicates

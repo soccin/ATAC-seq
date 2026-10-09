@@ -47,6 +47,26 @@ recycle. The helpers are in `bin/slurmTools.sh`; `bSync.sh` itself lives in
 each has its own usage block. See `docs/SLURM_PORT.md` for the flag
 translation and the reasoning behind the resource requests.
 
+Whether a run worked is answered by `bin/checkRun.sh` (exit 0 worked, 1
+failed, 2 running), run from the analysis directory. It reads three records
+that `pipe.sh` keeps, plus `sacct`:
+
+- `00.RUNSTATUS.txt`: `STATUS=RUNNING|COMPLETED|FAILED`, the `STAGE`
+  reached, and the control job id. `COMPLETED` is written only as the last
+  line of `pipe.sh`, after the per-sample deliverables check; the `EXIT`
+  trap writes `FAILED`. A new control-job step must call `setStage NAME`
+  and a new deliverable belongs in that check.
+- `SLURM.CTRL/jobs.tsv`: job id, stage, sample and log of every stage job.
+  Submit stage jobs with `atacSub STAGE SAMPLE LOGDIR "BSUB_OPTS" CMD ...`
+  and wait with `waitStage STAGE`, never with a bare `bsub`, or the job is
+  missing from the manifest and its log has no exit trailer.
+- `#ATAC_EXIT=<rc>`: the last line of every stage log, written to stderr
+  by `bin/runStage.sh`, which `atacSub` puts in front of every command.
+
+Stage scripts must exit nonzero on any failed step (`pipefail` plus an
+explicit check), or `sacct`, `bCheck` and the trailer all report a failed
+step as `COMPLETED`.
+
 Every stage runs on the short partitions (`cmobic_short,cpushort`, under
 two hours) with `-M` as a hard total-memory cap. If a stage needs longer on
 real data, give it `-W` over two hours so the shim picks `cmobic_cpu`, and

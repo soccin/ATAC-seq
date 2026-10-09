@@ -2,6 +2,35 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Features
+
+- **Run status** (2026-10-09): there is now a way to tell whether a run
+  worked. `pipe.sh` writes `00.RUNSTATUS.txt` (`STATUS=RUNNING`, then
+  `COMPLETED` or `FAILED` with the stage it failed in) and a manifest of
+  every stage job, `SLURM.CTRL/jobs.tsv`. Every stage job runs through
+  the new `bin/runStage.sh`, which ends its log with `#ATAC_EXIT=<rc>`.
+  The new `bin/checkRun.sh` reads these with `sacct` and exits 0
+  (worked), 1 (failed) or 2 (running); it also reports a control job
+  that was killed before it could update the status file. `COMPLETED`
+  now requires every sample's bigWig, peak file, insert-size metrics and
+  TSS enrichment, not just `macsPeaksMerged.saf`.
+
+### Fixes
+
+- `callPeaks_ATACSeq.sh` runs under `pipefail` and stops if its
+  chromosome filter fails; `makeBigWigFromBEDZ.sh` checks its read count
+  and bigWig build. Both could exit 0 after a failed step.
+- `pipe.sh` `usage` exits 1, so a submission without BAMs no longer shows
+  `COMPLETED`.
+- `pipe.sh` stops before submitting anything if a BAM has no `@RG SM` tag
+  or two BAMs share one.
+- `scancel` or a time limit on the control job now cancels the run's
+  stage jobs. The `EXIT` trap never ran before: Slurm signals only the
+  batch shell, which did not run the trap while `bSync.sh` was in the
+  foreground. `bSync` now waits on it in the background.
+
 ## [v1.5.0] — 2026-10-09
 
 ### Breaking changes
