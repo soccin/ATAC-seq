@@ -2,6 +2,21 @@
 
 SDIR="$( cd "$( dirname "$0" )" && pwd )"
 
+. $SDIR/bin/loadTools.sh
+
+#
+# picard is the ~/bin wrapper (java -Xmx24g). The pipe.sh call site asks
+# -M 32G to leave room for the JVM overhead above that heap.
+#
+if ! command -v picard >/dev/null 2>&1; then
+    echo
+    echo "    FATAL ERROR: picard not on PATH"
+    echo
+    exit 1
+fi
+
+set -o pipefail
+
 usage() {
     echo
     echo "    usage: postMapBamProcessing_ATACSeq.sh [(-q | --mapq) MAPQ] GENOME INPUT_BAM [OUTPUT_BAM]"
@@ -87,8 +102,11 @@ else
 
 fi
 
-TDIR=/scratch/socci/_scratch_ATACSeq/$(uuidgen -t)
-#TDIR=_scratch_ATACSeq/$(uuidgen -t)
+#
+# Intermediates go to shared scratch (WekaFS, visible from every node).
+# /scratch/socci, the JUNO path, is gone.
+#
+TDIR=${ATAC_SCRATCH_ROOT:-/scratch/core001/bic/$USER/ATACSeq}/$(uuidgen -t)
 mkdir -p $TDIR
 echo $TDIR
 
@@ -98,9 +116,18 @@ echo $TDIR
 #
 samtools view -h -q $MAPQ -f 3 -F 1804 $IBAM \
     | awk 'substr($0,1,1)=="@" || sqrt($9*$9)>30' \
-    | samtools view -Sb - >$TDIR/step1.bam
-picardV2 SortSam I=$TDIR/step1.bam O=$OBAM SO=coordinate MAX_RECORDS_IN_RAM=5000000
-picardV2 CollectInsertSizeMetrics LEVEL=null LEVEL=SAMPLE I=$OBAM O=${OBAM/.bam/___INS.txt} H=${OBAM/.bam/___INS.pdf} &
+    | samtools view -Sb - >$TDIR/step1.bam \
+    || { echo "FATAL ERROR: filter step failed"; exit 1; }
+
+picard SortSam I=$TDIR/step1.bam O=$OBAM SO=coordinate MAX_RECORDS_IN_RAM=5000000 \
+    || { echo "FATAL ERROR: SortSam failed"; exit 1; }
+
+#
+# Runs in the background while the BED is built; waited on below so the
+# job does not end, and Slurm does not kill it, before it has finished.
+#
+picard CollectInsertSizeMetrics LEVEL=null LEVEL=SAMPLE I=$OBAM O=${OBAM/.bam/___INS.txt} H=${OBAM/.bam/___INS.pdf} &
+INS_PID=$!
 
 #
 # Do Tn5 shift and remove non-standard chromosomes (keep those in genome)
@@ -111,8 +138,10 @@ samtools view -b $OBAM \
     | bedtools intersect -nonamecheck -a - -b $GENOME_BED \
     | awk -F'\t' \
         'BEGIN {OFS = FS} { if ($6 == "+") {$2 = $2 + 4} else if ($6 == "-") {$3 = $3 - 5} print $0}' \
-    | gzip -nc >${OBAM/.bam/.shifted.bed.gz}
+    | gzip -nc >${OBAM/.bam/.shifted.bed.gz} \
+    || { echo "FATAL ERROR: Tn5 shift / bamtobed failed"; exit 1; }
+
+wait $INS_PID || { echo "FATAL ERROR: CollectInsertSizeMetrics failed"; exit 1; }
 
 rm -rf $TDIR
 md5sum ${OBAM/.bam/.shifted.bed.gz} >${OBAM/.bam/.shifted.bed.gz}.md5
-

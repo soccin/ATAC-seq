@@ -1,10 +1,20 @@
 # ATAC-Seq pipeline
 
-## Version 1.1.0 - 2026-03-12
+## Version 1.5.0 - 2026-10-09
 
 Single end version which uses both reads from PE-runs. Using methods from R.K. for bigWig generation.
 
-Need to install MACS2 locally in venv. See below
+Need to install MACS2 locally in venv. See below.
+
+Runs on IRIS/Slurm. From the analysis directory, with `~/bin/sbatch` on
+PATH (it exports `SBATCH_SCRIPT_DIR`, which `pipe.sh` needs to find its
+own checkout; the partition, qos, time and memory are `#SBATCH` directives
+in `pipe.sh`):
+
+```
+mkdir -p SLURM.CTRL
+sbatch /path/to/ATAC-seq/pipe.sh [-q MAPQ] BAM1 [BAM2 ...]
+```
 
 - Post-alignment filtering:
 
@@ -45,9 +55,8 @@ Example inputs:
 
 ## MACS2, IDR Installation
 
-Note we need python 3.8+ for idr. Python 3.8 on JUNO is broken (SSL junk) so use
-private version. 3.10 does not work because MACS2 version checking is broken so
-us 3.9.
+MACS2 2.2.9.1 and IDR 2.0.3 both build under the python 3.10 on the IRIS
+PATH, so the venv uses whatever `python3` is current.
 
 In root of ATAC-seq repo
 

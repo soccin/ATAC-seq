@@ -4,10 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repo is
 
-An ATAC-seq analysis pipeline (bash + R) that runs on the MSKCC JUNO/LSF
-cluster. It takes **already-aligned BAMs** as input and produces filtered
-BAMs, Tn5-shifted BEDs, bigWigs, MACS2 peak calls, a merged peak atlas with
-a raw count matrix, QC metrics, and optional differential peak analysis.
+An ATAC-seq analysis pipeline (bash + R) that runs on the MSKCC IRIS/Slurm
+cluster (JUNO/LSF is gone; there is no backward compatibility). It takes
+**already-aligned BAMs** as input and produces filtered BAMs, Tn5-shifted
+BEDs, bigWigs, MACS2 peak calls, a merged peak atlas with a raw count
+matrix, QC metrics, and optional differential peak analysis.
 
 There is no build, no package, and no test suite. Scripts are invoked
 directly; changes are validated by running the pipeline on real data.
@@ -16,32 +17,44 @@ directly; changes are validated by running the pipeline on real data.
 
 The repo is a **toolkit directory, not a working directory**. Every script
 resolves its own location into `SDIR` and is run from a separate per-project
-analysis directory, where all outputs land (`out/`, `callpeaks/`, `LSF.*/`,
+analysis directory, where all outputs land (`out/`, `callpeaks/`, `SLURM.*/`,
 `atacSeq/`). Never assume the repo dir and the cwd are the same.
 
 Install MACS2 + IDR into a local venv once per repo checkout:
 
 ```bash
-. 00.SETUP.sh          # creates ./venv; python 3.9 is required (3.10 breaks MACS2)
+. 00.SETUP.sh          # creates ./venv from the python3 on PATH (3.10 on IRIS)
 ```
 
-Run the whole pipeline from the analysis directory:
+Run the whole pipeline from the analysis directory. `pipe.sh` carries
+`#SBATCH` directives for the long partition with `--qos=priority`. Submit it
+through `~/bin/sbatch`: Slurm runs a copy of a batch script from its spool
+directory, so `$0` is useless, and the wrapper exports `SBATCH_SCRIPT_DIR`,
+which `pipe.sh` uses for `SDIR`.
 
 ```bash
-bsub -n 1 -q control -o LSF.CTRL/ -J CTRL.ATAC /path/to/ATAC-seq/pipe.sh [-q MAPQ] BAM1 [BAM2 ...]
+mkdir -p SLURM.CTRL
+sbatch /path/to/ATAC-seq/pipe.sh [-q MAPQ] BAM1 [BAM2 ...]
 ```
 
-`pipe.sh` is the control job: it fans each stage out with `bsub`, blocks on
-`bSync JOBNAME`, then calls `bCheck JOBNAME` to abort if any job in the group
-exited. Job names embed `$$` so concurrent runs don't collide. Individual
-stage scripts can also be run standalone for debugging — each has its own
-usage block.
+`pipe.sh` is the control job: it fans each stage out with `~/bin/bsub` (the
+SchedMD openlava shim with local patches), blocks on `bSync JOBNAME`, then
+calls `bCheck JOBNAME` to abort if any job in the group did not reach
+`COMPLETED` in `sacct`. Job names embed `$$` so concurrent runs don't
+collide; every `sacct` query is bounded by `ATAC_START` because pids
+recycle. The helpers are in `bin/slurmTools.sh`; `bSync.sh` itself lives in
+`~/bin`. Individual stage scripts can also be run standalone for debugging —
+each has its own usage block. See `docs/SLURM_PORT.md` for the flag
+translation and the reasoning behind the resource requests.
 
-Deliver results after a successful run:
+Every stage runs on the short partitions (`cmobic_short,cpushort`, under
+two hours) with `-M` as a hard total-memory cap. If a stage needs longer on
+real data, give it `-W` over two hours so the shim picks `cmobic_cpu`, and
+export `SBATCH_QOS=priority` for that call only.
 
-```bash
-./deliverResults.sh /ifs/res/seq/pi/invest/r_###
-```
+`deliverResults.sh` has not been ported: it still points at the JUNO
+paths `/ifs/res/seq/pi/invest` and `~/Code/BIC/Delivery`. Deliver the
+`atacSeq/` directory by hand until it is updated.
 
 ## Pipeline stages (pipe.sh)
 
@@ -92,8 +105,9 @@ Chromosome filtering is allowlist-driven: `lib/genomes/<build>.genome` (chrom
 sizes) and `lib/genomes/<build>.genome.bed` (regions to keep) are intersected
 with `bedtools intersect -nonamecheck`. Do not reintroduce `egrep -v` denylists.
 
-`R/TSSEnrich/lib/` currently ships **only** `b38_tss.bed` / `b38.chrom.sizes`,
-so stage 7 fails for any other build until the matching files are added.
+`R/TSSEnrich/lib/` ships only `b38` and `b37` files (`<build>_tss.bed`,
+`<build>.chrom.sizes`), so stage 7 fails for any other build until the
+matching files are added.
 
 ## Cross-stage conventions
 
@@ -131,16 +145,24 @@ so stage 7 fails for any other build until the matching files are added.
 
 ## External dependencies not in this repo
 
-`bSync`, `picardV2`, `parseLSF.py`, and `convert` (ImageMagick) come from the
-cluster environment/PATH. `bin/featureCounts`, `bin/wigToBigWig`, and
-`bin/bedGraphToBigWig` are vendored Linux x86-64 binaries — they will not run
-on macOS, so anything invoking them can only be tested on the cluster.
+`sbatch` (the `SBATCH_SCRIPT_DIR` wrapper), `bsub` (the openlava shim),
+`bSync.sh`, `picard` and `bedtools` come from `~/bin`; `samtools` is loaded by `bin/loadTools.sh` via `module load
+samtools/1.20`. `sacct`, `squeue` and `scancel` are the Slurm client tools.
+Scratch for intermediates is
+`${ATAC_SCRATCH_ROOT:-/scratch/core001/bic/$USER/ATACSeq}`. R is the 4.5.1
+on PATH; `tss_enrich.R` needs `optparse`.
+
+`bin/featureCounts`, `bin/wigToBigWig`, and `bin/bedGraphToBigWig` are
+vendored Linux x86-64 binaries — they will not run on macOS, so anything
+invoking them can only be tested on the cluster.
 
 ## Docs worth reading
 
 - `NOTES.md` — R. Koche's original method spec; the source of truth for why
   bigWigs and size factors are computed the way they are.
 - `QC/QCNotes.md` — which ATAC QC metrics matter and why.
+- `docs/SLURM_PORT.md` — how the JUNO/LSF to IRIS/Slurm port was done, the
+  flag translation, and the memory and partition choices.
 - `docs/UPDATE_TO_B38.md`, `docs/CHECKLIST_B38.md` — per-file analysis of the
   b38 rollout, including remaining gaps.
 - `CHANGELOG.md` — kept current; add entries for user-visible changes.
