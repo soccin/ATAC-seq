@@ -3,6 +3,7 @@
 
 SDIR="$( cd "$( dirname "$0" )" && pwd )"
 
+. $SDIR/bin/loadTools.sh
 . $SDIR/venv/bin/activate
 MACS=macs2
 
@@ -39,7 +40,7 @@ echo \$PREFIX=$PREFIX
 ODIR=callpeaks/$PREFIX
 mkdir -p $ODIR
 
-TDIR=/scratch/socci/_scratch_ATACSeq/$(uuidgen -t)
+TDIR=${ATAC_SCRATCH_ROOT:-/scratch/core001/bic/$USER/ATACSeq}/$(uuidgen -t)
 mkdir -p $TDIR
 echo $TDIR, $ODIR
 
@@ -117,6 +118,7 @@ $MACS callpeak \
 MACS_ERROR=$?
 
 deactivate
+rm -rf $TDIR
 
 exit $MACS_ERROR
 
