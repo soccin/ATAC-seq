@@ -1,19 +1,15 @@
 #!/bin/bash
 
-module load samtools
+SDIR="$( cd "$( dirname "$0" )" && pwd )"
+
+. $SDIR/loadTools.sh
 
 if [ "$#" != "1" ]; then
-    echo usage getGenomeBuild.sh BAM
-    exit
+    echo usage getGenomeBuildBAM.sh BAM
+    exit 1
 fi
 
-SAMTOOLS=$(which samtools)
-if [ $SAMTOOLS == "" ]; then
-    echo samtools not in current path
-    exit -1
-fi
-
-GENOME_MD5=$($SAMTOOLS view -H $1 | egrep "^@SQ" | cut -f-3 | sort  | md5sum - | awk '{print $1}')
+GENOME_MD5=$(samtools view -H $1 | egrep "^@SQ" | cut -f-3 | sort  | md5sum - | awk '{print $1}')
 
 case $GENOME_MD5 in
     b879c678e7fd80718cf20d10c6b846e4)

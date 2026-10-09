@@ -1,17 +1,44 @@
 #!/bin/bash
 
+#
+# Control job for IRIS/Slurm. Run it from the analysis directory; every
+# stage is fanned out with ~/bin/bsub onto the short partitions and the
+# control job blocks between stages with bSync/bCheck. The control job
+# itself can run for hours on full-size BAMs, so the directives below put
+# it on the long partition with --qos=priority. Flags given to sbatch on
+# the command line override them.
+#
+# CMD:
+#    mkdir -p SLURM.CTRL
+#    sbatch /path/to/ATAC-seq/pipe.sh [-q MAPQ] BAM1 [BAM2 ...]
+#
+# sbatch here is the ~/bin wrapper. Slurm runs a copy of the batch script
+# from its spool directory, so $0 cannot locate this checkout; the wrapper
+# exports SBATCH_SCRIPT_DIR and SDIR is taken from that. Running pipe.sh
+# directly (no sbatch) falls back to $0.
+#
+#SBATCH -p cmobic_cpu
+#SBATCH --qos=priority
+#SBATCH -t 3-00:00:00
+#SBATCH -c 2
+#SBATCH --mem=16G
+#SBATCH -J CTRL.ATAC
+#SBATCH -o SLURM.CTRL/%j.out
+
 set -e
 
-# CMD:
-#    bsub -n 1 -q control -o LSF.CTRL/ -J CTRL.ATAC ./pipe.sh
-#
+SDIR=${SBATCH_SCRIPT_DIR:-$( cd "$( dirname "$0" )" && pwd )}
 
-SDIR="$( cd "$( dirname "$0" )" && pwd )"
+if [ ! -e "$SDIR/postMapBamProcessing_ATACSeq.sh" ]; then
+    echo
+    echo "    FATAL ERROR: cannot resolve SDIR=[$SDIR]"
+    echo "    submit with ~/bin/sbatch, which exports SBATCH_SCRIPT_DIR"
+    echo
+    exit 1
+fi
 
-source $SDIR/bin/lsfTools.sh
-
-module load bedtools/2.27.1
-module load samtools
+source $SDIR/bin/loadTools.sh
+source $SDIR/bin/slurmTools.sh
 
 if [ ! -e "$SDIR/venv" ]; then
     echo
@@ -74,6 +101,8 @@ echo "MAPQ = ${MAPQ}"
 BAMS=$*
 echo SDIR=$SDIR
 echo BAMS=$BAMS
+echo VERSION=$SCRIPT_VERSION
+echo CTRL_JOBID=${SLURM_JOB_ID:-none}
 
 GENOME=$($SDIR/bin/getGenomeBuildBAM.sh $1)
 
@@ -85,41 +114,97 @@ if [[ $GENOME =~ unknown ]]; then
     exit 1
 fi
 
-RUNTIME="-W 359"
-RUNTIME_SHORT="-W 59"
+echo GENOME=$GENOME
 
-echo $BAMS \
-    | xargs -n 1 bsub $RUNTIME -o LSF.01.POST/ -J ${TAG}_POST2_$$ -R "rusage[mem=24]" \
-        $SDIR/postMapBamProcessing_ATACSeq.sh -q $MAPQ $GENOME
+#
+# Scrub the Slurm variables of the control job itself. bsub submits with
+# the default --export=ALL, so they would otherwise ride along into every
+# stage job. SLURM_CONF stays; the client tools need it.
+#
+for V in ${!SLURM_@}; do
+    if [ "$V" != "SLURM_CONF" ]; then
+        unset $V
+    fi
+done
+
+#
+# Every sacct query in bCheck is bounded by this timestamp. Job names
+# embed $$ and pids recycle, so without it a name from an earlier run
+# could be counted against this one.
+#
+export ATAC_START=$(date -d '-2 min' +%Y-%m-%dT%H:%M:%S)
+RUNRE="^${TAG}_.*_$$\$"
+
+#
+# An aborted run must not leave the rest of a stage in the queue.
+#
+onExit() {
+    local rc=$?
+    if [ "$rc" != "0" ]; then
+        echo
+        echo "    pipe.sh FAILED (rc=$rc); cancelling queued jobs of this run"
+        echo
+        bKill "$RUNRE"
+    fi
+}
+trap onExit EXIT
+
+#
+# Short partitions for every stage: ~/bin/bsub sends anything under two
+# hours to cmobic_short,cpushort. -M is the total memory for the job and
+# a hard cgroup limit, unlike the LSF rusage[] request, which was a
+# per-slot scheduling hint.
+#
+RUNTIME="-W 1:59:00"
+
+for BAM in $BAMS; do
+    bsub $RUNTIME -o SLURM.01.POST/ -J ${TAG}_POST2_$$ -M 32G \
+        $SDIR/postMapBamProcessing_ATACSeq.sh -q $MAPQ $GENOME $BAM
+done
 
 bSync ${TAG}_POST2_$$
 bCheck ${TAG}_POST2_$$
 
-ls out/*/*.bed.gz \
-    | xargs -n 1 bsub $RUNTIME -o LSF.02.BW/ -J ${TAG}_BW2_$$ -R "rusage[mem=24]" $SDIR/makeBigWigFromBEDZ.sh $GENOME
+for BEDZ in out/*/*.bed.gz; do
+    bsub $RUNTIME -o SLURM.02.BW/ -J ${TAG}_BW2_$$ -M 24G \
+        $SDIR/makeBigWigFromBEDZ.sh $GENOME $BEDZ
+    bsub $RUNTIME -o SLURM.03.CALLP/ -J ${TAG}_CALLP2_$$ -n 3 -M 18G \
+        $SDIR/callPeaks_ATACSeq.sh $GENOME $BEDZ
+done
 
-ls out/*/*.bed.gz \
-    | xargs -n 1 bsub $RUNTIME_SHORT -o LSF.03.CALLP/ -J ${TAG}_CALLP2_$$ -n 3 -R "rusage[mem=6]" \
-        $SDIR/callPeaks_ATACSeq.sh $GENOME
+for PBAM in out/*/*_postProcess.bam; do
+    bsub $RUNTIME -o SLURM.04c.INDEX/ -J ${TAG}_Index_$$ -M 4G \
+        samtools index $PBAM
+done
 
 bSync ${TAG}_BW2_$$
 bCheck ${TAG}_BW2_$$
 bSync ${TAG}_CALLP2_$$
 bCheck ${TAG}_CALLP2_$$
 
-bsub $RUNTIME_SHORT -o LSF.04a.CALLP/ -J ${TAG}_MergePeaks_$$ -n 3 -R "rusage[mem=24]" \
+#
+# MergePeaks -> Count -> DESEQ run in sequence through bSync rather than
+# with -w post_done(): the bsub shim maps that to afterok but Slurm needs
+# numeric job ids, and an afterok whose parent failed pends forever in
+# DependencyNeverSatisfied.
+#
+bsub $RUNTIME -o SLURM.04a.CALLP/ -J ${TAG}_MergePeaks_$$ -n 3 -M 24G \
     $SDIR/mergePeaksToSAF.sh callpeaks \>macsPeaksMerged.saf
 
+bSync ${TAG}_MergePeaks_$$
+bCheck ${TAG}_MergePeaks_$$
+
 PBAMS=$(ls out/*/*_postProcess.bam)
-bsub $RUNTIME -o LSF.04b.CALLP/ -J ${TAG}_Count_$$ -R "rusage[mem=24]" -w "post_done(${TAG}_MergePeaks_$$)" \
+bsub $RUNTIME -o SLURM.04b.CALLP/ -J ${TAG}_Count_$$ -n 10 -M 24G \
     $SDIR/bin/featureCounts -O -Q 10 -p -T 10 \
         -F SAF -a macsPeaksMerged.saf \
         -o peaks_raw_fcCounts.txt \
         $PBAMS
 
-ls out/*/*_postProcess.bam | xargs -n 1 bsub -o LSF.04c.INDEX/ -J ${TAG}_Index_$$ -W 59 samtools index
+bSync ${TAG}_Count_$$
+bCheck ${TAG}_Count_$$
 
-bsub $RUNTIME_SHORT -o LSF.05.DESEQ/ -J ${TAG}_DESEQ_$$ -R "rusage[mem=24]" -w "post_done(${TAG}_Count_$$)" \
+bsub $RUNTIME -o SLURM.05.DESEQ/ -J ${TAG}_DESEQ_$$ -M 24G \
     Rscript --no-save $SDIR/R/getDESeqScaleFactors.R
 
 getSMTag () {
@@ -141,20 +226,16 @@ if [ ! -e "sampleManifest.csv" ]; then
     paste mapid sid gid | tr '\t' ',' >> sampleManifest.csv
 fi
 
-bSync ${TAG}_MergePeaks_$$
-bCheck ${TAG}_MergePeaks_$$
-bSync ${TAG}_Count_$$
-bCheck ${TAG}_Count_$$
 bSync ${TAG}_DESEQ_$$
 bCheck ${TAG}_DESEQ_$$
 
 bSync ${TAG}_Index_$$
 bCheck ${TAG}_Index_$$
 
-ls out/*/*_postProcess.bam \
-  | xargs -n 1 bsub -o LSF.06.QC/ -J ${TAG}_TSSE_$$ \
-    -W 359 -n 16 -R "rusage[mem=8]" \
-    $SDIR/bin/computeTSSEnrich.sh
+for PBAM in out/*/*_postProcess.bam; do
+    bsub $RUNTIME -o SLURM.06.QC/ -J ${TAG}_TSSE_$$ -n 2 -M 32G \
+        $SDIR/bin/computeTSSEnrich.sh $PBAM
+done
 
 bSync ${TAG}_TSSE_$$
 bCheck ${TAG}_TSSE_$$
@@ -182,11 +263,11 @@ mkdir -p out/postBams
 mkdir out/metrics
 mkdir out/bed
 
-FAILED_JOBS=$(find LSF* -name "*.out" | fgrep -v LSF.CTRL | xargs parseLSF.py | fgrep -v Successfully || true)
+FAILED_JOBS=$(bCheckAll "$RUNRE")
 
 if [ "$FAILED_JOBS" != "" ]; then
-  echo -e "\n\n\nFailed LSF jobs\n\n"
-  find LSF* -name "*.out" | fgrep -v LSF.CTRL | xargs parseLSF.py | fgrep -v Successfully
+  echo -e "\n\n\nFailed Slurm jobs\n\n"
+  echo "$FAILED_JOBS"
   echo -e "\n\n"
   exit 1
 fi

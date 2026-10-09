@@ -6,6 +6,34 @@ All notable changes to this project will be documented in this file.
 
 ### Features
 
+- **IRIS/Slurm port** (2026-10-08): JUNO/LSF is gone and the pipeline now
+  runs only on Slurm. `pipe.sh` keeps the control-job model: stages are
+  submitted with `~/bin/bsub` (the openlava shim), waited on with
+  `~/bin/bSync.sh`, and checked with a new `bCheck` in `bin/slurmTools.sh`
+  that reads `sacct` State. Every stage runs on the short partitions
+  (`cmobic_short,cpushort`); the control job carries `#SBATCH` directives
+  for `cmobic_cpu` with `--qos=priority` and is submitted through
+  `~/bin/sbatch`, whose `SBATCH_SCRIPT_DIR` export gives `SDIR`.
+  `bin/loadTools.sh` loads `samtools/1.20` and
+  verifies `bedtools`. Scratch moves to `/scratch/core001/bic/$USER/ATACSeq`;
+  `picardV2` is replaced by the `~/bin/picard` wrapper. The
+  `MergePeaks -> Count -> DESEQ` chain is sequenced with `bSync` instead of
+  `-w post_done()` (Slurm dependencies need numeric ids). `bin/lsfTools.sh`
+  moved to `attic/`. See `docs/SLURM_PORT.md`. Validated end to end
+  2026-10-08 on 11 b38 BAMs downsampled 100x (control job 18237528,
+  70 stage jobs, all COMPLETED, 5m38s wall).
+- `00.SETUP.sh`: build the venv from the `python3` on PATH; MACS2 2.2.9.1
+  and IDR 2.0.3 install under python 3.10, so the 3.9 requirement is gone.
+
+### Fixes
+
+- `postMapBamProcessing_ATACSeq.sh`: `wait` for the backgrounded
+  `CollectInsertSizeMetrics` and fail on any pipeline error. Under Slurm
+  the job ends when the script exits, which would have killed picard
+  mid-write; and the job status now reflects a failed stage.
+- `callPeaks_ATACSeq.sh`: remove the scratch directory after MACS2.
+- `R/analyzeATAC.R`: drop the unused `ChIPseeker` import.
+
 - **b37 TSS enrichment references** (2026-08-23): Stage 7
   (`bin/computeTSSEnrich.sh` / `tss_enrich.R`) can now score b37 alignments.
   Add `R/TSSEnrich/lib/b37_tss.bed` (ENCODE hg19 unique GENCODE TSS with the

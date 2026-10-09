@@ -33,7 +33,6 @@ mergePNGs<-function(fileSpec) {
 
 #halt("INCLUDE")
 
-suppressPackageStartupMessages(library(ChIPseeker))
 suppressPackageStartupMessages(library(AnnotationDbi))
 
 suppressPackageStartupMessages(require(patchwork))

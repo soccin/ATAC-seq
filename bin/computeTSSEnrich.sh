@@ -5,6 +5,8 @@ set -euo pipefail
 SDIR=$(cd "$(dirname "$0")" && pwd)
 RDIR=$SDIR/../R
 
+. $SDIR/loadTools.sh
+
 BAM=$1
 ODIR=$(dirname $BAM)
 

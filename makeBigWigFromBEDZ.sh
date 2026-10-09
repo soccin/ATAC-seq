@@ -1,6 +1,10 @@
 #!/bin/bash
 SDIR="$( cd "$( dirname "$0" )" && pwd )"
 
+. $SDIR/bin/loadTools.sh
+
+set -o pipefail
+
 GENOMEBUILD=$1
 BEDZ=$2
 
@@ -61,10 +65,6 @@ case $GENOMEBUILD in
     ;;
 
 esac
-
-# TDIR=/scratch/socci
-# mkdir -p $TDIR
-# TMP=$(mktemp -p $TDIR)
 
 #
 # N.B. -scale argument is multiplicative
