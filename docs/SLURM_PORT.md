@@ -38,7 +38,7 @@ script rather than passed with `--export` because any non-`ALL` entry in
 | `-R "rusage[mem=24]"` with `-n 1` | `-M 24G` | The shim has no `-R`. LSF `rusage` was per slot and advisory; `--mem` is the job total and a hard cgroup cap. |
 | `-n 3 -R "rusage[mem=6]"` | `-n 3 -M 18G` | Same total, written out. |
 | `-n 16 -R "rusage[mem=8]"` (TSS) | `-n 2 -M 32G` | `tss_enrich.R` is single-threaded and reads the BAM in chunks; 128G was never used. |
-| `-W 359` / `-W 59` | `-W 1:59:00` | Every stage on the short partitions. The shim sends anything under two hours to `cmobic_short,cpushort`. `-W` is sbatch format, so `-W 59` means 59 minutes in both, but `-W 5:00` would be five minutes. |
+| `-W 359` / `-W 59` | class `SHORT` (`-W 1:59:00`) or `LONG` (`-W 12:00:00` and qos priority) | See "Walltime classes" below. The shim sends anything under two hours to `cmobic_short,cpushort`, the rest to `cmobic_cpu`. `-W` is sbatch format, so `-W 59` means 59 minutes in both, but `-W 5:00` would be five minutes. |
 | `-o LSF.01.POST/` | `-o SLURM.01.POST/` | Trailing slash: the shim creates the directory and writes `%j.out`. |
 | `-w "post_done(NAME)"` | removed | The shim maps it to `afterok:NAME`, but Slurm needs numeric ids, and an `afterok` whose parent failed pends forever (`kill_invalid_depend` is off). `MergePeaks -> Count -> DESEQ` now runs in sequence with `bSync`. |
 | `-q control` | `#SBATCH -p cmobic_cpu` and `#SBATCH --qos=priority` | Control job only; directives in `pipe.sh`. |
@@ -47,6 +47,64 @@ Memory per stage: POST 32G (the `~/bin/picard` wrapper runs `-Xmx24g`, so
 the cap has to sit above that heap), BW 24G (`sort -S20g`), CALLP 3 cores
 18G, MergePeaks 3 cores 24G (`sort -S 16g`), Count 10 cores 24G
 (`featureCounts -T 10`), Index 4G, DESEQ 24G, TSS 2 cores 32G.
+
+## Walltime classes
+
+Every stage job is passed a class by `atacSub`:
+
+| Class | `-W` | Partition (chosen by the shim) | qos |
+| --- | --- | --- | --- |
+| `SHORT` | `1:59:00` | `cmobic_short,cpushort` | none (`normal`) |
+| `LONG` | `12:00:00` | `cmobic_cpu` | `priority`, as `SBATCH_QOS=priority` on that one `bsub` call |
+
+The qos cannot be set for the whole run. `cpushort` allows only
+`qos=normal` and `EnforcePartLimits=ALL` is set, so a job sent to
+`cmobic_short,cpushort` with priority qos is rejected (`sbatch
+--test-only`, 2026-10-09: `Invalid qos specification`). For the same
+reason `pipe.sh` unsets every `SBATCH_*` variable it inherits from the
+shell that submitted it: bsub submits with `--export=ALL`, so an exported
+`SBATCH_QOS` would reach every stage job.
+
+`SHORT` whenever possible: on 2026-10-08, 249 jobs on `cmobic_cpu` waited
+41 min on average and up to 7.4 h to start, while `cmobic_short` jobs
+start within minutes. So the stages whose run time grows with their input
+choose a class per job: `runClass MIN_PER_GB FILE...` multiplies the
+input size by a measured rate and picks `SHORT` if the estimate is at
+most 60 min (half the `SHORT` walltime; `ATAC_SHORT_MAX_MIN` overrides
+it), `LONG` otherwise. The estimate is logged in the control log.
+
+Rates and results from the first full-size run (`Proj_18143_B`, 12 b38
+samples, input BAMs 4.6 to 14.1 GB, control job 18335688, 2026-10-09,
+every job `SHORT` at the time). No job reached `OUT_OF_MEMORY` or
+`TIMEOUT`.
+
+| Stage | Input for the rate | Elapsed (max) | Measured min/GB | `RATE_*` | Largest input that stays `SHORT` |
+| --- | --- | --- | --- | --- | --- |
+| POST | input BAM | 1:04:05 | 3.5 to 5.3 | 6 | 10 GB |
+| BW | `shifted.bed.gz` | 0:27:25 | 24.5 to 26.0 | 30 | 2 GB |
+| CALLP | `shifted.bed.gz` | 0:08:34 | 8.1 to 9.5 | 10 | 6 GB |
+| TSSE | postProcess BAM | 0:10:13 | 1.6 to 2.9 | 3.5 | 17 GB |
+| Count | all postProcess BAMs, summed | 0:35:04 | 0.94 | 1.2 | 50 GB |
+| Index | | 0:01:31 | | always `SHORT` | |
+| MergePeaks | | 0:00:30 | | always `SHORT` | |
+| DESEQ | | 0:00:15 | | always `SHORT` | |
+| control job | | 2:22:55 | | `#SBATCH`, 3 days | |
+
+With these rates only the 14.1 GB sample's POST job of that run would
+have been `LONG` (estimate 85 min; it took 64). POST is single-threaded
+and I/O bound (TotalCPU close to Elapsed; it read 120 GB and wrote 102 GB
+for the largest sample), so its time depends on shared filesystem load
+as much as on the node.
+
+Memory was not changed. `sacct MaxRSS` counts page cache here: POST
+reports 32.0G against its 32G cap and Count 24.0G against 24G, both
+without being killed, so the figures say only that the jobs read a lot
+of data. An `OUT_OF_MEMORY` state is the signal to raise a cap; none
+occurred. The control job peaked at 1.1G of its 16G.
+
+CPU requests are larger than the use. TotalCPU/Elapsed: CALLP about 1.2
+of 3 cores, TSSE 1.0 of 2, MergePeaks about 2 of 3, Count 0.75 of 10
+(I/O bound across 12 BAMs). They were left as they are (00.ISSUES.md).
 
 ## Checking a run
 
@@ -139,6 +197,6 @@ the `EXIT` trap cancelled the queue, which is the failure path working.
 
 - `deliverResults.sh` still points at `/ifs/res/seq/pi/invest` and
   `~/Code/BIC/Delivery`; not a scheduler change and not touched.
-- Stage walltimes were not measured on full-size BAMs. If a stage exceeds
-  two hours, raise its `-W` past 2:00:00 (the shim then picks `cmobic_cpu`)
-  and export `SBATCH_QOS=priority` for that submission.
+- The `RATE_*` values come from one project on one genome. Check the
+  `runClass` lines in the control log against `sacct` Elapsed on new
+  projects, and raise a rate if a job gets close to its walltime.
