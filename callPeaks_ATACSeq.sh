@@ -7,6 +7,8 @@ SDIR="$( cd "$( dirname "$0" )" && pwd )"
 . $SDIR/venv/bin/activate
 MACS=macs2
 
+set -o pipefail
+
 GENOMEBUILD=$1
 IBED=$2
 
@@ -85,7 +87,8 @@ esac
 
 zcat $IBED \
   | bedtools intersect -nonamecheck -a - -b ${GENOME_BED} \
-  | gzip -c - > $TDIR/cleanBED.bed.gz
+  | gzip -c - > $TDIR/cleanBED.bed.gz \
+  || { echo "FATAL ERROR: chromosome filter of $IBED failed"; rm -rf $TDIR; exit 1; }
 
 #
 # From:
