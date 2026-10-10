@@ -29,6 +29,18 @@ All notable changes to this project will be documented in this file.
 
 ### Fixes
 
+- `pipe.sh` checks the genome of every BAM, not just the first, before
+  it submits anything. A run stops at once, with the reason in `MESSAGE`,
+  if the BAMs are on different builds or the build is not b37, b38 or
+  mm10. Before, a detected build such as hg19, b37_dmp or GRCh37-lite
+  failed in every POST job, and mixed builds were not noticed.
+- mm10 runs no longer fail after stage 6: there are no mm10 TSS files in
+  `R/TSSEnrich/lib/`, so the TSS enrichment stage is skipped with a
+  warning (control log and `MESSAGE`), and its output is not required for
+  `COMPLETED`. Adding `mm10_tss.bed` and `mm10.chrom.sizes` turns it on.
+- The count matrix uses the `-q MAPQ` given to `pipe.sh`; featureCounts
+  had a fixed `-Q 10`, so with `-q` below 10 reads under MAPQ 10 were
+  left out of the counts.
 - A run in a directory that already holds one now stops at once, before
   writing anything, if `00.RUNSTATUS.txt`, `SLURM.CTRL/jobs.tsv`,
   `out/`, `callpeaks/` or `atacSeq/` exists. Rerun in a new directory.

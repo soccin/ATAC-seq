@@ -106,10 +106,13 @@ paths `/ifs/res/seq/pi/invest` and `~/Code/BIC/Delivery`. Deliver the
    --extsize 150 --call-summits -p 0.01`
 4. `mergePeaksToSAF.sh` — merge all narrowPeak within 500bp into
    `macsPeaksMerged.saf` (the peak atlas)
-5. `bin/featureCounts` — raw count matrix `peaks_raw_fcCounts.txt` over the atlas
+5. `bin/featureCounts` — raw count matrix `peaks_raw_fcCounts.txt` over the
+   atlas, with `-Q` set to the same MAPQ as stage 1
 6. `R/getDESeqScaleFactors.R` — DESeq2 size factors (written **inverted**, per
    R. Koche's convention; see NOTES.md)
-7. `bin/computeTSSEnrich.sh` → `R/TSSEnrich/tss_enrich.R` — ENCODE TSS enrichment
+7. `bin/computeTSSEnrich.sh` → `R/TSSEnrich/tss_enrich.R` — ENCODE TSS
+   enrichment; skipped with a warning when `R/TSSEnrich/lib/` has no files
+   for the build (mm10)
 8. `plotINSStats.R` and `R/analyzeATAC.R` — insert-size and QC/PCA reports
 9. Staging into `atacSeq/{atlas,bigwig,macs,metrics}` for delivery
 
@@ -132,21 +135,32 @@ source of bugs:
 | Consumer | Accepted tags |
 | --- | --- |
 | `bin/getGenomeBuildBAM.sh` (emits) | `b37`, `b37_dmp`, `hg19`, `hg19-mainOnly`, `GRCh37-lite`, `b38`, `b37+mm10`, `mm10`, `mm10_hBRAF_V600E`, `mm9Full`, `GRC_m38`, `sCer+sMik_IFO1815` |
+| `pipe.sh` (`SUPPORTED_GENOMES`) | `b37`, `b38`, `mm10` |
 | `postMapBamProcessing_ATACSeq.sh` | `b37`, `b38`, `mm10` |
 | `callPeaks_ATACSeq.sh`, `makeBigWigFromBEDZ.sh` | `b37`, `b38`, `mm10`, `sCer+sMik_IFO1815` |
+| `bin/computeTSSEnrich.sh` (files in `R/TSSEnrich/lib/`) | `b37`, `b38` |
 | `R/diffAnalysisPairwise.R` | `hg19`, `b38`, `mm10` |
 
 So a detected build that the shell stages accept may still be rejected
 downstream, and vice versa. When adding genome support, update **every** case
-statement, not just the one that failed.
+statement, not just the one that failed, and `SUPPORTED_GENOMES` in
+`pipe.sh`.
+
+`pipe.sh` detects the build of every BAM before it submits anything and
+stops (`STATUS=FAILED`, reason in `MESSAGE`) if the BAMs are on different
+builds or the build is not in `SUPPORTED_GENOMES`, the builds
+`postMapBamProcessing_ATACSeq.sh` accepts.
 
 Chromosome filtering is allowlist-driven: `lib/genomes/<build>.genome` (chrom
 sizes) and `lib/genomes/<build>.genome.bed` (regions to keep) are intersected
 with `bedtools intersect -nonamecheck`. Do not reintroduce `egrep -v` denylists.
 
 `R/TSSEnrich/lib/` ships only `b38` and `b37` files (`<build>_tss.bed`,
-`<build>.chrom.sizes`), so stage 7 fails for any other build until the
-matching files are added.
+`<build>.chrom.sizes`). For any other build (in practice mm10) `pipe.sh`
+skips stage 7 (`RUN_TSSE=0`) with a warning in the control log and in
+`MESSAGE`, and leaves the TSS files out of staging and of the
+deliverables check. Adding the two files turns the stage on; no code
+change is needed.
 
 ## Cross-stage conventions
 

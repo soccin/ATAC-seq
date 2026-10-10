@@ -31,10 +31,16 @@ submitted where `00.RUNSTATUS.txt`, `SLURM.CTRL/jobs.tsv`, `out/`,
 `callpeaks/` or `atacSeq/` already exists stops at once and changes
 nothing; the reason is in its log, `SLURM.CTRL/<jobid>.out`.
 
+The genome is detected from the BAM headers. All BAMs must be on the
+same build, and the build must be b37, b38 or mm10; otherwise the run
+stops before submitting any job, with the reason in `00.RUNSTATUS.txt`.
+For mm10 the TSS enrichment step is skipped with a warning (there are
+no mm10 TSS files in `R/TSSEnrich/lib/`); everything else runs.
+
 - Post-alignment filtering:
 
     - Mark Duplicates
-    - MAPQ 10+
+    - MAPQ 10+ (`-q MAPQ`; the count matrix uses the same cutoff)
 
 - BigWig file generation.
 

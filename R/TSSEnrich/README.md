@@ -36,8 +36,10 @@ is the wrapper, and `pipe.sh` fans it out per sample. The wrapper:
 **The lib filenames are built by string interpolation from the detected build
 tag.** That is the whole genome-support mechanism. To support a new build you
 drop two correctly named files into `lib/` and nothing else needs to change.
-Currently only the `b38` pair exists, so any other detected build fails at
-this stage with a missing-file error.
+Currently only the `b37` and `b38` pairs exist. `pipe.sh` checks for the
+pair before it submits anything; for any other build (mm10) it skips this
+stage with a warning and does not require its output. Run standalone on
+such a build, `computeTSSEnrich.sh` fails with a missing-file error.
 
 Standalone invocation for debugging:
 
@@ -169,12 +171,15 @@ samtools view -H /path/to/an/mm10/sample.bam \
 ```
 
 That is all. `bin/computeTSSEnrich.sh` picks the files up by name once
-`getGenomeBuildBAM.sh` reports `mm10`. Verify on one sample and check
-`pct_tss_used` in the CSV before trusting the score.
+`getGenomeBuildBAM.sh` reports `mm10`, and `pipe.sh` stops skipping the
+stage. Verify on one sample and check `pct_tss_used` in the CSV before
+trusting the score.
 
 The same recipe covers `mm9Full`, `GRC_m38`, and `mm10_hBRAF_V600E`, except
 those tags need files named after the tag itself (`GRC_m38_tss.bed`, and so
-on) — the wrapper interpolates the tag, not the species.
+on) — the wrapper interpolates the tag, not the species. `pipe.sh` rejects
+those builds up front, though (`SUPPORTED_GENOMES`), until the other stages
+support them too.
 
 Before dropping files in, check the BAM header naming. ENCODE TSS BEDs are all
 `chr`-prefixed. If the BAM uses Ensembl-style names (`1`, `2`, ...), as b37 and

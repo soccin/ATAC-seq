@@ -3,12 +3,32 @@
 Record of issues removed from `00.ISSUES.md` once addressed. Not a
 tracking document; open issues live only in `00.ISSUES.md`.
 
+Each entry keeps the number the issue had when it was closed. The open
+issues were renumbered on 2026-10-10 (old to new: #8 to #1, #9 to #2,
+#11 to #3, #12 to #4, #13 to #5, #15 to #6, #25 to #7, #26 to #8, #27 to
+#9, #28 to #10, #29 to #11, #30 to #12, #31 to #13), so a number below
+refers to the old list unless it says otherwise.
+
+## Closed — fixed on `fix/genome` (not yet merged)
+
+**#7 Unsupported genomes are not rejected up front** — `pipe.sh` now
+runs `getGenomeBuildBAM.sh` on every BAM before it submits anything and
+stops, with the reason in `MESSAGE`, if the builds differ or the build
+is not in `SUPPORTED_GENOMES` (b37, b38, mm10, the builds
+`postMapBamProcessing_ATACSeq.sh` accepts). For a build without files in
+`R/TSSEnrich/lib/` (mm10) the TSSE stage is skipped with a warning in the
+control log and `MESSAGE`, by the user's decision, instead of adding mm10
+TSS files; its output is left out of staging and the deliverables check.
+
+**#14 `featureCounts -Q 10` ignores `-q MAPQ`** — The Count stage passes
+`-Q $MAPQ`.
+
 ## Closed — fixed on `feat/runstatus` (part of former #15)
 
 **#15 (partial)** `00.POST_RUN.txt` contained a literal `$SDIR`. Its
 notes are now part of `00.RUNSTATUS.txt`, with `$SDIR` expanded.
 
-## Closed — fixed on `fix/rerun` (not yet merged)
+## Closed — fixed on `fix/rerun`
 
 **#6 Rerunning in the same analysis directory fails at the end** and
 **#23 A second run in the same directory is not refused** — Closed by
@@ -93,7 +113,7 @@ before the SIGKILL 30 s later (test job 18357259). `bSync` now runs
 interrupts; `onExit` cancels the run's jobs unless `RUN_DONE=1`, whatever
 `$?` is. Verified with job 18357771: trap ran at once, `STATUS=FAILED
 rc=143`, both stage jobs `CANCELLED`. During the R reports at the end of
-`pipe.sh` the trap still may not run (#26).
+`pipe.sh` the trap still may not run (#26, now #8).
 
 ## Closed as by-design — do not "fix"
 
