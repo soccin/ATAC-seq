@@ -29,6 +29,17 @@ All notable changes to this project will be documented in this file.
 
 ### Fixes
 
+- A transient `squeue` or `sacct` failure no longer aborts a run. Before,
+  `bSync.sh` read a failed `squeue` as "stage done", `bCheck` then
+  counted the still-running jobs as failed, and the run was cancelled; a
+  failed `sacct` call ended `pipe.sh` outright under `set -e`. `bCheck`
+  now waits again while any job is active, retries `sacct` for up to 30
+  minutes (`ATAC_SACCT_WAIT`), and waits until it has a record for every
+  job the stage submitted.
+- `checkRun.sh` reports `UNKNOWN` (exit 3) when `sacct` fails, instead of
+  reporting a live run as `FAILED`.
+- `mkdir -p SLURM.CTRL` is no longer needed before `sbatch`: Slurm creates
+  the log directory.
 - No temp files go to the node's `/tmp` (137G, shared by every job on
   the node). `TMPDIR` is now `/localscratch/$USER` (2.8T, node-local;
   override with `ATAC_LOCAL_TMP`), and each stage job gets its own

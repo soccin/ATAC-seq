@@ -33,14 +33,17 @@ directory, so `$0` is useless, and the wrapper exports `SBATCH_SCRIPT_DIR`,
 which `pipe.sh` uses for `SDIR`.
 
 ```bash
-mkdir -p SLURM.CTRL
 sbatch /path/to/ATAC-seq/pipe.sh [-q MAPQ] BAM1 [BAM2 ...]
 ```
 
 `pipe.sh` is the control job: it fans each stage out with `~/bin/bsub` (the
 SchedMD openlava shim with local patches), blocks on `bSync JOBNAME`, then
-calls `bCheck JOBNAME` to abort if any job in the group did not reach
-`COMPLETED` in `sacct`. Job names embed `$$` so concurrent runs don't
+calls `bCheck JOBNAME NJOBS` to abort if any job in the group ended in a
+state other than `COMPLETED` in `sacct`. `bSync.sh` reads a failed `squeue`
+as "all done", so `bCheck` goes back to `bSync` while `sacct` still shows
+a job active, and retries a failed or short `sacct` answer for up to
+`ATAC_SACCT_WAIT` seconds (1800). Under `set -e` a failing `$(...)`
+assignment ends `pipe.sh`; call Slurm tools in an `if`. Job names embed `$$` so concurrent runs don't
 collide; every `sacct` query is bounded by `ATAC_START` because pids
 recycle. The helpers are in `bin/slurmTools.sh`; `bSync.sh` itself lives in
 `~/bin`. Individual stage scripts can also be run standalone for debugging —
@@ -48,7 +51,8 @@ each has its own usage block. See `docs/SLURM_PORT.md` for the flag
 translation and the reasoning behind the resource requests.
 
 Whether a run worked is answered by `bin/checkRun.sh` (exit 0 worked, 1
-failed, 2 running), run from the analysis directory. It reads three records
+failed, 2 running, 3 unknown because `sacct` failed), run from the
+analysis directory. It reads three records
 that `pipe.sh` keeps, plus `sacct`:
 
 - `00.RUNSTATUS.txt`: `STATUS=RUNNING|COMPLETED|FAILED`, the `STAGE`
