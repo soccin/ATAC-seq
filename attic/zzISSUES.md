@@ -9,7 +9,14 @@ issues were renumbered on 2026-10-10 (old to new: #8 to #1, #9 to #2,
 #9, #28 to #10, #29 to #11, #30 to #12, #31 to #13), so a number below
 refers to the old list unless it says otherwise.
 
-## Closed — fixed on `fix/genome` (not yet merged)
+## Closed — fixed on `fix/genome`
+
+Verified 2026-10-10 on the 11 downsampled b38 BAMs; the jobs and results
+are in `docs/SLURM_PORT.md`, "Validation". A normal run (18460598) and a
+run without the b38 TSS file, standing in for mm10, with `-q 20`
+(18460600) both completed; the second had no TSSE jobs, the warning in
+`MESSAGE`, and `featureCounts -Q 20`. Mixed and unrecognized genomes
+stopped before any job was submitted.
 
 **#7 Unsupported genomes are not rejected up front** — `pipe.sh` now
 runs `getGenomeBuildBAM.sh` on every BAM before it submits anything and

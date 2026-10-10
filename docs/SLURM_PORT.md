@@ -259,10 +259,21 @@ present under `atacSeq/`. A first attempt (18236503) failed at DESEQ only
 because the test harness overrode `R_LIBS_USER`; `bCheck` caught it and
 the `EXIT` trap cancelled the queue, which is the failure path working.
 
+The genome check and the TSSE skip were tested on 2026-10-10 with the
+same BAMs. A normal run (test15, control job 18460598) completed with 58
+of 58 stage jobs, 11 TSS enrichment files and `featureCounts -Q 10`. A
+run from a copy of the checkout without `R/TSSEnrich/lib/b38_tss.bed`, standing in
+for mm10, with `-q 20` (test16, 18460600) completed with 47 of 47 jobs,
+no TSSE jobs, the warning in `MESSAGE`, and `featureCounts -Q 20`.
+`pipe.sh` run by hand on a header-only BAM with an unrecognized `@SQ`
+set, alone and next to a b38 BAM, stopped with rc 1 and the reason in
+`MESSAGE`, before submitting anything.
+
 ## Not done
 
 - `deliverResults.sh` still points at `/ifs/res/seq/pi/invest` and
-  `~/Code/BIC/Delivery`; not a scheduler change and not touched.
+  `~/Code/BIC/Delivery`; not a scheduler change and not touched. It is
+  `00.ISSUES.md` #1.
 - The `RATE_*` values come from one project on one genome. Check the
   `runClass` lines in the control log against `sacct` Elapsed on new
   projects, and raise a rate if a job gets close to its walltime.
