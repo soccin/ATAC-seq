@@ -8,6 +8,16 @@ tracking document; open issues live only in `00.ISSUES.md`.
 **#15 (partial)** `00.POST_RUN.txt` contained a literal `$SDIR`. Its
 notes are now part of `00.RUNSTATUS.txt`, with `$SDIR` expanded.
 
+## Closed — fixed on `fix/localscratch` (not yet merged)
+
+**#10 `sort` spills to the node's `/tmp`** — `makeBigWigFromBEDZ.sh`
+(`sort -S20g`) and `mergePeaksToSAF.sh` (`sort -S 16g`) set no `-T` or
+`TMPDIR`; IRIS nodes set `TMPDIR=/tmp` (137G, shared by every job on the
+node), so sort spill, R and Python temp files went there. `TMPDIR` is
+now `/localscratch/$USER`, one directory per stage job, removed at job
+end; the sorts pass `-T "$TMPDIR"`. See `docs/SLURM_PORT.md`, "Temp
+files: /localscratch, never /tmp".
+
 ## Closed — fixed on `fix/resources` (not yet merged)
 
 Measured on the first full-size run, `Proj_18143_B` (12 b38 samples,

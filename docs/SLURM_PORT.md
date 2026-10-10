@@ -165,8 +165,34 @@ the R reports at the end of the run the trap may not get to run; then
 | bedtools | `module load bedtools/2.27.1` | `~/bin/bedtools` (2.31.1) on PATH; no module exists |
 | picard | `picardV2` from the cluster PATH | `~/bin/picard` (picard 3.4.0, `-Xmx24g`) |
 | scratch | `/scratch/socci/_scratch_ATACSeq` | `${ATAC_SCRATCH_ROOT:-/scratch/core001/bic/$USER/ATACSeq}` |
+| TMPDIR | node `/tmp` | `${ATAC_LOCAL_TMP:-/localscratch/$USER}`, one directory per stage job |
 | venv python | 3.9 required | the `python3` on PATH (3.10); MACS2 2.2.9.1 and IDR 2.0.3 both build |
 | R | cluster R | 4.5.1 on PATH; `optparse` must be installed for `tss_enrich.R` |
+
+### Temp files: /localscratch, never /tmp
+
+IRIS compute nodes export `TMPDIR=/tmp`. On the nodes probed on
+2026-10-09 (jobs 18394759, 18394762, 18394763: `cpushort`,
+`cmobic_short`, `cmobic_cpu`) `/tmp` is a 137G volume shared by every
+job on the node, one already 23% full, while `/localscratch` is a 2.8T
+node-local disk, world-writable, with no per-user directory made in
+advance. `makeBigWigFromBEDZ.sh` (`sort -S20g`) and `mergePeaksToSAF.sh`
+(`sort -S 16g`) spilled past their buffers into `/tmp`, and the R
+session tempdir and Python tempfiles went there too.
+
+- `bin/loadTools.sh`, sourced by `pipe.sh` and every stage script, sets
+  `TMPDIR=${ATAC_LOCAL_TMP:-/localscratch/$USER}` and creates it, unless
+  `TMPDIR` is already a directory under that root.
+- `bin/runStage.sh` creates `atac.<jobid>.XXXXXX` under that root for
+  each stage job, exports it as `TMPDIR`, logs it as `#ATAC_TMPDIR=`,
+  and removes it on exit, including after the SIGTERM Slurm sends on
+  `scancel` or a time limit.
+- The large sorts pass `-T "$TMPDIR"` explicitly.
+
+Not affected: picard (`~/bin/picard` sets `TMP_DIR` and
+`java.io.tmpdir` to `/scratch/core001/bic/socci/PICARD/$$`), MACS2
+(`callPeaks_ATACSeq.sh` exports `TMPDIR` to its `/scratch` work
+directory), and featureCounts (temp files go next to its output).
 
 ## Exit-status fixes made along the way
 

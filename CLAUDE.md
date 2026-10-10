@@ -177,7 +177,15 @@ matching files are added.
 `bSync.sh`, `picard` and `bedtools` come from `~/bin`; `samtools` is loaded by `bin/loadTools.sh` via `module load
 samtools/1.20`. `sacct`, `squeue` and `scancel` are the Slurm client tools.
 Scratch for intermediates is
-`${ATAC_SCRATCH_ROOT:-/scratch/core001/bic/$USER/ATACSeq}`. R is the 4.5.1
+`${ATAC_SCRATCH_ROOT:-/scratch/core001/bic/$USER/ATACSeq}`.
+
+**Nothing may write to `/tmp`.** IRIS nodes set `TMPDIR=/tmp`, a small
+volume shared by every job on the node. `bin/loadTools.sh` points
+`TMPDIR` at `${ATAC_LOCAL_TMP:-/localscratch/$USER}` (node-local, 2.8T),
+and `bin/runStage.sh` gives each stage job its own directory under it,
+removed when the job ends. Any new `sort` gets `-T "$TMPDIR"`; any new
+tool with its own temp-dir option gets `$TMPDIR` or a scratch dir, never
+its default. R is the 4.5.1
 on PATH; `tss_enrich.R` needs `optparse`.
 
 `bin/featureCounts`, `bin/wigToBigWig`, and `bin/bedGraphToBigWig` are

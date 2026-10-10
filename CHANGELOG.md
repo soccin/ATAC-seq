@@ -29,6 +29,13 @@ All notable changes to this project will be documented in this file.
 
 ### Fixes
 
+- No temp files go to the node's `/tmp` (137G, shared by every job on
+  the node). `TMPDIR` is now `/localscratch/$USER` (2.8T, node-local;
+  override with `ATAC_LOCAL_TMP`), and each stage job gets its own
+  directory under it, removed when the job ends. The 16 to 24G sorts in
+  `makeBigWigFromBEDZ.sh`, `mergePeaksToSAF.sh` and `mergeSamples.sh`
+  pass `-T "$TMPDIR"`. Before this, their spill and the R and Python
+  temp files went to `/tmp`.
 - An `SBATCH_QOS` (or any other `SBATCH_*` variable) exported in the
   shell that submits `pipe.sh` no longer reaches the stage jobs. With
   `SBATCH_QOS=priority`, as the docs used to advise, every short stage
