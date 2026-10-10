@@ -10,7 +10,6 @@
 # the command line override them.
 #
 # CMD:
-#    mkdir -p SLURM.CTRL
 #    sbatch /path/to/ATAC-seq/pipe.sh [-q MAPQ] BAM1 [BAM2 ...]
 #
 # Then, at any time, from the same directory:
@@ -443,12 +442,15 @@ atacSub() {
 # waitStage STAGE
 #
 # Block until every ${TAG}_STAGE_$$ job is done, then abort the run if any
-# of them did not reach COMPLETED.
+# of them did not reach COMPLETED. The number of jobs submitted, from
+# $JOBS, lets bCheck wait for every accounting record.
 #
 waitStage() {
+    local njobs
     setStage $1
+    njobs=$(awk -F'\t' -v s="$1" '$2 == s' $JOBS | wc -l)
     bSync ${TAG}_$1_$$
-    bCheck ${TAG}_$1_$$
+    bCheck ${TAG}_$1_$$ $njobs
 }
 
 setStage SUBMIT

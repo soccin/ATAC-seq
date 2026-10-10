@@ -115,6 +115,26 @@ reports `OUT_OF_MEMORY` with `ExitCode=0:125`. `pipe.sh` ends with
 `bCheckAll "^qATAC-Seq_.*_<pid>$"`, the replacement for the old
 `parseLSF.py | fgrep -v Successfully` sweep.
 
+A failing Slurm client call must not abort a run that is working.
+`~/bin/bSync.sh` runs `squeue ... 2>/dev/null` and reads empty output as
+"all jobs done", so a single `squeue` failure (controller timeout) makes
+it return while the stage is still running. `bCheck` used to retry
+`sacct` for 60 s, then count the still-running jobs as failures and abort
+the run, and the `EXIT` trap cancelled every job. A failed `sacct` call
+ended `pipe.sh` at once, since `rows=$(...)` under `set -e` exits on a
+nonzero status. `bCheck NAME NJOBS` now:
+
+- goes back into `bSync` while `sacct` shows any job of the stage active;
+- treats a failed `sacct` call, no rows, or fewer rows than `NJOBS` (the
+  number of jobs `waitStage` counts in `jobs.tsv`) as "not yet", and
+  retries every 30 s for up to `ATAC_SACCT_WAIT` seconds (1800);
+- fails the stage only for a job in a final state other than
+  `COMPLETED`.
+
+A `bsub` that is rejected still aborts the run; there is no retry,
+because a submission whose reply timed out may have created the job, and
+a retry would run it twice.
+
 That is enough for the control job to stop on a failure, but not for a
 person to find out afterwards whether a run worked. Under LSF every log
 ended with `Successfully completed.` or `Exited with exit code N`; under
@@ -136,7 +156,10 @@ PDFs exist. Any earlier exit runs the `EXIT` trap, which writes
 
 `bin/checkRun.sh`, run from the analysis directory (or given its path),
 reads the three records with `sacct` and exits 0 if the run worked, 1 if
-it failed and 2 if it is still running. It does not take `STATUS=RUNNING`
+it failed and 2 if it is still running. If a `sacct` call fails it
+prints `UNKNOWN` and exits 3, unless the status file already says
+`FAILED` or every stage log trailer shows success; without `sacct` a live
+run would otherwise read as failed. It does not take `STATUS=RUNNING`
 at its word: if the control job was killed outright (SIGKILL on its
 memory cap, node failure) the trap cannot run, the file stays at
 `RUNNING`, and `checkRun.sh` reports `FAILED` because `sacct` shows the

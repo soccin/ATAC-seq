@@ -8,7 +8,27 @@ tracking document; open issues live only in `00.ISSUES.md`.
 **#15 (partial)** `00.POST_RUN.txt` contained a literal `$SDIR`. Its
 notes are now part of `00.RUNSTATUS.txt`, with `$SDIR` expanded.
 
-## Closed — fixed on `fix/localscratch` (not yet merged)
+## Closed — fixed on `fix/sync` (not yet merged)
+
+**#5 A transient `squeue` failure aborts the run** — `~/bin/bSync.sh`
+reads a failed `squeue` as "all jobs done"; `bCheck` then counted the
+still-running jobs as failed after 60 s and the run was cancelled. A
+failed `sacct` call ended `pipe.sh` at once under `set -e`. `bCheck NAME
+NJOBS` now goes back into `bSync` while any job is active, retries a
+failed, empty or short `sacct` answer for up to `ATAC_SACCT_WAIT` (1800
+s), and fails only on a final state other than `COMPLETED`. A rejected
+`bsub` still aborts the run: no retry, by the user's decision, because a
+submission whose reply timed out may have created the job.
+
+**#16 `mkdir -p SLURM.CTRL` is not required** — Slurm 25.11 creates a
+missing `-o` directory (probe job 18351604). The step was dropped from
+`README.md`, `CLAUDE.md` and the `pipe.sh` header.
+
+**#24 `checkRun.sh` reads a failed `sacct` call as "no record"** — It
+now reports `UNKNOWN` and exits 3 when a `sacct` call fails, unless the
+status file says `FAILED` or the log trailers alone show success.
+
+## Closed — fixed on `fix/localscratch`
 
 **#10 `sort` spills to the node's `/tmp`** — `makeBigWigFromBEDZ.sh`
 (`sort -S20g`) and `mergePeaksToSAF.sh` (`sort -S 16g`) set no `-T` or
@@ -18,7 +38,7 @@ now `/localscratch/$USER`, one directory per stage job, removed at job
 end; the sorts pass `-T "$TMPDIR"`. See `docs/SLURM_PORT.md`, "Temp
 files: /localscratch, never /tmp".
 
-## Closed — fixed on `fix/resources` (not yet merged)
+## Closed — fixed on `fix/resources`
 
 Measured on the first full-size run, `Proj_18143_B` (12 b38 samples,
 input BAMs 4.6 to 14.1 GB, control job 18335688, 2026-10-09). Figures and
