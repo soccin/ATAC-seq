@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [v1.5.1] — 2026-10-10
 
 ### Features
 
@@ -16,7 +16,8 @@ All notable changes to this project will be documented in this file.
   live run is not reported as failed); it also reports a control job
   that was killed before it could update the status file. `COMPLETED`
   now requires every sample's bigWig, peak file, insert-size metrics and
-  TSS enrichment, not just `macsPeaksMerged.saf`.
+  TSS enrichment (when that stage runs), not just
+  `macsPeaksMerged.saf`.
 - `00.POST_RUN.txt` is gone: its notes now follow the status block in
   `00.RUNSTATUS.txt` once the R reports have run, with `$SDIR` expanded
   to the real path.
@@ -82,6 +83,24 @@ All notable changes to this project will be documented in this file.
   stage jobs. The `EXIT` trap never ran before: Slurm signals only the
   batch shell, which did not run the trap while `bSync.sh` was in the
   foreground. `bSync` now waits on it in the background.
+
+### Documentation
+
+- Add `00.ISSUES.md` (open issues, numbered in order of work) and
+  `attic/zzISSUES.md` (closed issues, with the reason).
+- `docs/SLURM_PORT.md`: add the walltime classes with the rates measured
+  on the first full-size run, the run-status records and `checkRun.sh`,
+  the `/localscratch` temp-file setup, and the 2026-10-10 validation
+  runs.
+- `README.md`: `checkRun.sh`, one run per directory, the genome check.
+- `docs/UPDATE_TO_B38.md` and `docs/CHECKLIST_B38.md` are marked
+  historical; b38 shipped in v1.1.0.
+
+### Known issues
+
+- `deliverResults.sh` still points at the JUNO paths
+  `/ifs/res/seq/pi/invest` and `~/Code/BIC/Delivery`. Deliver by hand
+  (`00.ISSUES.md` #1). The other open issues are in `00.ISSUES.md`.
 
 ## [v1.5.0] — 2026-10-09
 

@@ -1,6 +1,8 @@
 # Porting the ATAC-seq pipeline from JUNO/LSF to IRIS/Slurm
 
-Done 2026-10-08 on `feat/slurm`; released in v1.5.0. JUNO is gone, so
+Done 2026-10-08 on `feat/slurm`; released in v1.5.0. The walltime
+classes, run-status records, `/localscratch` temp files and the fixes
+under "Added in v1.5.1" came in v1.5.1. JUNO is gone, so
 there is no LSF path left in the code; `attic/lsfTools.sh` is reference
 only. The PEMapper port (`Proj_18143_B/PEMapper/docs/LSF_SLURM_PORT.md`)
 was the guide; the cluster
@@ -237,7 +239,7 @@ mid-write. It now `wait`s, runs under `pipefail`, and exits non-zero on any
 failed step so `bCheck` sees it. `makeBigWigFromBEDZ.sh` and
 `mergePeaksToSAF.sh` run under `pipefail` for the same reason.
 
-Added after v1.5.0: `callPeaks_ATACSeq.sh` runs under `pipefail` and stops
+Added in v1.5.1: `callPeaks_ATACSeq.sh` runs under `pipefail` and stops
 if its chromosome filter fails, rather than running MACS2 on a truncated
 BED. `makeBigWigFromBEDZ.sh` checks the read count that sets its scale
 factor (and rejects zero) and the bigWig build itself. `pipe.sh` `usage`
@@ -262,8 +264,9 @@ the `EXIT` trap cancelled the queue, which is the failure path working.
 The genome check and the TSSE skip were tested on 2026-10-10 with the
 same BAMs. A normal run (test15, control job 18460598) completed with 58
 of 58 stage jobs, 11 TSS enrichment files and `featureCounts -Q 10`. A
-run from a copy of the checkout without `R/TSSEnrich/lib/b38_tss.bed`, standing in
-for mm10, with `-q 20` (test16, 18460600) completed with 47 of 47 jobs,
+run from a copy of the checkout without
+`R/TSSEnrich/lib/b38_tss.bed`, standing in for mm10, with `-q 20`
+(test16, 18460600) completed with 47 of 47 jobs,
 no TSSE jobs, the warning in `MESSAGE`, and `featureCounts -Q 20`.
 `pipe.sh` run by hand on a header-only BAM with an unrecognized `@SQ`
 set, alone and next to a b38 BAM, stopped with rc 1 and the reason in
