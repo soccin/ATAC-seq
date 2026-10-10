@@ -26,6 +26,11 @@ failed jobs and their logs, and exits 0, 1 or 2. If `sacct` itself fails
 it prints `UNKNOWN` and exits 3; run it again later. The raw status is in
 `00.RUNSTATUS.txt`.
 
+One run per analysis directory. To rerun, use a new directory: a run
+submitted where `00.RUNSTATUS.txt`, `SLURM.CTRL/jobs.tsv`, `out/`,
+`callpeaks/` or `atacSeq/` already exists stops at once and changes
+nothing; the reason is in its log, `SLURM.CTRL/<jobid>.out`.
+
 - Post-alignment filtering:
 
     - Mark Duplicates
