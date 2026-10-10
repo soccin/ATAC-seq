@@ -8,7 +8,24 @@ tracking document; open issues live only in `00.ISSUES.md`.
 **#15 (partial)** `00.POST_RUN.txt` contained a literal `$SDIR`. Its
 notes are now part of `00.RUNSTATUS.txt`, with `$SDIR` expanded.
 
-## Closed — fixed on `fix/sync` (not yet merged)
+## Closed — fixed on `fix/rerun` (not yet merged)
+
+**#6 Rerunning in the same analysis directory fails at the end** and
+**#23 A second run in the same directory is not refused** — Closed by
+not supporting reruns, the user's decision: rerun and resume logic
+belongs in a workflow manager, not in bash. `checkPreviousRun` in
+`pipe.sh` stops a run before it writes anything if `00.RUNSTATUS.txt`,
+`SLURM.CTRL/jobs.tsv`, `out/`, `callpeaks/` or `atacSeq/` exists. A
+working rerun was built and tested first (`mkdir -p`, `cp -alf`, since
+`cp -al` stops with "File exists" when a stage has replaced a file the
+first run hard-linked into `atacSeq/`; records kept as `.prev`) and then
+dropped: the stages glob `out/` and `callpeaks/` for their inputs, so a
+rerun without one of the earlier BAMs still put that sample into the
+atlas and count matrix. The staging `mkdir` calls are now one
+`mkdir -p`, and the unused `out/postBams`, `out/metrics` and `out/bed`
+are gone.
+
+## Closed — fixed on `fix/sync`
 
 **#5 A transient `squeue` failure aborts the run** — `~/bin/bSync.sh`
 reads a failed `squeue` as "all jobs done"; `bCheck` then counted the
@@ -96,7 +113,8 @@ trigger; a real mismatch costs five minutes.
 
 **#21 One run per analysis directory** — Job names embed the control
 job's pid, so runs in separate directories do not interfere. Two runs in
-one directory share `out/` and collide.
+one directory share `out/` and collide; since #6/#23 a run in a
+directory that already holds one is refused.
 
 **#22 Preemption** — Not a concern. `cmobic_cpu`, `cmobic_short` and
 `cpushort` all have `PreemptMode=OFF` (checked 2026-10-09), so a job is

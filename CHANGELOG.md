@@ -29,6 +29,15 @@ All notable changes to this project will be documented in this file.
 
 ### Fixes
 
+- A run in a directory that already holds one now stops at once, before
+  writing anything, if `00.RUNSTATUS.txt`, `SLURM.CTRL/jobs.tsv`,
+  `out/`, `callpeaks/` or `atacSeq/` exists. Rerun in a new directory.
+  Before, a second run overwrote the first run's status file and job
+  manifest, even while the first was still running, picked up the first
+  run's samples from `out/` and `callpeaks/`, and after every stage had
+  run stopped before staging into `atacSeq/` (`mkdir` without `-p`). The
+  unused `out/postBams`, `out/metrics` and `out/bed` are no longer
+  created.
 - A transient `squeue` or `sacct` failure no longer aborts a run. Before,
   `bSync.sh` read a failed `squeue` as "stage done", `bCheck` then
   counted the still-running jobs as failed, and the run was cancelled; a

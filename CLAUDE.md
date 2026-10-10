@@ -68,6 +68,13 @@ that `pipe.sh` keeps, plus `sacct`:
 - `#ATAC_EXIT=<rc>`: the last line of every stage log, written to stderr
   by `bin/runStage.sh`, which `atacSub` puts in front of every command.
 
+One run per analysis directory; reruns are deliberately not supported
+(that belongs in a workflow manager, not in bash). Before writing
+anything, `pipe.sh` (`checkPreviousRun`) stops if `00.RUNSTATUS.txt`,
+`jobs.tsv`, `out/`, `callpeaks/` or `atacSeq/` exists. Do not add rerun
+or resume logic; the stages glob `out/` and `callpeaks/` for their
+inputs, so an earlier run's samples would be mixed in.
+
 Stage scripts must exit nonzero on any failed step (`pipefail` plus an
 explicit check), or `sacct`, `bCheck` and the trailer all report a failed
 step as `COMPLETED`.

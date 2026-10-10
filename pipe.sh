@@ -19,6 +19,10 @@
 # which exits 0 if the run worked, 1 if it failed and 2 if it is still
 # running.
 #
+# One run per analysis directory. A run started in a directory that
+# already holds one (see checkPreviousRun) stops at once and changes
+# nothing; rerun in a new directory.
+#
 # sbatch here is the ~/bin wrapper. Slurm runs a copy of the batch script
 # from its spool directory, so $0 cannot locate this checkout; the wrapper
 # exports SBATCH_SCRIPT_DIR and SDIR is taken from that. Running pipe.sh
@@ -210,6 +214,39 @@ setStage() {
     echo
     echo "==== STAGE $RUN_STAGE $(date '+%Y-%m-%d %H:%M:%S')"
 }
+
+#
+# One run per analysis directory; pipe.sh is not built to be rerun. A
+# second run would overwrite the first run's status file and job
+# manifest, and the stages find their inputs by globbing out/ and
+# callpeaks/, so the earlier run's output would be mixed into this one.
+# Stop before anything is written if the directory holds any of these.
+# SLURM.CTRL itself is not a sign: Slurm creates it for this job's log.
+# A control job that Slurm requeues after a node failure also stops
+# here, on the records of its own first attempt. The check runs before
+# the EXIT trap is installed, so the earlier run's records are left as
+# they are; the reason is in this job's log.
+#
+checkPreviousRun() {
+    local found=""
+    local f
+
+    for f in $RUNSTATUS $JOBS out callpeaks atacSeq; do
+        if [ -e "$f" ]; then
+            found="$found $f"
+        fi
+    done
+
+    if [ -n "$found" ]; then
+        echo
+        echo "    FATAL: this directory already holds a run:$found"
+        echo "    pipe.sh cannot be rerun in the same directory; use a new one."
+        echo
+        exit 1
+    fi
+}
+
+checkPreviousRun
 
 mkdir -p SLURM.CTRL
 printf '#JOBID\tSTAGE\tSAMPLE\tLOG\n' >$JOBS
@@ -536,12 +573,7 @@ postRunNotes
 
 setStage STAGING
 
-mkdir -p atacSeq/atlas
-mkdir atacSeq/bigwig atacSeq/macs
-mkdir -p atacSeq/metrics
-mkdir -p out/postBams
-mkdir out/metrics
-mkdir out/bed
+mkdir -p atacSeq/atlas atacSeq/bigwig atacSeq/macs atacSeq/metrics
 
 FAILED_JOBS=$(bCheckAll "$RUNRE")
 

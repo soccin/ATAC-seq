@@ -180,6 +180,16 @@ job is waiting on a stage, which is nearly all of its run time. During
 the R reports at the end of the run the trap may not get to run; then
 `checkRun.sh` still reports the run `FAILED` from `sacct`.
 
+The records describe one run, and there is one run per analysis
+directory. Before it writes anything, `pipe.sh` stops if
+`00.RUNSTATUS.txt`, `SLURM.CTRL/jobs.tsv`, `out/`, `callpeaks/` or
+`atacSeq/` exists. `SLURM.CTRL/` itself is not checked: Slurm creates it
+for the control log. The refused run exits before the `EXIT` trap is
+installed, so it leaves the earlier run's records alone; the reason is
+in its own control log. A control job that Slurm requeues after a node
+failure (`JobRequeue=1`) is stopped the same way, by the records of its
+first attempt, and `checkRun.sh` reports the run `FAILED` from `sacct`.
+
 ## Environment changes
 
 | What | Was | Now |
