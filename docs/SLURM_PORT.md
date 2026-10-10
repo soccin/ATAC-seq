@@ -150,8 +150,9 @@ PEMapper port:
 
 `STATUS=COMPLETED` is written only as the last action of `pipe.sh`, after a
 check that every sample has its bigWig, peak file, insert-size metrics and
-TSS enrichment and that the atlas, count matrix, scale factors and QC
-PDFs exist. Any earlier exit runs the `EXIT` trap, which writes
+TSS enrichment (when the TSSE stage ran; it is skipped for builds without
+files in `R/TSSEnrich/lib/`, such as mm10) and that the atlas, count
+matrix, scale factors and QC PDFs exist. Any earlier exit runs the `EXIT` trap, which writes
 `STATUS=FAILED` with the stage and cancels the rest of the run's jobs.
 
 `bin/checkRun.sh`, run from the analysis directory (or given its path),
@@ -241,7 +242,13 @@ if its chromosome filter fails, rather than running MACS2 on a truncated
 BED. `makeBigWigFromBEDZ.sh` checks the read count that sets its scale
 factor (and rejects zero) and the bigWig build itself. `pipe.sh` `usage`
 exits 1, and `pipe.sh` stops up front if a BAM has no `@RG SM` tag or two
-BAMs share one.
+BAMs share one. It also detects the build of every BAM, not just the
+first, and stops up front if they differ or if the build is not one
+`postMapBamProcessing_ATACSeq.sh` accepts (b37, b38, mm10); before, a
+build such as hg19 failed in every POST job. For mm10 the TSSE stage is
+skipped with a warning instead of failing the run after stage 6. The
+Count stage passes `-Q $MAPQ` to featureCounts instead of a fixed `-Q
+10`.
 
 ## Validation
 
@@ -252,10 +259,21 @@ present under `atacSeq/`. A first attempt (18236503) failed at DESEQ only
 because the test harness overrode `R_LIBS_USER`; `bCheck` caught it and
 the `EXIT` trap cancelled the queue, which is the failure path working.
 
+The genome check and the TSSE skip were tested on 2026-10-10 with the
+same BAMs. A normal run (test15, control job 18460598) completed with 58
+of 58 stage jobs, 11 TSS enrichment files and `featureCounts -Q 10`. A
+run from a copy of the checkout without `R/TSSEnrich/lib/b38_tss.bed`, standing in
+for mm10, with `-q 20` (test16, 18460600) completed with 47 of 47 jobs,
+no TSSE jobs, the warning in `MESSAGE`, and `featureCounts -Q 20`.
+`pipe.sh` run by hand on a header-only BAM with an unrecognized `@SQ`
+set, alone and next to a b38 BAM, stopped with rc 1 and the reason in
+`MESSAGE`, before submitting anything.
+
 ## Not done
 
 - `deliverResults.sh` still points at `/ifs/res/seq/pi/invest` and
-  `~/Code/BIC/Delivery`; not a scheduler change and not touched.
+  `~/Code/BIC/Delivery`; not a scheduler change and not touched. It is
+  `00.ISSUES.md` #1.
 - The `RATE_*` values come from one project on one genome. Check the
   `runClass` lines in the control log against `sacct` Elapsed on new
   projects, and raise a rate if a job gets close to its walltime.

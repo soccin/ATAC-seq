@@ -16,8 +16,8 @@
 #
 #    /path/to/ATAC-seq/bin/checkRun.sh
 #
-# which exits 0 if the run worked, 1 if it failed and 2 if it is still
-# running.
+# which exits 0 if the run worked, 1 if it failed, 2 if it is still
+# running and 3 if sacct failed and the state cannot be read now.
 #
 # One run per analysis directory. A run started in a directory that
 # already holds one (see checkPreviousRun) stops at once and changes
@@ -287,17 +287,62 @@ onExit() {
 }
 trap onExit EXIT
 
-GENOME=$($SDIR/bin/getGenomeBuildBAM.sh $1)
+#
+# Every BAM must be on the same build, and on one every stage takes:
+# postMapBamProcessing_ATACSeq.sh accepts only b37, b38 and mm10. Any
+# other tag getGenomeBuildBAM.sh can emit (hg19, b37_dmp, GRCh37-lite,
+# ...) would pass on to POST and fail there, in every job.
+#
+SUPPORTED_GENOMES="b37 b38 mm10"
 
-if [[ $GENOME =~ unknown ]]; then
-    echo
-    echo "    FATAL ERROR: UNKNOWN GENOME"
-    echo "    "$GENOME
-    echo
-    exit 1
-fi
+GENOME=""
+for BAM in $BAMS; do
+    BUILD=$($SDIR/bin/getGenomeBuildBAM.sh $BAM)
+    echo "    genome [$BUILD] $BAM"
+    if [ -z "$GENOME" ]; then
+        GENOME=$BUILD
+    elif [ "$BUILD" != "$GENOME" ]; then
+        RUN_MESSAGE="BAMs on different genomes: [$GENOME] and [$BUILD] ($BAM)"
+        echo
+        echo "    FATAL ERROR: $RUN_MESSAGE"
+        echo
+        exit 1
+    fi
+done
+
+case " $SUPPORTED_GENOMES " in
+    *" $GENOME "*)
+        ;;
+    *)
+        RUN_MESSAGE="unsupported genome [$GENOME]; supported: $SUPPORTED_GENOMES"
+        echo
+        echo "    FATAL ERROR: $RUN_MESSAGE"
+        echo
+        exit 1
+        ;;
+esac
 
 echo GENOME=$GENOME
+
+#
+# TSS enrichment (stage TSSE) needs R/TSSEnrich/lib/<GENOME>_tss.bed and
+# <GENOME>.chrom.sizes, which exist for b37 and b38 only. For any other
+# build (mm10) the stage is skipped with a warning in this log and in
+# the MESSAGE of the status file, and its output is left out of staging
+# and of the deliverables check. Adding the two files (see
+# R/TSSEnrich/README.md) turns the stage on.
+#
+TSS_LIB=$SDIR/R/TSSEnrich/lib
+RUN_TSSE=1
+TSSE_WARNING=""
+if [ ! -s "$TSS_LIB/${GENOME}_tss.bed" ] || [ ! -s "$TSS_LIB/${GENOME}.chrom.sizes" ]; then
+    RUN_TSSE=0
+    TSSE_WARNING="WARNING: TSS enrichment skipped; no R/TSSEnrich/lib files for $GENOME"
+    RUN_MESSAGE=$TSSE_WARNING
+    echo
+    echo "    $TSSE_WARNING"
+    echo
+fi
 
 getSMTag () {
     samtools view -H $1 \
@@ -532,7 +577,7 @@ waitStage MergePeaks
 PBAMS=$(ls out/*/*_postProcess.bam)
 CLASS=$(runClass $RATE_COUNT $PBAMS)
 atacSub Count all SLURM.04b.CALLP $CLASS "-n 10 -M 24G" \
-    $SDIR/bin/featureCounts -O -Q 10 -p -T 10 \
+    $SDIR/bin/featureCounts -O -Q $MAPQ -p -T 10 \
         -F SAF -a macsPeaksMerged.saf \
         -o peaks_raw_fcCounts.txt \
         $PBAMS
@@ -555,13 +600,19 @@ fi
 waitStage DESEQ
 waitStage Index
 
-for PBAM in out/*/*_postProcess.bam; do
-    CLASS=$(runClass $RATE_TSSE $PBAM)
-    atacSub TSSE $(basename $(dirname $PBAM)) SLURM.06.QC $CLASS "-n 2 -M 32G" \
-        $SDIR/bin/computeTSSEnrich.sh $PBAM
-done
+if [ "$RUN_TSSE" == "1" ]; then
+    for PBAM in out/*/*_postProcess.bam; do
+        CLASS=$(runClass $RATE_TSSE $PBAM)
+        atacSub TSSE $(basename $(dirname $PBAM)) SLURM.06.QC $CLASS "-n 2 -M 32G" \
+            $SDIR/bin/computeTSSEnrich.sh $PBAM
+    done
 
-waitStage TSSE
+    waitStage TSSE
+else
+    echo
+    echo "    $TSSE_WARNING"
+    echo
+fi
 
 setStage REPORTS
 
@@ -591,12 +642,15 @@ cp -val callpeaks/* atacSeq/macs
 cp *__postInsDistribution.pdf *__ATACSeqQC.pdf atacSeq/metrics
 
 cp -val out/*/*___INS.* atacSeq/metrics
-cp -val out/*/*enrich* atacSeq/metrics
+if [ "$RUN_TSSE" == "1" ]; then
+    cp -val out/*/*enrich* atacSeq/metrics
+fi
 
 #
 # Every sample must have each of its deliverables, not just the run as a
 # whole. A peak file may legitimately be empty, so it only has to exist;
-# everything else has to be non-empty.
+# everything else has to be non-empty. The TSS enrichment is required
+# only when the TSSE stage ran.
 #
 setStage DELIVERABLES
 
@@ -621,7 +675,9 @@ done
 for SID in $SAMPLES; do
     checkFile atacSeq/bigwig/${SID}_postProcess.shifted.10mNorm.bw
     checkFile atacSeq/metrics/${SID}_postProcess___INS.txt
-    checkFile atacSeq/metrics/${SID}_postProcess.tss_enrich.csv
+    if [ "$RUN_TSSE" == "1" ]; then
+        checkFile atacSeq/metrics/${SID}_postProcess.tss_enrich.csv
+    fi
     PEAKS=atacSeq/macs/${SID}_postProcess.shifted/${SID}_postProcess.shifted_peaks.narrowPeak
     if [ ! -e "$PEAKS" ]; then
         MISSING="$MISSING $PEAKS"
