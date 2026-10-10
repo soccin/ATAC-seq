@@ -18,9 +18,26 @@
 # The trailer goes to stderr. The MergePeaks stage redirects the command's
 # stdout into macsPeaksMerged.saf; stderr still lands in the job log.
 #
+# Every temp file of the job goes to a per-job directory on the node's
+# /localscratch, never to /tmp (see bin/loadTools.sh). It is removed when
+# the job ends, including on scancel or a time limit, when Slurm sends
+# SIGTERM to every process of the job before SIGKILL.
+#
+
+ATAC_LOCAL_TMP=${ATAC_LOCAL_TMP:-/localscratch/$USER}
+
+mkdir -p "$ATAC_LOCAL_TMP" \
+    && TMPDIR=$(mktemp -d -p "$ATAC_LOCAL_TMP" "atac.${SLURM_JOB_ID:-$$}.XXXXXX") \
+    || { echo "#ATAC_EXIT=1 cannot create a TMPDIR under $ATAC_LOCAL_TMP" >&2; exit 1; }
+export TMPDIR
+
+trap 'rm -rf "$TMPDIR"' EXIT
+trap 'exit 143' TERM
+trap 'exit 130' INT
 
 echo "#ATAC_HOST=$(hostname) START=$(date '+%Y-%m-%d %H:%M:%S')" >&2
 echo "#ATAC_CMD=$*" >&2
+echo "#ATAC_TMPDIR=$TMPDIR" >&2
 
 "$@"
 RC=$?
