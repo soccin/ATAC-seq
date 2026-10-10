@@ -50,35 +50,64 @@ sacctByName() {
         --format=JobID,JobName,State,ExitCode,Elapsed
 }
 
-# bCheck JOBNAME
+# bCheck JOBNAME [NJOBS]
 #
 # Call immediately after bSync JOBNAME. Aborts the calling script if any
-# job with that name did not reach COMPLETED. Accounting can lag the
-# queue by a few seconds, so an empty answer, or one that still shows a
-# job in flight, is retried before it is treated as fatal.
+# job with that name ended in a state other than COMPLETED. NJOBS, when
+# given, is the number of jobs submitted under that name.
+#
+# Neither bSync nor sacct is taken at its word. bSync.sh reads a failed
+# squeue call (controller timeout) as "no jobs left" and returns early,
+# so a job sacct still shows as active sends bCheck back into bSync
+# rather than counting as a failure. A failed sacct call, no rows, or
+# fewer rows than NJOBS (accounting lags the queue) is retried every 30 s
+# for up to ATAC_SACCT_WAIT seconds (default 1800) before it is fatal.
+# Only a job in a final state other than COMPLETED fails the stage.
+#
+# Sleeps run in the background and are waited on, as in bSync, so a
+# SIGTERM reaches the caller's trap at once.
 #
 bCheck() {
     local jobname=$1
-    local rows n_active n_bad try
+    local njobs=${2:-1}
+    local limit=${ATAC_SACCT_WAIT:-1800}
+    local waited=0
+    local rows nrows n_active n_bad
 
-    for try in 1 2 3 4 5 6; do
-        rows=$(sacctByName "$jobname")
+    while true; do
+        if ! rows=$(sacctByName "$jobname"); then
+            rows=""
+            echo "bCheck: sacct failed for [$jobname]"
+        fi
+        nrows=$(echo "$rows" | awk 'NF > 0' | wc -l)
+
+        if [ "$nrows" -lt "$njobs" ]; then
+            if [ "$waited" -ge "$limit" ]; then
+                echo
+                echo "    FATAL: $nrows of $njobs accounting records for [$jobname]" \
+                     "since $ATAC_START after ${waited}s"
+                echo
+                exit 1
+            fi
+            echo "bCheck: $nrows of $njobs accounting records for [$jobname]; retry in 30s"
+            sleep 30 &
+            wait $!
+            waited=$((waited + 30))
+            continue
+        fi
+
         n_active=$(echo "$rows" \
-            | awk -F'|' 'NF > 0 && $3 ~ /^(PENDING|RUNNING|COMPLETING|SUSPENDED|REQUEUED|CONFIGURING)/' \
+            | awk -F'|' 'NF > 0 && $3 ~ /^(PENDING|RUNNING|COMPLETING|SUSPENDED|REQUEUED|CONFIGURING|RESIZING|SIGNALING|STAGE_OUT)/' \
             | wc -l)
-        if [ -n "$rows" ] && [ "$n_active" == "0" ]; then
+        if [ "$n_active" -eq 0 ]; then
             break
         fi
-        echo "bCheck: waiting for accounting records for [$jobname] (try $try)"
-        sleep 10
-    done
 
-    if [ -z "$rows" ]; then
-        echo
-        echo "    FATAL: no accounting records for [$jobname] since $ATAC_START"
-        echo
-        exit 1
-    fi
+        echo "bCheck: $n_active job(s) of [$jobname] still active in sacct; waiting again"
+        bSync "$jobname"
+        sleep 30 &
+        wait $!
+    done
 
     n_bad=$(echo "$rows" | awk -F'|' 'NF > 0 && $3 !~ /^COMPLETED/' | wc -l)
     if [ "$n_bad" -gt 0 ]; then
