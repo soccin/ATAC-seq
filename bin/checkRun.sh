@@ -8,8 +8,9 @@
 #
 # exit status:
 #   0   the run completed and every deliverable is present
-#   1   the run failed, or its fate could not be determined
+#   1   the run failed
 #   2   the run is still going
+#   3   unknown: sacct failed, so the state of the run cannot be read now
 #
 # Slurm writes nothing of its own into a job's -o file, so no log can
 # answer this by itself. pipe.sh leaves three records and this script
@@ -35,7 +36,7 @@ usage () {
     echo
     echo "usage: checkRun.sh [ANALYSIS_DIR]"
     echo
-    echo "  exit: 0 worked, 1 failed, 2 still running"
+    echo "  exit: 0 worked, 1 failed, 2 still running, 3 unknown (sacct failed)"
     echo
     exit 1
 }
@@ -80,11 +81,16 @@ ACTIVE_RE='^(PENDING|RUNNING|SUSPENDED|COMPLETING|CONFIGURING|REQUEUED|RESIZING|
 
 NJOBS=0
 JOBREPORT=""
+SACCT_FAILED=0
 if [ -e "$JOBS" ]; then
     IDS=$(awk -F'\t' '/^#/ {next} NF > 0 {print $1}' "$JOBS" | tr '\n' ',' | sed 's/,$//')
     if [ -n "$IDS" ]; then
-        SACCT=$(sacct -X -n -P -j "$IDS" --format=JobID,State,ExitCode,Elapsed 2>/dev/null \
-                    | tr '|' '\t')
+        if SACCT=$(sacct -X -n -P -j "$IDS" --format=JobID,State,ExitCode,Elapsed 2>/dev/null); then
+            SACCT=$(printf '%s\n' "$SACCT" | tr '|' '\t')
+        else
+            SACCT=""
+            SACCT_FAILED=1
+        fi
         JOBREPORT=$(awk -F'\t' -v dir="$DIR" -v active="$ACTIVE_RE" '
 
             function trailer(logf,   cmd, line, rc) {
@@ -192,8 +198,11 @@ JOBLIST=$(echo "$JOBREPORT" | awk -F'\t' '$1 != "JOBS"')
 
 CTRL_STATE=""
 if [ "$CTRL_JOBID" != "none" ] && [ -n "$CTRL_JOBID" ]; then
-    CTRL_STATE=$(sacct -X -n -P -j "$CTRL_JOBID" --format=State 2>/dev/null \
-                     | head -1 | awk '{print $1}')
+    if CTRL_SACCT=$(sacct -X -n -P -j "$CTRL_JOBID" --format=State 2>/dev/null); then
+        CTRL_STATE=$(printf '%s\n' "$CTRL_SACCT" | head -1 | awk '{print $1}')
+    else
+        SACCT_FAILED=1
+    fi
 fi
 
 NOTE=""
@@ -250,6 +259,19 @@ case "$STATUS" in
 
 esac
 
+#
+# A failed sacct call (controller timeout) leaves stage jobs with no state
+# and the control job with none either, which reads as FAILED. Only a
+# STATUS=FAILED written by pipe.sh, or an OK verdict, stands without sacct.
+#
+if [ "$SACCT_FAILED" == "1" ] && [ "$EXIT" != "0" ] \
+       && { [ "$STATUS" == "RUNNING" ] || [ "$STATUS" == "COMPLETED" ]; }; then
+    VERDICT=UNKNOWN
+    EXIT=3
+    NOTE="sacct failed; cannot tell whether the run is going, worked or failed. Run checkRun.sh again."
+    JOBLIST=""
+fi
+
 echo "ATAC STATUS: $VERDICT   $(date '+%Y-%m-%d %H:%M:%S')"
 echo "   dir        $(cd "$DIR" && pwd)"
 echo "   version    $VERSION"
@@ -260,7 +282,11 @@ if [ -n "$FINISHED" ]; then
 fi
 echo "   stage      $STAGE${RC:+  rc=$RC}"
 echo "   samples    $SAMPLES"
-echo "   jobs       $NJOBS: $NOK ok, $NFAIL failed, $NCANCEL cancelled, $NACTIVE queued/running"
+if [ "$VERDICT" == "UNKNOWN" ]; then
+    echo "   jobs       $NJOBS: states not available (sacct failed)"
+else
+    echo "   jobs       $NJOBS: $NOK ok, $NFAIL failed, $NCANCEL cancelled, $NACTIVE queued/running"
+fi
 if [ -n "$MESSAGE" ]; then
     echo "   message    $MESSAGE"
 fi
