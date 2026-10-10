@@ -19,8 +19,27 @@ All notable changes to this project will be documented in this file.
 - `00.POST_RUN.txt` is gone: its notes now follow the status block in
   `00.RUNSTATUS.txt` once the R reports have run, with `$SDIR` expanded
   to the real path.
+- **Walltime classes** (2026-10-09): each stage job is `SHORT`
+  (`cmobic_short,cpushort`, 1h59m, no qos) or `LONG` (`cmobic_cpu`, 12 h,
+  qos priority). POST, BW, CALLP, TSSE and Count choose per job from
+  their input size, with rates measured on a full-size run, so large
+  samples no longer risk the two-hour limit and small ones stay on the
+  short partitions. The estimate is logged in the control log;
+  `ATAC_SHORT_MAX_MIN` (default 60) sets the cutoff.
 
 ### Fixes
+
+- No temp files go to the node's `/tmp` (137G, shared by every job on
+  the node). `TMPDIR` is now `/localscratch/$USER` (2.8T, node-local;
+  override with `ATAC_LOCAL_TMP`), and each stage job gets its own
+  directory under it, removed when the job ends. The 16 to 24G sorts in
+  `makeBigWigFromBEDZ.sh`, `mergePeaksToSAF.sh` and `mergeSamples.sh`
+  pass `-T "$TMPDIR"`. Before this, their spill and the R and Python
+  temp files went to `/tmp`.
+- An `SBATCH_QOS` (or any other `SBATCH_*` variable) exported in the
+  shell that submits `pipe.sh` no longer reaches the stage jobs. With
+  `SBATCH_QOS=priority`, as the docs used to advise, every short stage
+  job was rejected with `Invalid qos specification`.
 
 - `callPeaks_ATACSeq.sh` runs under `pipefail` and stops if its
   chromosome filter fails; `makeBigWigFromBEDZ.sh` checks its read count

@@ -33,7 +33,7 @@ if [ "$#" == "3" ]; then
     echo "$BEDZ sizeFactorNorm scaleFactor "$scaleFactor
     OUT=$(basename $BEDZ | sed 's/.bed.gz/.sizeFactorNorm.bw/')
 else
-    count=$(zcat $BEDZ | cut -f4 | sort -S20g | uniq | wc -l) \
+    count=$(zcat $BEDZ | cut -f4 | sort -S20g -T "$TMPDIR" | uniq | wc -l) \
         || { echo "FATAL ERROR: read count of $BEDZ failed"; exit 1; }
     if [ "$count" -eq 0 ]; then
         echo "FATAL ERROR: no reads in $BEDZ"

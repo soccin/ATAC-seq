@@ -57,7 +57,8 @@ that `pipe.sh` keeps, plus `sacct`:
   trap writes `FAILED`. A new control-job step must call `setStage NAME`
   and a new deliverable belongs in that check.
 - `SLURM.CTRL/jobs.tsv`: job id, stage, sample and log of every stage job.
-  Submit stage jobs with `atacSub STAGE SAMPLE LOGDIR "BSUB_OPTS" CMD ...`
+  Submit stage jobs with
+  `atacSub STAGE SAMPLE LOGDIR CLASS "BSUB_OPTS" CMD ...`
   and wait with `waitStage STAGE`, never with a bare `bsub`, or the job is
   missing from the manifest and its log has no exit trailer.
 - `#ATAC_EXIT=<rc>`: the last line of every stage log, written to stderr
@@ -67,10 +68,17 @@ Stage scripts must exit nonzero on any failed step (`pipefail` plus an
 explicit check), or `sacct`, `bCheck` and the trailer all report a failed
 step as `COMPLETED`.
 
-Every stage runs on the short partitions (`cmobic_short,cpushort`, under
-two hours) with `-M` as a hard total-memory cap. If a stage needs longer on
-real data, give it `-W` over two hours so the shim picks `cmobic_cpu`, and
-export `SBATCH_QOS=priority` for that call only.
+Every stage job has a walltime class, the `CLASS` argument of `atacSub`,
+and `-M` as a hard total-memory cap. `SHORT` is `-W 1:59:00` with no qos;
+the shim sends it to `cmobic_short,cpushort`. `LONG` is `-W 12:00:00` with
+`SBATCH_QOS=priority` set on that one `bsub` call; the shim sends it to
+`cmobic_cpu`. Never give a `SHORT` job a qos: `cpushort` allows only
+`normal` and rejects the job. Never export `SBATCH_QOS` (`pipe.sh` unsets
+every `SBATCH_*` variable it inherits). POST, BW, CALLP, TSSE and Count
+choose their class per job with `runClass MIN_PER_GB FILE...`, which
+estimates the run time from the input size using the `RATE_*` values
+measured on a full-size run; the other stages are always `SHORT`. A new
+stage whose run time grows with its input needs a measured `RATE_*`.
 
 `deliverResults.sh` has not been ported: it still points at the JUNO
 paths `/ifs/res/seq/pi/invest` and `~/Code/BIC/Delivery`. Deliver the
@@ -169,7 +177,15 @@ matching files are added.
 `bSync.sh`, `picard` and `bedtools` come from `~/bin`; `samtools` is loaded by `bin/loadTools.sh` via `module load
 samtools/1.20`. `sacct`, `squeue` and `scancel` are the Slurm client tools.
 Scratch for intermediates is
-`${ATAC_SCRATCH_ROOT:-/scratch/core001/bic/$USER/ATACSeq}`. R is the 4.5.1
+`${ATAC_SCRATCH_ROOT:-/scratch/core001/bic/$USER/ATACSeq}`.
+
+**Nothing may write to `/tmp`.** IRIS nodes set `TMPDIR=/tmp`, a small
+volume shared by every job on the node. `bin/loadTools.sh` points
+`TMPDIR` at `${ATAC_LOCAL_TMP:-/localscratch/$USER}` (node-local, 2.8T),
+and `bin/runStage.sh` gives each stage job its own directory under it,
+removed when the job ends. Any new `sort` gets `-T "$TMPDIR"`; any new
+tool with its own temp-dir option gets `$TMPDIR` or a scratch dir, never
+its default. R is the 4.5.1
 on PATH; `tss_enrich.R` needs `optparse`.
 
 `bin/featureCounts`, `bin/wigToBigWig`, and `bin/bedGraphToBigWig` are
