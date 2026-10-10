@@ -33,7 +33,12 @@ if [ "$#" == "3" ]; then
     echo "$BEDZ sizeFactorNorm scaleFactor "$scaleFactor
     OUT=$(basename $BEDZ | sed 's/.bed.gz/.sizeFactorNorm.bw/')
 else
-    count=$(zcat $BEDZ | cut -f4 | sort -S20g | uniq | wc -l)
+    count=$(zcat $BEDZ | cut -f4 | sort -S20g -T "$TMPDIR" | uniq | wc -l) \
+        || { echo "FATAL ERROR: read count of $BEDZ failed"; exit 1; }
+    if [ "$count" -eq 0 ]; then
+        echo "FATAL ERROR: no reads in $BEDZ"
+        exit 1
+    fi
     scaleFactor=$(bc -l <<< "10000000/$count")
     echo "$BEDZ 10mNorm scaleFactor "$scaleFactor
     OUT=$(basename $BEDZ | sed 's/.bed.gz/.10mNorm.bw/')
@@ -78,4 +83,5 @@ zcat $BEDZ \
     | bedtools slop -i - -g $GENOME -s -l 0 -r 0 \
     | bedtools intersect -nonamecheck -a - -b ${GENOME}.bed \
     | bedtools genomecov -i - -g $GENOME -bg -scale $scaleFactor \
-    | $SDIR/bin/wigToBigWig stdin $GENOME $OUT
+    | $SDIR/bin/wigToBigWig stdin $GENOME $OUT \
+    || { echo "FATAL ERROR: bigWig build for $BEDZ failed"; exit 1; }
