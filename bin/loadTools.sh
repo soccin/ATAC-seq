@@ -30,3 +30,25 @@ for ATAC_TOOL in samtools bedtools; do
     fi
 done
 unset ATAC_TOOL
+
+#
+# Temp files never go to /tmp. IRIS compute nodes set TMPDIR=/tmp, a
+# 137G volume shared by every job on the node; sort spill, the R session
+# tempdir and Python tempfiles all land there by default. Point TMPDIR at
+# the node-local /localscratch (2.8T) instead. bin/runStage.sh has
+# already set a per-job directory under it for stage jobs; keep that.
+# This also covers stage scripts run by hand.
+#
+
+ATAC_LOCAL_TMP=${ATAC_LOCAL_TMP:-/localscratch/$USER}
+
+if [[ "$TMPDIR" != "$ATAC_LOCAL_TMP"/* ]]; then
+    export TMPDIR=$ATAC_LOCAL_TMP
+fi
+
+if ! mkdir -p "$TMPDIR"; then
+    echo
+    echo "    FATAL ERROR: cannot create TMPDIR=[$TMPDIR]"
+    echo
+    exit 1
+fi

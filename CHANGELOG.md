@@ -2,6 +2,106 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v1.5.1] — 2026-10-10
+
+### Features
+
+- **Run status** (2026-10-09): there is now a way to tell whether a run
+  worked. `pipe.sh` writes `00.RUNSTATUS.txt` (`STATUS=RUNNING`, then
+  `COMPLETED` or `FAILED` with the stage it failed in) and a manifest of
+  every stage job, `SLURM.CTRL/jobs.tsv`. Every stage job runs through
+  the new `bin/runStage.sh`, which ends its log with `#ATAC_EXIT=<rc>`.
+  The new `bin/checkRun.sh` reads these with `sacct` and exits 0
+  (worked), 1 (failed), 2 (running) or 3 (unknown: `sacct` failed, so a
+  live run is not reported as failed); it also reports a control job
+  that was killed before it could update the status file. `COMPLETED`
+  now requires every sample's bigWig, peak file, insert-size metrics and
+  TSS enrichment (when that stage runs), not just
+  `macsPeaksMerged.saf`.
+- `00.POST_RUN.txt` is gone: its notes now follow the status block in
+  `00.RUNSTATUS.txt` once the R reports have run, with `$SDIR` expanded
+  to the real path.
+- **Walltime classes** (2026-10-09): each stage job is `SHORT`
+  (`cmobic_short,cpushort`, 1h59m, no qos) or `LONG` (`cmobic_cpu`, 12 h,
+  qos priority). POST, BW, CALLP, TSSE and Count choose per job from
+  their input size, with rates measured on a full-size run, so large
+  samples no longer risk the two-hour limit and small ones stay on the
+  short partitions. The estimate is logged in the control log;
+  `ATAC_SHORT_MAX_MIN` (default 60) sets the cutoff.
+
+### Fixes
+
+- `pipe.sh` checks the genome of every BAM, not just the first, before
+  it submits anything. A run stops at once, with the reason in `MESSAGE`,
+  if the BAMs are on different builds or the build is not b37, b38 or
+  mm10. Before, a detected build such as hg19, b37_dmp or GRCh37-lite
+  failed in every POST job, and mixed builds were not noticed.
+- mm10 runs no longer fail after stage 6: there are no mm10 TSS files in
+  `R/TSSEnrich/lib/`, so the TSS enrichment stage is skipped with a
+  warning (control log and `MESSAGE`), and its output is not required for
+  `COMPLETED`. Adding `mm10_tss.bed` and `mm10.chrom.sizes` turns it on.
+- The count matrix uses the `-q MAPQ` given to `pipe.sh`; featureCounts
+  had a fixed `-Q 10`, so with `-q` below 10 reads under MAPQ 10 were
+  left out of the counts.
+- A run in a directory that already holds one now stops at once, before
+  writing anything, if `00.RUNSTATUS.txt`, `SLURM.CTRL/jobs.tsv`,
+  `out/`, `callpeaks/` or `atacSeq/` exists. Rerun in a new directory.
+  Before, a second run overwrote the first run's status file and job
+  manifest, even while the first was still running, picked up the first
+  run's samples from `out/` and `callpeaks/`, and after every stage had
+  run stopped before staging into `atacSeq/` (`mkdir` without `-p`). The
+  unused `out/postBams`, `out/metrics` and `out/bed` are no longer
+  created.
+- A transient `squeue` or `sacct` failure no longer aborts a run. Before,
+  `bSync.sh` read a failed `squeue` as "stage done", `bCheck` then
+  counted the still-running jobs as failed, and the run was cancelled; a
+  failed `sacct` call ended `pipe.sh` outright under `set -e`. `bCheck`
+  now waits again while any job is active, retries `sacct` for up to 30
+  minutes (`ATAC_SACCT_WAIT`), and waits until it has a record for every
+  job the stage submitted.
+- `mkdir -p SLURM.CTRL` is no longer needed before `sbatch`: Slurm creates
+  the log directory.
+- No temp files go to the node's `/tmp` (137G, shared by every job on
+  the node). `TMPDIR` is now `/localscratch/$USER` (2.8T, node-local;
+  override with `ATAC_LOCAL_TMP`), and each stage job gets its own
+  directory under it, removed when the job ends. The 16 to 24G sorts in
+  `makeBigWigFromBEDZ.sh`, `mergePeaksToSAF.sh` and `mergeSamples.sh`
+  pass `-T "$TMPDIR"`. Before this, their spill and the R and Python
+  temp files went to `/tmp`.
+- An `SBATCH_QOS` (or any other `SBATCH_*` variable) exported in the
+  shell that submits `pipe.sh` no longer reaches the stage jobs. With
+  `SBATCH_QOS=priority`, as the docs used to advise, every short stage
+  job was rejected with `Invalid qos specification`.
+- `callPeaks_ATACSeq.sh` runs under `pipefail` and stops if its
+  chromosome filter fails; `makeBigWigFromBEDZ.sh` checks its read count
+  and bigWig build. Both could exit 0 after a failed step.
+- `pipe.sh` `usage` exits 1, so a submission without BAMs no longer shows
+  `COMPLETED`.
+- `pipe.sh` stops before submitting anything if a BAM has no `@RG SM` tag
+  or two BAMs share one.
+- `scancel` or a time limit on the control job now cancels the run's
+  stage jobs. The `EXIT` trap never ran before: Slurm signals only the
+  batch shell, which did not run the trap while `bSync.sh` was in the
+  foreground. `bSync` now waits on it in the background.
+
+### Documentation
+
+- Add `00.ISSUES.md` (open issues, numbered in order of work) and
+  `attic/zzISSUES.md` (closed issues, with the reason).
+- `docs/SLURM_PORT.md`: add the walltime classes with the rates measured
+  on the first full-size run, the run-status records and `checkRun.sh`,
+  the `/localscratch` temp-file setup, and the 2026-10-10 validation
+  runs.
+- `README.md`: `checkRun.sh`, one run per directory, the genome check.
+- `docs/UPDATE_TO_B38.md` and `docs/CHECKLIST_B38.md` are marked
+  historical; b38 shipped in v1.1.0.
+
+### Known issues
+
+- `deliverResults.sh` still points at the JUNO paths
+  `/ifs/res/seq/pi/invest` and `~/Code/BIC/Delivery`. Deliver by hand
+  (`00.ISSUES.md` #1). The other open issues are in `00.ISSUES.md`.
+
 ## [v1.5.0] — 2026-10-09
 
 ### Breaking changes

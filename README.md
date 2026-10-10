@@ -1,6 +1,6 @@
 # ATAC-Seq pipeline
 
-## Version 1.5.0 - 2026-10-09
+## Version 1.5.1 - 2026-10-10
 
 Single end version which uses both reads from PE-runs. Using methods from R.K. for bigWig generation.
 
@@ -12,14 +12,35 @@ own checkout; the partition, qos, time and memory are `#SBATCH` directives
 in `pipe.sh`):
 
 ```
-mkdir -p SLURM.CTRL
 sbatch /path/to/ATAC-seq/pipe.sh [-q MAPQ] BAM1 [BAM2 ...]
 ```
+
+To find out whether the run worked, at any time, from the same directory:
+
+```
+/path/to/ATAC-seq/bin/checkRun.sh
+```
+
+It prints `ATAC STATUS: OK`, `FAILED` or `RUNNING` with the stage, the
+failed jobs and their logs, and exits 0, 1 or 2. If `sacct` itself fails
+it prints `UNKNOWN` and exits 3; run it again later. The raw status is in
+`00.RUNSTATUS.txt`.
+
+One run per analysis directory. To rerun, use a new directory: a run
+submitted where `00.RUNSTATUS.txt`, `SLURM.CTRL/jobs.tsv`, `out/`,
+`callpeaks/` or `atacSeq/` already exists stops at once and changes
+nothing; the reason is in its log, `SLURM.CTRL/<jobid>.out`.
+
+The genome is detected from the BAM headers. All BAMs must be on the
+same build, and the build must be b37, b38 or mm10; otherwise the run
+stops before submitting any job, with the reason in `00.RUNSTATUS.txt`.
+For mm10 the TSS enrichment step is skipped with a warning (there are
+no mm10 TSS files in `R/TSSEnrich/lib/`); everything else runs.
 
 - Post-alignment filtering:
 
     - Mark Duplicates
-    - MAPQ 10+
+    - MAPQ 10+ (`-q MAPQ`; the count matrix uses the same cutoff)
 
 - BigWig file generation.
 

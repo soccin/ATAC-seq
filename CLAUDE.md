@@ -33,28 +33,67 @@ directory, so `$0` is useless, and the wrapper exports `SBATCH_SCRIPT_DIR`,
 which `pipe.sh` uses for `SDIR`.
 
 ```bash
-mkdir -p SLURM.CTRL
 sbatch /path/to/ATAC-seq/pipe.sh [-q MAPQ] BAM1 [BAM2 ...]
 ```
 
 `pipe.sh` is the control job: it fans each stage out with `~/bin/bsub` (the
 SchedMD openlava shim with local patches), blocks on `bSync JOBNAME`, then
-calls `bCheck JOBNAME` to abort if any job in the group did not reach
-`COMPLETED` in `sacct`. Job names embed `$$` so concurrent runs don't
+calls `bCheck JOBNAME NJOBS` to abort if any job in the group ended in a
+state other than `COMPLETED` in `sacct`. `bSync.sh` reads a failed `squeue`
+as "all done", so `bCheck` goes back to `bSync` while `sacct` still shows
+a job active, and retries a failed or short `sacct` answer for up to
+`ATAC_SACCT_WAIT` seconds (1800). Under `set -e` a failing `$(...)`
+assignment ends `pipe.sh`; call Slurm tools in an `if`. Job names embed `$$` so concurrent runs don't
 collide; every `sacct` query is bounded by `ATAC_START` because pids
 recycle. The helpers are in `bin/slurmTools.sh`; `bSync.sh` itself lives in
 `~/bin`. Individual stage scripts can also be run standalone for debugging —
 each has its own usage block. See `docs/SLURM_PORT.md` for the flag
 translation and the reasoning behind the resource requests.
 
-Every stage runs on the short partitions (`cmobic_short,cpushort`, under
-two hours) with `-M` as a hard total-memory cap. If a stage needs longer on
-real data, give it `-W` over two hours so the shim picks `cmobic_cpu`, and
-export `SBATCH_QOS=priority` for that call only.
+Whether a run worked is answered by `bin/checkRun.sh` (exit 0 worked, 1
+failed, 2 running, 3 unknown because `sacct` failed), run from the
+analysis directory. It reads three records
+that `pipe.sh` keeps, plus `sacct`:
+
+- `00.RUNSTATUS.txt`: `STATUS=RUNNING|COMPLETED|FAILED`, the `STAGE`
+  reached, and the control job id. `COMPLETED` is written only as the last
+  line of `pipe.sh`, after the per-sample deliverables check; the `EXIT`
+  trap writes `FAILED`. A new control-job step must call `setStage NAME`
+  and a new deliverable belongs in that check.
+- `SLURM.CTRL/jobs.tsv`: job id, stage, sample and log of every stage job.
+  Submit stage jobs with
+  `atacSub STAGE SAMPLE LOGDIR CLASS "BSUB_OPTS" CMD ...`
+  and wait with `waitStage STAGE`, never with a bare `bsub`, or the job is
+  missing from the manifest and its log has no exit trailer.
+- `#ATAC_EXIT=<rc>`: the last line of every stage log, written to stderr
+  by `bin/runStage.sh`, which `atacSub` puts in front of every command.
+
+One run per analysis directory; reruns are deliberately not supported
+(that belongs in a workflow manager, not in bash). Before writing
+anything, `pipe.sh` (`checkPreviousRun`) stops if `00.RUNSTATUS.txt`,
+`jobs.tsv`, `out/`, `callpeaks/` or `atacSeq/` exists. Do not add rerun
+or resume logic; the stages glob `out/` and `callpeaks/` for their
+inputs, so an earlier run's samples would be mixed in.
+
+Stage scripts must exit nonzero on any failed step (`pipefail` plus an
+explicit check), or `sacct`, `bCheck` and the trailer all report a failed
+step as `COMPLETED`.
+
+Every stage job has a walltime class, the `CLASS` argument of `atacSub`,
+and `-M` as a hard total-memory cap. `SHORT` is `-W 1:59:00` with no qos;
+the shim sends it to `cmobic_short,cpushort`. `LONG` is `-W 12:00:00` with
+`SBATCH_QOS=priority` set on that one `bsub` call; the shim sends it to
+`cmobic_cpu`. Never give a `SHORT` job a qos: `cpushort` allows only
+`normal` and rejects the job. Never export `SBATCH_QOS` (`pipe.sh` unsets
+every `SBATCH_*` variable it inherits). POST, BW, CALLP, TSSE and Count
+choose their class per job with `runClass MIN_PER_GB FILE...`, which
+estimates the run time from the input size using the `RATE_*` values
+measured on a full-size run; the other stages are always `SHORT`. A new
+stage whose run time grows with its input needs a measured `RATE_*`.
 
 `deliverResults.sh` has not been ported: it still points at the JUNO
 paths `/ifs/res/seq/pi/invest` and `~/Code/BIC/Delivery`. Deliver the
-`atacSeq/` directory by hand until it is updated.
+`atacSeq/` directory by hand until it is updated (`00.ISSUES.md` #1).
 
 ## Pipeline stages (pipe.sh)
 
@@ -67,10 +106,13 @@ paths `/ifs/res/seq/pi/invest` and `~/Code/BIC/Delivery`. Deliver the
    --extsize 150 --call-summits -p 0.01`
 4. `mergePeaksToSAF.sh` — merge all narrowPeak within 500bp into
    `macsPeaksMerged.saf` (the peak atlas)
-5. `bin/featureCounts` — raw count matrix `peaks_raw_fcCounts.txt` over the atlas
+5. `bin/featureCounts` — raw count matrix `peaks_raw_fcCounts.txt` over the
+   atlas, with `-Q` set to the same MAPQ as stage 1
 6. `R/getDESeqScaleFactors.R` — DESeq2 size factors (written **inverted**, per
    R. Koche's convention; see NOTES.md)
-7. `bin/computeTSSEnrich.sh` → `R/TSSEnrich/tss_enrich.R` — ENCODE TSS enrichment
+7. `bin/computeTSSEnrich.sh` → `R/TSSEnrich/tss_enrich.R` — ENCODE TSS
+   enrichment; skipped with a warning when `R/TSSEnrich/lib/` has no files
+   for the build (mm10)
 8. `plotINSStats.R` and `R/analyzeATAC.R` — insert-size and QC/PCA reports
 9. Staging into `atacSeq/{atlas,bigwig,macs,metrics}` for delivery
 
@@ -93,21 +135,32 @@ source of bugs:
 | Consumer | Accepted tags |
 | --- | --- |
 | `bin/getGenomeBuildBAM.sh` (emits) | `b37`, `b37_dmp`, `hg19`, `hg19-mainOnly`, `GRCh37-lite`, `b38`, `b37+mm10`, `mm10`, `mm10_hBRAF_V600E`, `mm9Full`, `GRC_m38`, `sCer+sMik_IFO1815` |
+| `pipe.sh` (`SUPPORTED_GENOMES`) | `b37`, `b38`, `mm10` |
 | `postMapBamProcessing_ATACSeq.sh` | `b37`, `b38`, `mm10` |
 | `callPeaks_ATACSeq.sh`, `makeBigWigFromBEDZ.sh` | `b37`, `b38`, `mm10`, `sCer+sMik_IFO1815` |
+| `bin/computeTSSEnrich.sh` (files in `R/TSSEnrich/lib/`) | `b37`, `b38` |
 | `R/diffAnalysisPairwise.R` | `hg19`, `b38`, `mm10` |
 
 So a detected build that the shell stages accept may still be rejected
 downstream, and vice versa. When adding genome support, update **every** case
-statement, not just the one that failed.
+statement, not just the one that failed, and `SUPPORTED_GENOMES` in
+`pipe.sh`.
+
+`pipe.sh` detects the build of every BAM before it submits anything and
+stops (`STATUS=FAILED`, reason in `MESSAGE`) if the BAMs are on different
+builds or the build is not in `SUPPORTED_GENOMES`, the builds
+`postMapBamProcessing_ATACSeq.sh` accepts.
 
 Chromosome filtering is allowlist-driven: `lib/genomes/<build>.genome` (chrom
 sizes) and `lib/genomes/<build>.genome.bed` (regions to keep) are intersected
 with `bedtools intersect -nonamecheck`. Do not reintroduce `egrep -v` denylists.
 
 `R/TSSEnrich/lib/` ships only `b38` and `b37` files (`<build>_tss.bed`,
-`<build>.chrom.sizes`), so stage 7 fails for any other build until the
-matching files are added.
+`<build>.chrom.sizes`). For any other build (in practice mm10) `pipe.sh`
+skips stage 7 (`RUN_TSSE=0`) with a warning in the control log and in
+`MESSAGE`, and leaves the TSS files out of staging and of the
+deliverables check. Adding the two files turns the stage on; no code
+change is needed.
 
 ## Cross-stage conventions
 
@@ -149,7 +202,15 @@ matching files are added.
 `bSync.sh`, `picard` and `bedtools` come from `~/bin`; `samtools` is loaded by `bin/loadTools.sh` via `module load
 samtools/1.20`. `sacct`, `squeue` and `scancel` are the Slurm client tools.
 Scratch for intermediates is
-`${ATAC_SCRATCH_ROOT:-/scratch/core001/bic/$USER/ATACSeq}`. R is the 4.5.1
+`${ATAC_SCRATCH_ROOT:-/scratch/core001/bic/$USER/ATACSeq}`.
+
+**Nothing may write to `/tmp`.** IRIS nodes set `TMPDIR=/tmp`, a small
+volume shared by every job on the node. `bin/loadTools.sh` points
+`TMPDIR` at `${ATAC_LOCAL_TMP:-/localscratch/$USER}` (node-local, 2.8T),
+and `bin/runStage.sh` gives each stage job its own directory under it,
+removed when the job ends. Any new `sort` gets `-T "$TMPDIR"`; any new
+tool with its own temp-dir option gets `$TMPDIR` or a scratch dir, never
+its default. R is the 4.5.1
 on PATH; `tss_enrich.R` needs `optparse`.
 
 `bin/featureCounts`, `bin/wigToBigWig`, and `bin/bedGraphToBigWig` are
@@ -163,6 +224,9 @@ invoking them can only be tested on the cluster.
 - `QC/QCNotes.md` — which ATAC QC metrics matter and why.
 - `docs/SLURM_PORT.md` — how the JUNO/LSF to IRIS/Slurm port was done, the
   flag translation, and the memory and partition choices.
-- `docs/UPDATE_TO_B38.md`, `docs/CHECKLIST_B38.md` — per-file analysis of the
-  b38 rollout, including remaining gaps.
+- `docs/UPDATE_TO_B38.md`, `docs/CHECKLIST_B38.md` — the plan for the b38
+  rollout, done in v1.1.0. Historical: the checkboxes were never ticked
+  and the line numbers are out of date.
 - `CHANGELOG.md` — kept current; add entries for user-visible changes.
+- `00.ISSUES.md` — open issues only, numbered in order of work;
+  `attic/zzISSUES.md` — the closed ones, with the reason.
