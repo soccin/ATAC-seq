@@ -93,7 +93,7 @@ stage whose run time grows with its input needs a measured `RATE_*`.
 
 `deliverResults.sh` has not been ported: it still points at the JUNO
 paths `/ifs/res/seq/pi/invest` and `~/Code/BIC/Delivery`. Deliver the
-`atacSeq/` directory by hand until it is updated.
+`atacSeq/` directory by hand until it is updated (`00.ISSUES.md` #1).
 
 ## Pipeline stages (pipe.sh)
 
@@ -224,6 +224,9 @@ invoking them can only be tested on the cluster.
 - `QC/QCNotes.md` — which ATAC QC metrics matter and why.
 - `docs/SLURM_PORT.md` — how the JUNO/LSF to IRIS/Slurm port was done, the
   flag translation, and the memory and partition choices.
-- `docs/UPDATE_TO_B38.md`, `docs/CHECKLIST_B38.md` — per-file analysis of the
-  b38 rollout, including remaining gaps.
+- `docs/UPDATE_TO_B38.md`, `docs/CHECKLIST_B38.md` — the plan for the b38
+  rollout, done in v1.1.0. Historical: the checkboxes were never ticked
+  and the line numbers are out of date.
 - `CHANGELOG.md` — kept current; add entries for user-visible changes.
+- `00.ISSUES.md` — open issues only, numbered in order of work;
+  `attic/zzISSUES.md` — the closed ones, with the reason.

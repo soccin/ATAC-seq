@@ -16,8 +16,8 @@
 #
 #    /path/to/ATAC-seq/bin/checkRun.sh
 #
-# which exits 0 if the run worked, 1 if it failed and 2 if it is still
-# running.
+# which exits 0 if the run worked, 1 if it failed, 2 if it is still
+# running and 3 if sacct failed and the state cannot be read now.
 #
 # One run per analysis directory. A run started in a directory that
 # already holds one (see checkPreviousRun) stops at once and changes

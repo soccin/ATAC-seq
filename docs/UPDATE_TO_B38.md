@@ -1,5 +1,10 @@
 # ATAC-seq Pipeline: GRCh38 (hg38/B38) Support - Analysis Report
 
+**Historical.** This is the plan written before b38 support shipped in
+v1.1.0, under the tag `b38` (see `CHANGELOG.md`). Line numbers and
+"current" behavior refer to the code at that time. Kept for reference
+only; open work is in `00.ISSUES.md`.
+
 ## Context
 
 The current ATAC-seq pipeline supports human genomes b37/hg19 (GRCh37) and mouse mm10. This report identifies all changes needed to add GRCh38 (hg38/B38) support. A key difference between b37 and hg38 is chromosome naming: b37 uses bare numbers (`1, 2, ... X, Y, MT`) while hg38 uses the "chr" prefix (`chr1, chr2, ... chrX, chrY, chrM`).

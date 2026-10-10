@@ -12,7 +12,8 @@ All notable changes to this project will be documented in this file.
   every stage job, `SLURM.CTRL/jobs.tsv`. Every stage job runs through
   the new `bin/runStage.sh`, which ends its log with `#ATAC_EXIT=<rc>`.
   The new `bin/checkRun.sh` reads these with `sacct` and exits 0
-  (worked), 1 (failed) or 2 (running); it also reports a control job
+  (worked), 1 (failed), 2 (running) or 3 (unknown: `sacct` failed, so a
+  live run is not reported as failed); it also reports a control job
   that was killed before it could update the status file. `COMPLETED`
   now requires every sample's bigWig, peak file, insert-size metrics and
   TSS enrichment, not just `macsPeaksMerged.saf`.
@@ -57,8 +58,6 @@ All notable changes to this project will be documented in this file.
   now waits again while any job is active, retries `sacct` for up to 30
   minutes (`ATAC_SACCT_WAIT`), and waits until it has a record for every
   job the stage submitted.
-- `checkRun.sh` reports `UNKNOWN` (exit 3) when `sacct` fails, instead of
-  reporting a live run as `FAILED`.
 - `mkdir -p SLURM.CTRL` is no longer needed before `sbatch`: Slurm creates
   the log directory.
 - No temp files go to the node's `/tmp` (137G, shared by every job on
@@ -72,7 +71,6 @@ All notable changes to this project will be documented in this file.
   shell that submits `pipe.sh` no longer reaches the stage jobs. With
   `SBATCH_QOS=priority`, as the docs used to advise, every short stage
   job was rejected with `Invalid qos specification`.
-
 - `callPeaks_ATACSeq.sh` runs under `pipefail` and stops if its
   chromosome filter fails; `makeBigWigFromBEDZ.sh` checks its read count
   and bigWig build. Both could exit 0 after a failed step.
