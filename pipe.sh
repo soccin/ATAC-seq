@@ -275,6 +275,15 @@ onExit() {
         kill $BSYNC_PID 2>/dev/null || true
     fi
     if [ "$RUN_DONE" != "1" ]; then
+        #
+        # A failed bCheck leaves the reason in the stage job logs; copy it
+        # into MESSAGE, ahead of the mm10 TSS warning if there is one.
+        #
+        local reason=""
+        reason=$(failedJobsMessage "$RUN_STAGE" "$JOBS" 2>/dev/null) || true
+        if [ -n "$reason" ]; then
+            RUN_MESSAGE="$reason${RUN_MESSAGE:+; $RUN_MESSAGE}"
+        fi
         RUN_STATUS=FAILED
         RUN_RC=$rc
         RUN_FINISHED=$(date '+%Y-%m-%d %H:%M:%S')
@@ -664,6 +673,7 @@ if [ "$FAILED_JOBS" != "" ]; then
   echo -e "\n\n\nFailed Slurm jobs\n\n"
   echo "$FAILED_JOBS"
   echo -e "\n\n"
+  RUN_MESSAGE="stage jobs not COMPLETED:$(echo "$FAILED_JOBS" | awk '{printf " %s %s", $1, $2}')"
   exit 1
 fi
 
