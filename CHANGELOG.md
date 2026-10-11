@@ -40,6 +40,13 @@ any v1.x run may be wrong for one or more samples.
 - The deliverables check also requires
   `atacSeq/atlas/peaks_raw_fcCounts.txt.summary` and
   `peaks_raw_fcCounts.checks.txt`.
+- **`MESSAGE` says why a stage failed.** It was empty when a stage job
+  failed; the reason was only in that job's log. Now, for each failed
+  job (at most 3), it gives the sample, job id, `sacct` state and the
+  first line of the log with `FATAL` (else `error` or `fail`, any case),
+  e.g. `Count failed: all job 18905720 FAILED: FATAL ERROR: Check A
+  failed on peaks_raw_fcCounts.txt.summary`. `checkRun.sh` prints it.
+  An mm10 TSS warning, if any, follows it.
 
 ## [v1.5.1] — 2026-10-10
 
