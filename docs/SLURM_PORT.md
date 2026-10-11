@@ -168,6 +168,16 @@ TSS enrichment (when the TSSE stage ran; it is skipped for builds without
 files in `R/TSSEnrich/lib/`, such as mm10) and that the atlas, count
 matrix, scale factors and QC PDFs exist. Any earlier exit runs the `EXIT` trap, which writes
 `STATUS=FAILED` with the stage and cancels the rest of the run's jobs.
+When the exit came from `bCheck`, the trap also puts the reason in
+`MESSAGE`: `bCheck` leaves the `sacct` rows of the failed jobs in
+`BCHECK_FAILED`, and `failedJobsMessage` (`bin/slurmTools.sh`) looks up
+each job's log in `jobs.tsv` and takes its first line with `FATAL`, else
+its first with `error` or `fail` in any case. That also catches the
+`error: *** JOB ... DUE TO TIME LIMIT ***` line Slurm writes into the
+log of a job it kills (probe job 18919113, `TIMEOUT`); an out-of-memory
+kill was not tried. A log with no such line gives the `sacct` state
+alone. At most 3 jobs are listed. None of the successful test17 stage
+logs has a line that matches.
 
 `bin/checkRun.sh`, run from the analysis directory (or given its path),
 reads the three records with `sacct` and exits 0 if the run worked, 1 if
@@ -310,9 +320,21 @@ exactly on all 11 downsampled and all 12 full-size Proj_18143_B BAMs,
 as did `bedtools intersect -u -split`, which took about 2.2 times as
 long.
 
-When a stage job fails, `MESSAGE` is still empty (`00.ISSUES.md` #7):
-test18 shows the Check A lines only in the Count job log. A failure of
-the comparison in the control job (Check B) does set `MESSAGE`.
+In test18 `MESSAGE` was empty; the Check A lines were only in the Count
+job log (`00.ISSUES.md` #7, fixed on `fix/message`, below).
+
+### `MESSAGE` on a failed stage (#7)
+
+Done 2026-10-11 on `fix/message`, same BAMs and `-q 20`. Scripts in
+`/scratch/core001/bic/soccin/AFTER_ACTION_261011/msg_tests/`.
+
+| Test | Result |
+| --- | --- |
+| test20, `--countReadPairs` removed from a copy (control job 18918854) | `FAILED`, `STAGE=Count`, rc 1; `MESSAGE=Count failed: all job 18920464 FAILED: FATAL ERROR: Check A failed on peaks_raw_fcCounts.txt.summary`, shown by `checkRun.sh` |
+| test21, normal run (18918899) | `COMPLETED`, 69 of 69 jobs, `MESSAGE` empty |
+| test22, as test20 and without `b38_tss.bed` (18918900) | `FAILED` at Count; the same message, then `; WARNING: TSS enrichment skipped; no R/TSSEnrich/lib files for b38` |
+| probe job 18919113, `-W 0:01:00` running `sleep 600` | `TIMEOUT`; `logReason` returns Slurm's `error: *** JOB ... DUE TO TIME LIMIT ***` line |
+| `failedJobsMessage` by hand: 5 failed jobs, missing log, job not in `jobs.tsv`, missing accounting records | 3 jobs listed then `2 more`; state only; `?` for the sample; the `bCheck` reason |
 
 Still to do: the full-size rerun of Proj_18143_B, which must reproduce
 the corrected EV_2 counts and gives the job-measured `RATE_COUNT`,

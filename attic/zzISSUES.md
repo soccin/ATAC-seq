@@ -9,6 +9,24 @@ issues were renumbered on 2026-10-10 (old to new: #8 to #1, #9 to #2,
 #9, #28 to #10, #29 to #11, #30 to #12, #31 to #13), so a number below
 refers to the old list unless it says otherwise.
 
+## Closed — fixed on `fix/message`
+
+Numbers here are from the list as renumbered on 2026-10-10.
+
+**#7 `MESSAGE` is empty when a stage fails** (was #25) — When `bCheck`
+aborted the run, `00.RUNSTATUS.txt` had `STAGE` and `RC` but no reason;
+in test18 the Check A failure was only in the Count job log. `bCheck`
+now leaves the failed jobs' `sacct` rows (or, when accounting records
+never arrived, a one-line reason) for the `EXIT` trap, which calls
+`failedJobsMessage` in `bin/slurmTools.sh`. For each failed job, at
+most 3, `MESSAGE` gets the sample, job id, state and the first `FATAL`
+line of its log (else the first with `error` or `fail`, any case). An
+mm10 TSS warning follows it. The STAGING sweep (`bCheckAll`) also sets
+`MESSAGE`. Verified 2026-10-11: test20 (18918854) and test22 (18918900)
+failed at Count with the Check A line in `MESSAGE`, test22 followed by
+the TSS warning; test21 (18918899) completed. Details in
+`docs/SLURM_PORT.md`, "Validation".
+
 ## Closed — fixed on `fix/featurecounts`
 
 **featureCounts v1.6.0 silently counts one BAM by read** (never in
