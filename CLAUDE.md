@@ -85,8 +85,8 @@ the shim sends it to `cmobic_short,cpushort`. `LONG` is `-W 12:00:00` with
 `SBATCH_QOS=priority` set on that one `bsub` call; the shim sends it to
 `cmobic_cpu`. Never give a `SHORT` job a qos: `cpushort` allows only
 `normal` and rejects the job. Never export `SBATCH_QOS` (`pipe.sh` unsets
-every `SBATCH_*` variable it inherits). POST, BW, CALLP, TSSE and Count
-choose their class per job with `runClass MIN_PER_GB FILE...`, which
+every `SBATCH_*` variable it inherits). POST, BW, CALLP, TSSE, Count and
+CountCheck choose their class per job with `runClass MIN_PER_GB FILE...`, which
 estimates the run time from the input size using the `RATE_*` values
 measured on a full-size run; the other stages are always `SHORT`. A new
 stage whose run time grows with its input needs a measured `RATE_*`.
@@ -106,8 +106,12 @@ paths `/ifs/res/seq/pi/invest` and `~/Code/BIC/Delivery`. Deliver the
    --extsize 150 --call-summits -p 0.01`
 4. `mergePeaksToSAF.sh` — merge all narrowPeak within 500bp into
    `macsPeaksMerged.saf` (the peak atlas)
-5. `bin/featureCounts` — raw count matrix `peaks_raw_fcCounts.txt` over the
-   atlas, with `-Q` set to the same MAPQ as stage 1
+5. `bin/countPeaks.sh` → `bin/featureCounts` (v2.1.1) — raw count matrix
+   `peaks_raw_fcCounts.txt` over the atlas, `-O -p --countReadPairs`, with
+   `-Q` set to the same MAPQ as stage 1, then Check A. Beside it, one
+   `CountCheck` job per sample (`bin/assignedCheck.sh`) for Check B; the
+   control job compares both with `bin/checkCounts.sh` (see "Count
+   checks")
 6. `R/getDESeqScaleFactors.R` — DESeq2 size factors (written **inverted**, per
    R. Koche's convention; see NOTES.md)
 7. `bin/computeTSSEnrich.sh` → `R/TSSEnrich/tss_enrich.R` — ENCODE TSS
@@ -162,6 +166,33 @@ skips stage 7 (`RUN_TSSE=0`) with a warning in the control log and in
 deliverables check. Adding the two files turns the stage on; no code
 change is needed.
 
+## Count checks
+
+The counts are never accepted unchecked, whatever the counter.
+featureCounts v1.6.0 (used until v2.0.0), run with several threads on
+several BAMs, sometimes did not pair the reads of one file and counted
+that sample about twice, exiting 0 with no error. Two checks must pass
+before DESEQ runs; `bin/checkCounts.sh SUMMARY [ASSIGNED ...]` does both
+and can be run by hand from an analysis directory to audit a run.
+
+- **Check A (pairing)**, in the Count job: each sample's fragment total
+  (the sum of every `.summary` row, not rows picked by name) divided by
+  mapped reads / 2 (`samtools idxstats`, so Count waits for Index) must
+  be within 0.95 to 1.05. Correct runs give 1.000 to 1.005; an unpaired
+  BAM, or featureCounts 2.x with `-p` but without `--countReadPairs`,
+  gives 2.0.
+- **Check B (independent count)**: `bin/assignedCheck.sh` counts the
+  distinct read names among reads that `samtools view -L` finds over the
+  atlas. It must equal featureCounts' `Assigned` **exactly**; it did for
+  all 23 BAMs tested (12 full-size, 11 downsampled). A difference fails
+  the run and must be explained before anything is changed; do not add a
+  tolerance to make it pass. It relies on the postProcess BAM being
+  already filtered; if that filter changes, apply it there too.
+
+No Bioconductor package (Rsubread, `GenomicAlignments`, ...) in a
+pipeline step that produces counts: their APIs change without warning.
+The standalone subread binary is not Bioconductor.
+
 ## Cross-stage conventions
 
 - **MD5 handshake**: `postMapBamProcessing` writes `*.bed.gz.md5`; the bigWig
@@ -215,7 +246,14 @@ on PATH; `tss_enrich.R` needs `optparse`.
 
 `bin/featureCounts`, `bin/wigToBigWig`, and `bin/bedGraphToBigWig` are
 vendored Linux x86-64 binaries — they will not run on macOS, so anything
-invoking them can only be tested on the cluster.
+invoking them can only be tested on the cluster. `bin/featureCounts` is
+subread v2.1.1, statically linked, md5
+`0eff90d8e30311160dbddda542f17383`, from
+`subread-2.1.1-Linux-x86_64.tar.gz` (md5
+`ed031bb0734650731f0bfe7ea2053d5a`) on
+<https://sourceforge.net/projects/subread/files/subread-2.1.1/>. In 2.x
+`-p` only declares paired input; `--countReadPairs` is what makes it
+count fragments.
 
 ## Docs worth reading
 

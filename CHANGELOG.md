@@ -2,6 +2,45 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+To be released as v2.0.0: the counting engine changes, and counts from
+any v1.x run may be wrong for one or more samples.
+
+### Breaking changes
+
+- **featureCounts v1.6.0 replaced with v2.1.1** (`-p --countReadPairs`).
+  v1.6.0, run with several threads on several BAMs, sometimes did not
+  pair the reads of one BAM and counted every read as a fragment, about
+  doubling that sample's counts, its DESeq2 scale factor and its place in
+  the PCA, with exit 0 and no error. It was found in 5 projects run since
+  2022. On the same tests v2.1.1 failed 0 of 250 times, and for samples
+  that v1.6.0 handled correctly its counts are identical, cell for cell.
+- The `.summary` file has the 2.x status rows: `Unassigned_Read_Type` and
+  `Unassigned_Singleton` are new, `Unassigned_Nonjunction` is now
+  `Unassigned_NonSplit`, and the row order changed. The R reports keep
+  only `Assigned` and are not affected. The featureCounts log says
+  "alignments" where it said "fragments".
+
+### Features
+
+- **Count checks.** A run now fails, before DESEQ, unless both pass:
+  - A: each sample's fragment total is 0.95 to 1.05 times its mapped
+    reads / 2 (`samtools idxstats`). An unpaired sample gives 2.0.
+  - B: each sample's featureCounts `Assigned` equals, exactly, an
+    independent count of the fragments over the atlas made with samtools
+    alone (one new `CountCheck` job per sample, run beside Count).
+
+  The first failing line goes into `MESSAGE`; every sample's numbers are
+  in the control log and in `peaks_raw_fcCounts.checks.txt`.
+  `bin/checkCounts.sh` can be run by hand to audit an earlier run.
+- The Count stage is now `bin/countPeaks.sh`. It waits for the BAM
+  indexes, writes its temp files to the job's `/localscratch` directory
+  (`--tmpDir`), and asks for 8 cores instead of 10.
+- The deliverables check also requires
+  `atacSeq/atlas/peaks_raw_fcCounts.txt.summary` and
+  `peaks_raw_fcCounts.checks.txt`.
+
 ## [v1.5.1] — 2026-10-10
 
 ### Features

@@ -429,7 +429,8 @@ RATE_POST=6        # input BAM                     3.5 to 5.3
 RATE_BW=30         # shifted.bed.gz                24.5 to 26.0
 RATE_CALLP=10      # shifted.bed.gz                8.1 to 9.5
 RATE_TSSE=3.5      # postProcess BAM               1.6 to 2.9
-RATE_COUNT=1.2     # all postProcess BAMs, summed  0.94
+RATE_COUNT=1.2     # all postProcess BAMs, summed  0.94 (featureCounts 1.6.0)
+RATE_CCHECK=1.5    # postProcess BAM               0.9 to 1.1 (prototype)
 
 #
 # A job is SHORT if its estimated run time is at most SHORT_MAX_MIN, half
@@ -574,15 +575,47 @@ atacSub MergePeaks all SLURM.04a.CALLP SHORT "-n 3 -M 24G" \
 
 waitStage MergePeaks
 
+#
+# The counts are never used unchecked. featureCounts 1.6.0 once counted
+# every read of one BAM as a fragment, about doubling that sample, and
+# exited 0. Two checks must pass before DESEQ:
+#
+#   A  in the Count job (bin/countPeaks.sh): each sample's fragment total
+#      is about half its mapped reads. Needs the .bai, hence the wait on
+#      Index here.
+#   B  one CountCheck job per sample (bin/assignedCheck.sh), run beside
+#      Count: the fragments over the atlas, counted with samtools alone,
+#      must equal featureCounts' Assigned. Compared here by
+#      bin/checkCounts.sh once both stages are done.
+#
+waitStage Index
+
 PBAMS=$(ls out/*/*_postProcess.bam)
 CLASS=$(runClass $RATE_COUNT $PBAMS)
-atacSub Count all SLURM.04b.CALLP $CLASS "-n 10 -M 24G" \
-    $SDIR/bin/featureCounts -O -Q $MAPQ -p -T 10 \
-        -F SAF -a macsPeaksMerged.saf \
-        -o peaks_raw_fcCounts.txt \
+atacSub Count all SLURM.04b.CALLP $CLASS "-n 8 -M 24G" \
+    $SDIR/bin/countPeaks.sh $MAPQ macsPeaksMerged.saf peaks_raw_fcCounts.txt \
         $PBAMS
 
+for PBAM in $PBAMS; do
+    CLASS=$(runClass $RATE_CCHECK $PBAM)
+    atacSub CountCheck $(basename $(dirname $PBAM)) SLURM.04d.CHECK $CLASS "-n 2 -M 8G" \
+        $SDIR/bin/assignedCheck.sh $PBAM macsPeaksMerged.saf ${PBAM%.bam}.atlasFragments.txt
+done
+
 waitStage Count
+waitStage CountCheck
+
+if ! CHECK_OUT=$($SDIR/bin/checkCounts.sh peaks_raw_fcCounts.txt.summary \
+                     out/*/*_postProcess.atlasFragments.txt); then
+    echo "$CHECK_OUT"
+    RUN_MESSAGE="count check failed: $(echo "$CHECK_OUT" | grep -m1 FAIL || true)"
+    echo
+    echo "    FATAL ERROR: $RUN_MESSAGE"
+    echo
+    exit 1
+fi
+echo "$CHECK_OUT"
+echo "$CHECK_OUT" >peaks_raw_fcCounts.checks.txt
 
 atacSub DESEQ all SLURM.05.DESEQ SHORT "-M 24G" \
     Rscript --no-save $SDIR/R/getDESeqScaleFactors.R
@@ -598,7 +631,6 @@ if [ ! -e "sampleManifest.csv" ]; then
 fi
 
 waitStage DESEQ
-waitStage Index
 
 if [ "$RUN_TSSE" == "1" ]; then
     for PBAM in out/*/*_postProcess.bam; do
@@ -664,6 +696,8 @@ checkFile() {
 
 checkFile atacSeq/atlas/macsPeaksMerged.saf
 checkFile atacSeq/atlas/peaks_raw_fcCounts.txt
+checkFile atacSeq/atlas/peaks_raw_fcCounts.txt.summary
+checkFile peaks_raw_fcCounts.checks.txt
 checkFile scaleFactorsDESeq2.csv
 
 for PATTERN in "atacSeq/metrics/*__postInsDistribution.pdf" "atacSeq/metrics/*__ATACSeqQC.pdf"; do

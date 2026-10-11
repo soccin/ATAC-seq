@@ -9,6 +9,43 @@ issues were renumbered on 2026-10-10 (old to new: #8 to #1, #9 to #2,
 #9, #28 to #10, #29 to #11, #30 to #12, #31 to #13), so a number below
 refers to the old list unless it says otherwise.
 
+## Closed — fixed on `fix/featurecounts`
+
+**featureCounts v1.6.0 silently counts one BAM by read** (never in
+`00.ISSUES.md`; found 2026-10-11 in the after-action review of the
+v1.5.1 run of Proj_18143_B, brief in
+`PortATACseq/ATACseq-BUGFIX-FeatCount.md`) · `bug` `critical` `pre-port`
+— Given several coordinate-sorted paired-end BAMs and more than one
+thread, the vendored featureCounts v1.6.0 sometimes did not pair the
+reads of one input file and counted every read as a fragment. That
+sample's column was about 2x too high (EV_2 in Proj_18143_B: 66,852,385
+fragments for 33,426,192 pairs), and so were its DESeq2 scale factor
+and its place in the QC PCA. featureCounts exited 0 and nothing checked
+the totals. On the downsampled test16 BAMs it failed in 6 of 20 runs at
+`-T 10` and 19 of 20 with a node-local temp dir. Found in 5 projects run
+since 2022 (the brief, section 5); remediating them is separate from
+this fix.
+
+Fixed by:
+- featureCounts v2.1.1 with `-p --countReadPairs --tmpDir "$TMPDIR"`,
+  in the new `bin/countPeaks.sh`. 0 failures in 50 runs (brief) plus 200
+  on the downsampled BAMs at `-T 2/4/8/16/32` with local and shared temp
+  dirs; every matrix identical to the v1.6.0 `-T 1` reference.
+- Check A in the Count job: fragment total / (mapped reads / 2) within
+  0.95 to 1.05.
+- Check B: one `CountCheck` job per sample counts the fragments over the
+  atlas with samtools alone; it must equal `Assigned` exactly. Exact on
+  12 full-size and 11 downsampled BAMs.
+
+Verified 2026-10-11 on the downsampled BAMs (`docs/SLURM_PORT.md`,
+"Validation"): the broken test16 summary fails both checks with EV_3
+named; a run without `--countReadPairs` fails at `STAGE=Count`; normal
+and no-TSSE runs complete with a matrix identical to the reference.
+Not yet run: the full-size rerun of Proj_18143_B.
+
+Also partly addresses #11 (the `.summary` is in the deliverables check)
+and #13 (Count asks for 8 cores, not 10); both stay open for the rest.
+
 ## Closed — fixed on `fix/genome`
 
 Verified 2026-10-10 on the 11 downsampled b38 BAMs; the jobs and results
