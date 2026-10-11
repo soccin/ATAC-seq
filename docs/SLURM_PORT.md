@@ -47,8 +47,10 @@ script rather than passed with `--export` because any non-`ALL` entry in
 
 Memory per stage: POST 32G (the `~/bin/picard` wrapper runs `-Xmx24g`, so
 the cap has to sit above that heap), BW 24G (`sort -S20g`), CALLP 3 cores
-18G, MergePeaks 3 cores 24G (`sort -S 16g`), Count 10 cores 24G
-(`featureCounts -T 10`), Index 4G, DESEQ 24G, TSS 2 cores 32G.
+18G, MergePeaks 3 cores 24G (`sort -S 16g`), Count 8 cores 24G
+(`featureCounts -T` from the job's CPUs; 10 cores before v2.0.0),
+CountCheck 2 cores 8G (`sort -S 4G`), Index 4G, DESEQ 24G, TSS 2 cores
+32G.
 
 ## Walltime classes
 
@@ -87,10 +89,20 @@ every job `SHORT` at the time). No job reached `OUT_OF_MEMORY` or
 | CALLP | `shifted.bed.gz` | 0:08:34 | 8.1 to 9.5 | 10 | 6 GB |
 | TSSE | postProcess BAM | 0:10:13 | 1.6 to 2.9 | 3.5 | 17 GB |
 | Count | all postProcess BAMs, summed | 0:35:04 | 0.94 | 1.2 | 50 GB |
+| CountCheck | postProcess BAM | 0:04:56 | 0.9 to 1.1 | 1.5 | 40 GB |
 | Index | | 0:01:31 | | always `SHORT` | |
 | MergePeaks | | 0:00:30 | | always `SHORT` | |
 | DESEQ | | 0:00:15 | | always `SHORT` | |
 | control job | | 2:22:55 | | `#SBATCH`, 3 days | |
+
+The Count row is featureCounts v1.6.0, the counter until v2.0.0. v2.1.1
+counted the same 12 BAMs in 116 s at `-T 8`, but in an interactive
+allocation, possibly from page cache; `RATE_COUNT` stays at 1.2 until the
+v2.0.0 rerun of Proj_18143_B measures it in a job, together with the
+Count MaxRSS. The CountCheck row (Check B, `bin/assignedCheck.sh`) comes
+from a prototype on the same 12 BAMs, 4 at a time in an 8-core
+interactive allocation on isca006, not from Slurm jobs; remeasure it on
+that rerun too.
 
 With these rates only the 14.1 GB sample's POST job of that run would
 have been `LONG` (estimate 85 min; it took 64). POST is single-threaded
@@ -228,7 +240,9 @@ session tempdir and Python tempfiles went there too.
 Not affected: picard (`~/bin/picard` sets `TMP_DIR` and
 `java.io.tmpdir` to `/scratch/core001/bic/socci/PICARD/$$`), MACS2
 (`callPeaks_ATACSeq.sh` exports `TMPDIR` to its `/scratch` work
-directory), and featureCounts (temp files go next to its output).
+directory). featureCounts writes its temp files next to its output
+unless told otherwise; since v2.0.0 `bin/countPeaks.sh` passes
+`--tmpDir "$TMPDIR"`.
 
 ## Exit-status fixes made along the way
 
@@ -271,6 +285,38 @@ no TSSE jobs, the warning in `MESSAGE`, and `featureCounts -Q 20`.
 `pipe.sh` run by hand on a header-only BAM with an unrecognized `@SQ`
 set, alone and next to a b38 BAM, stopped with rc 1 and the reason in
 `MESSAGE`, before submitting anything.
+
+### featureCounts v2.1.1 and the count checks (v2.0.0)
+
+Done 2026-10-11 on `fix/featurecounts` with the same 11 downsampled BAMs
+(`-q 20`). Test scripts and outputs are in
+`/scratch/core001/bic/soccin/AFTER_ACTION_261011/v200_tests/`; the
+reference matrix is the v1.6.0 `-T 1` count of the test16 postProcess
+BAMs (`repro_T1_cwd/rep1.txt`).
+
+| Test | Result |
+| --- | --- |
+| test17, normal run (control job 18904482) | `COMPLETED`, 69 of 69 jobs; Checks A and B pass for all 11 samples (ratio 1.0003 to 1.0005, Check B diff 0); count matrix identical to the reference, 0 differing cells. Count 15 s, CountCheck 4 to 6 s, all on `cmobic_short` |
+| test18, `--countReadPairs` removed from a copy of the checkout (18904486) | `STATUS=FAILED`, `STAGE=Count`, rc 1; Check A ratio 2.0000 for every sample; the Count job's sacct state `FAILED` |
+| test19, `b38_tss.bed` removed from a copy, standing in for mm10 (18904488) | `COMPLETED`, no TSSE jobs, the TSS warning in `MESSAGE`; matrix identical to the reference |
+| `checkCounts.sh` on the broken v1.6.0 test16 summary | rc 1; Check A EV_3 ratio 2.0000, Check B EV_3 Assigned 400,560 against 200,961 |
+| `checkCounts.sh` on a correct v2.1.1 summary | rc 0 |
+| `checkCounts.sh` with one sample's Check B result left out | rc 1, sample named |
+| Repeat test, v2.1.1 with the Count options, 20 runs each at `-T 2, 4, 8, 16, 32`, temp dir on `/localscratch` and on `/scratch` | 0 of 200 bad: every run exited 0, passed Check A, and gave a matrix identical to the reference (v1.6.0 at `-T 10` failed 6 of 20 with the shared and 19 of 20 with the local temp dir) |
+
+Check B was calibrated before the code was written: `samtools view -L`
+distinct read names over the atlas equalled featureCounts `Assigned`
+exactly on all 11 downsampled and all 12 full-size Proj_18143_B BAMs,
+as did `bedtools intersect -u -split`, which took about 2.2 times as
+long.
+
+When a stage job fails, `MESSAGE` is still empty (`00.ISSUES.md` #7):
+test18 shows the Check A lines only in the Count job log. A failure of
+the comparison in the control job (Check B) does set `MESSAGE`.
+
+Still to do: the full-size rerun of Proj_18143_B, which must reproduce
+the corrected EV_2 counts and gives the job-measured `RATE_COUNT`,
+`RATE_CCHECK` and Count MaxRSS.
 
 ## Not done
 
