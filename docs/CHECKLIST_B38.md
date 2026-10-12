@@ -1,5 +1,7 @@
 # hg38 Implementation Checklist
 
+**Since v2.0.0 the GRCh38 tag is `hg38`, not `b38`** (`docs/GENOMES.md`).
+
 **Historical.** b38 support shipped in v1.1.0 under the tag `b38`, not
 `hg38` (see `CHANGELOG.md`). The boxes below were never ticked and the
 line numbers refer to the code before that release. Kept for reference

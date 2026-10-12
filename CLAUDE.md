@@ -99,7 +99,9 @@ paths `/ifs/res/seq/pi/invest` and `~/Code/BIC/Delivery`. Deliver the
 
 1. `postMapBamProcessing_ATACSeq.sh` — MAPQ + flag filter (`-f 3 -F 1804`),
    drop inserts <=30bp, Picard SortSam + CollectInsertSizeMetrics, then
-   bamToBed with the Tn5 shift (+4 on `+`, -5 on `-`) → `*.shifted.bed.gz`
+   bamToBed with the Tn5 shift (+4 on `+`, -5 on `-`), keeping only the
+   contigs of `lib/genomes/<TAG>.genome` → `*.shifted.bed.gz`; also the
+   mitochondrial fraction → `*___MITO.txt`
 2. `makeBigWigFromBEDZ.sh` — 10M-read-normalized bigWig via bedtools +
    `bin/wigToBigWig`
 3. `callPeaks_ATACSeq.sh` — MACS2 on the BED (not BAM), `--nomodel --shift 75
@@ -115,56 +117,56 @@ paths `/ifs/res/seq/pi/invest` and `~/Code/BIC/Delivery`. Deliver the
 6. `R/getDESeqScaleFactors.R` — DESeq2 size factors (written **inverted**, per
    R. Koche's convention; see NOTES.md)
 7. `bin/computeTSSEnrich.sh` → `R/TSSEnrich/tss_enrich.R` — ENCODE TSS
-   enrichment; skipped with a warning when `R/TSSEnrich/lib/` has no files
-   for the build (mm10)
+   enrichment, for every build
 8. `plotINSStats.R` and `R/analyzeATAC.R` — insert-size and QC/PCA reports
 9. Staging into `atacSeq/{atlas,bigwig,macs,metrics}` for delivery
 
-Differential analysis is a separate manual step (needs replicates):
+Differential analysis is a separate manual step (needs replicates), run
+from the analysis directory, which gives it the genome
+(`00.RUNSTATUS.txt`):
 
 ```bash
-Rscript R/diffAnalysisPairwise.R GENOME sampleManifest.csv Comparisons.csv [RUNTAG]
+Rscript R/diffAnalysisPairwise.R sampleManifest.csv Comparisons.csv [RUNTAG]
 ```
 
 ## Genome handling — read this before touching any genome code
 
+Full detail and the reasons are in `docs/GENOMES.md`.
+
+A genome is named by its build tag everywhere: `b37`, `hg38`, `mm10`.
+GRCh38 was `b38` until v2.0.0; do not reintroduce that name, species
+words (`human`, `mouse`) or stand-ins (`hg19` for b37 data). ChIP-seq
+uses the same tags, genome files and `bin/getGenomeBuildBAM.sh` (keep
+that file byte-identical in both repos).
+
 Genome is **auto-detected**, never passed by the user: `bin/getGenomeBuildBAM.sh`
 md5sums the sorted `@SQ` lines of the BAM header and maps that to a build tag.
-Adding a new reference means adding its md5 there first — everything downstream
-keys off that string.
+`pipe.sh` does this for every BAM before it submits anything, stops
+(`STATUS=FAILED`, reason in `MESSAGE`) if the BAMs differ or the tag is
+not supported, passes the tag to every stage, and records it as
+`GENOME=` in `00.RUNSTATUS.txt`. Nothing detects it again: post-run
+tools (`R/diffAnalysisPairwise.R`) read it from the status file and take
+no genome argument.
 
-The tag vocabulary is **not uniform across the codebase**, and this is a live
-source of bugs:
+Every genome-dependent value is in `lib/genomes/GENOMES.tsv`; a
+supported genome is a row of it. Shell reads it with
+`bin/genomeInfo.sh TAG FIELD`, R with `genomeInfo()` in
+`R/genomeInfo.R`; both fail on an unknown tag or field. There is no
+`case` on genome names anywhere. Adding a genome is data only: its md5
+in `getGenomeBuildBAM.sh`, a row in `GENOMES.tsv`,
+`lib/genomes/<TAG>.genome`, and `R/TSSEnrich/lib/<TAG>_tss.bed` and
+`<TAG>.chrom.sizes`. `pipe.sh` stops if any of the three files is
+missing.
 
-| Consumer | Accepted tags |
-| --- | --- |
-| `bin/getGenomeBuildBAM.sh` (emits) | `b37`, `b37_dmp`, `hg19`, `hg19-mainOnly`, `GRCh37-lite`, `b38`, `b37+mm10`, `mm10`, `mm10_hBRAF_V600E`, `mm9Full`, `GRC_m38`, `sCer+sMik_IFO1815` |
-| `pipe.sh` (`SUPPORTED_GENOMES`) | `b37`, `b38`, `mm10` |
-| `postMapBamProcessing_ATACSeq.sh` | `b37`, `b38`, `mm10` |
-| `callPeaks_ATACSeq.sh`, `makeBigWigFromBEDZ.sh` | `b37`, `b38`, `mm10`, `sCer+sMik_IFO1815` |
-| `bin/computeTSSEnrich.sh` (files in `R/TSSEnrich/lib/`) | `b37`, `b38` |
-| `R/diffAnalysisPairwise.R` | `hg19`, `b38`, `mm10` |
-
-So a detected build that the shell stages accept may still be rejected
-downstream, and vice versa. When adding genome support, update **every** case
-statement, not just the one that failed, and `SUPPORTED_GENOMES` in
-`pipe.sh`.
-
-`pipe.sh` detects the build of every BAM before it submits anything and
-stops (`STATUS=FAILED`, reason in `MESSAGE`) if the BAMs are on different
-builds or the build is not in `SUPPORTED_GENOMES`, the builds
-`postMapBamProcessing_ATACSeq.sh` accepts.
-
-Chromosome filtering is allowlist-driven: `lib/genomes/<build>.genome` (chrom
-sizes) and `lib/genomes/<build>.genome.bed` (regions to keep) are intersected
-with `bedtools intersect -nonamecheck`. Do not reintroduce `egrep -v` denylists.
-
-`R/TSSEnrich/lib/` ships only `b38` and `b37` files (`<build>_tss.bed`,
-`<build>.chrom.sizes`). For any other build (in practice mm10) `pipe.sh`
-skips stage 7 (`RUN_TSSE=0`) with a warning in the control log and in
-`MESSAGE`, and leaves the TSS files out of staging and of the
-deliverables check. Adding the two files turns the stage on; no code
-change is needed.
+Chromosome filtering is allowlist-driven: `lib/genomes/<TAG>.genome` lists
+autosomes, X and Y only (no mitochondria, no unplaced, random, decoy or
+viral contigs). It is the chrom sizes, and the scripts write its BED form
+to a temp file for `bedtools intersect -nonamecheck`. Do not reintroduce
+`egrep -v` denylists, and never give the 2-column file to
+`samtools view -L` (it reads column 2 as one position and selects almost
+nothing). Mitochondrial reads are therefore dropped from the shifted BED
+for every build, as ENCODE's ATAC pipeline does; POST reports the
+fraction in `___MITO.txt`.
 
 ## Count checks
 
@@ -262,9 +264,12 @@ count fragments.
 - `QC/QCNotes.md` — which ATAC QC metrics matter and why.
 - `docs/SLURM_PORT.md` — how the JUNO/LSF to IRIS/Slurm port was done, the
   flag translation, and the memory and partition choices.
-- `docs/UPDATE_TO_B38.md`, `docs/CHECKLIST_B38.md` — the plan for the b38
-  rollout, done in v1.1.0. Historical: the checkboxes were never ticked
-  and the line numbers are out of date.
+- `docs/GENOMES.md` — genome tags, `GENOMES.tsv`, the genome files, and
+  what ENCODE does with mitochondrial reads (with links).
+- `docs/UPDATE_TO_B38.md`, `docs/CHECKLIST_B38.md` — the plan for the
+  GRCh38 rollout, done in v1.1.0 under the tag `b38` (now `hg38`).
+  Historical: the checkboxes were never ticked and the line numbers are
+  out of date.
 - `CHANGELOG.md` — kept current; add entries for user-visible changes.
 - `00.ISSUES.md` — open issues only, numbered in order of work;
   `attic/zzISSUES.md` — the closed ones, with the reason.
