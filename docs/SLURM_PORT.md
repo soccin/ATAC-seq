@@ -9,6 +9,10 @@ was the guide; the cluster
 facts measured there (hard memory caps, no epilogue in the job log, no
 name-glob dependencies, `kill_invalid_depend` off) all apply here.
 
+The GRCh38 build was tagged `b38` until v2.0.0 and is `hg38` now
+(`docs/GENOMES.md`). The records of runs made before that keep the old
+tag and file names (`b38_tss.bed`, `GENOME=b38`), as they were.
+
 ## Strategy: keep the control job, swap the three primitives
 
 PEMapper rebuilt its pipeline as a dependency graph. This pipeline keeps the
@@ -335,6 +339,24 @@ Done 2026-10-11 on `fix/message`, same BAMs and `-q 20`. Scripts in
 | test22, as test20 and without `b38_tss.bed` (18918900) | `FAILED` at Count; the same message, then `; WARNING: TSS enrichment skipped; no R/TSSEnrich/lib files for b38` |
 | probe job 18919113, `-W 0:01:00` running `sleep 600` | `TIMEOUT`; `logReason` returns Slurm's `error: *** JOB ... DUE TO TIME LIMIT ***` line |
 | `failedJobsMessage` by hand: 5 failed jobs, missing log, job not in `jobs.tsv`, missing accounting records | 3 jobs listed then `2 more`; state only; `?` for the sample; the `bCheck` reason |
+
+### Genome tags, mitochondrial reads, mm10 TSS (v2.0.0)
+
+Done 2026-10-11 on `fix/genome-tags` (`docs/GENOMES.md`), same BAMs and
+`-q 20`. Scripts in
+`/scratch/core001/bic/soccin/AFTER_ACTION_261011/genome_probe/`.
+
+| Test | Result |
+| --- | --- |
+| test23, normal run (control job 18945280) | `COMPLETED`, 69 of 69 jobs, `GENOME=hg38`. Count matrix, atlas, count checks, scale factors, and every sample's shifted BED, narrowPeak, bigWig and TSS CSV identical to test21 (b38; the hg38 genome file is the b38 one renamed). New `___MITO.txt` for all 11: chrM 6.5 to 11.2% of reads. Shifted BEDs hold chr1-22, X, Y only |
+| `diffAnalysisPairwise.R sampleManifest.csv comparisons.csv` in test23 | rc 0, `GENOME = hg38` from the status file; no peak at FDR 0.05 on these BAMs, so annotation was tested separately: hg38 and b37 TxDb loaded from `GENOMES.tsv`, 200 of 200 atlas peaks annotated with a symbol (b37 with `chr` added) |
+| `diffAnalysisPairwise.R` with no arguments; with no status file; with `GENOME=b38` | rc 1 each, the last two with the reason |
+| `pipe.sh` by hand, header-only BAMs from the IRIS dicts | b37 and mm10: detected, pass the genome and TSS file checks, stop at the `@RG SM` check (the header has no `@RG`), 0 jobs. hg19 and hg38+mm39: stop with `unsupported genome [...]; supported: b37 hg38 mm10`. hg38 BAM with a b37 BAM: `BAMs on different genomes` |
+| Same, after `bin/getGenomeBuildBAM.sh` was replaced by ChIP-seq's copy (`headerTest2.sh`), plus a missing BAM and a text file named `.bam`, each after an hg38 BAM | detection unchanged for every dict and for a real hg38 BAM; the five cases above stop as before; the two unreadable BAMs stop with `cannot identify the genome of [...]`, 0 jobs |
+| `bin/genomeInfo.sh` every tag and field; `b38`, empty and `unknown <md5>` tags; `HOMER` field | values as in the table; rc 1 with the reason for each bad input |
+| Stage scripts by hand on one hg38 BAM (EV_1) | POST, BW, CALLP and TSSE rc 0; `___MITO.txt` 39,952 of 488,265 reads, the same as `samtools idxstats`; TSSE `pct_tss_used` 1 |
+
+Not run: b37 and mm10 pipelines (`00.ISSUES.md` #14).
 
 Still to do: the full-size rerun of Proj_18143_B, which must reproduce
 the corrected EV_2 counts and gives the job-measured `RATE_COUNT`,

@@ -31,11 +31,18 @@ submitted where `00.RUNSTATUS.txt`, `SLURM.CTRL/jobs.tsv`, `out/`,
 `callpeaks/` or `atacSeq/` already exists stops at once and changes
 nothing; the reason is in its log, `SLURM.CTRL/<jobid>.out`.
 
-The genome is detected from the BAM headers. All BAMs must be on the
-same build, and the build must be b37, b38 or mm10; otherwise the run
+The genome is detected from the BAM headers and recorded as `GENOME=` in
+`00.RUNSTATUS.txt`. All BAMs must be on the same build, and the build
+must be one of `b37` (GRCh37, contigs `1`, `2`, ...), `hg38` (GRCh38,
+`chr1`, ...; called `b38` before v2.0.0) or `mm10`; otherwise the run
 stops before submitting any job, with the reason in `00.RUNSTATUS.txt`.
-For mm10 the TSS enrichment step is skipped with a warning (there are
-no mm10 TSS files in `R/TSSEnrich/lib/`); everything else runs.
+See `docs/GENOMES.md`. Only hg38 has been tested on this version; b37
+and mm10 runs have not been made yet.
+
+Peaks, bigWigs and the atlas use reads on the autosomes, X and Y only.
+Mitochondrial reads are left out for every build, as in the ENCODE
+ATAC-seq pipeline (before v2.0.0 they were kept for b37 and mm10); each
+sample's mitochondrial fraction is in `atacSeq/metrics/*___MITO.txt`.
 
 - Post-alignment filtering:
 
@@ -52,9 +59,9 @@ no mm10 TSS files in `R/TSSEnrich/lib/`); everything else runs.
 
 ## Differential analysis
 
-- If there are replicates you can do a differential peak analysis using: `R/diffAnalysisPairwise.R`. Usage:
+- If there are replicates you can do a differential peak analysis using: `R/diffAnalysisPairwise.R`. Run it from the analysis directory; the genome is read from `00.RUNSTATUS.txt`. Usage:
 ```
-Rscript R/diffAnalysisPairwise.R GENOME SampleManifest.csv Comparisons.csv [RUNTAG]
+Rscript R/diffAnalysisPairwise.R SampleManifest.csv Comparisons.csv [RUNTAG]
 ```
 
 Example inputs:

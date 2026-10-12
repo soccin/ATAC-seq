@@ -21,6 +21,29 @@ any v1.x run may be wrong for one or more samples.
   `Unassigned_NonSplit`, and the row order changed. The R reports keep
   only `Assigned` and are not affected. The featureCounts log says
   "alignments" where it said "fragments".
+- **GRCh38 is tagged `hg38`, not `b38`** (the name the Broad and UCSC
+  use), in `GENOME=` of `00.RUNSTATUS.txt`, file names and every
+  argument; `b38` is now an unsupported genome. Genome files are
+  `lib/genomes/{b37,hg38,mm10}.genome`; the TSS files are
+  `R/TSSEnrich/lib/hg38_tss.bed` and `hg38.chrom.sizes`.
+- **Mitochondrial reads are left out for every build**, as in the ENCODE
+  ATAC-seq pipeline (`docs/GENOMES.md`). Before, the contig filter kept
+  `MT` for b37 and `chrM` for mm10 but not `chrM` for b38, so peaks,
+  bigWigs (including the 10M-read scaling), the atlas and the counts of
+  **every earlier b37 and mm10 run** included them (5.2% of the reads in
+  one b37 sample checked). Earlier b38 runs are not affected. The
+  postProcess BAM still holds every read.
+- **`R/diffAnalysisPairwise.R` takes no genome argument**:
+  `Rscript R/diffAnalysisPairwise.R MANIFEST COMPARISONS [RUNTAG]`, run
+  from the analysis directory, whose `00.RUNSTATUS.txt` gives the genome.
+  It exits 1 on a usage error or a missing or unknown genome (it exited
+  0). The `chr` prefix is added to peak contigs for b37 only, by rule,
+  not by looking at the first peak.
+- `bin/computeTSSEnrich.sh GENOME BAM`: the genome is passed by
+  `pipe.sh`, not detected again from the BAM.
+- `sCer+sMik_IFO1815` and its genome files moved to `attic/`; it was in
+  two stage scripts but could never run. `R/TSSEnrich/v1/` (superseded,
+  not called) moved to `R/attic/TSSEnrich_v1/`.
 
 ### Features
 
@@ -46,7 +69,42 @@ any v1.x run may be wrong for one or more samples.
   first line of the log with `FATAL` (else `error` or `fail`, any case),
   e.g. `Count failed: all job 18905720 FAILED: FATAL ERROR: Check A
   failed on peaks_raw_fcCounts.txt.summary`. `checkRun.sh` prints it.
-  An mm10 TSS warning, if any, follows it.
+- **TSS enrichment for mm10.** `R/TSSEnrich/lib/mm10_tss.bed` (ENCODE's
+  GENCODE vM7 file, rebuilt byte for byte by `lib/getMM10.sh` because the
+  ENCODE bucket now returns 404) and `mm10.chrom.sizes`. TSSE now runs
+  for every build and is a required deliverable; the mm10 skip and its
+  warning are gone. A supported genome without its TSS files stops the
+  run before any job is submitted.
+- **Mitochondrial fraction per sample**: POST writes
+  `<SID>_postProcess___MITO.txt` (reads, mitochondrial reads, fraction,
+  counted after the MAPQ/flag filter and before the contig filter),
+  staged to `atacSeq/metrics` and required for `COMPLETED`.
+- **One genome table**, `lib/genomes/GENOMES.tsv`, read by the new
+  `bin/genomeInfo.sh TAG FIELD` and `R/genomeInfo.R`, replaces the
+  `case` statements in the stage scripts, `SUPPORTED_GENOMES` in
+  `pipe.sh` and the `if` chain in `diffAnalysisPairwise.R`. An unknown
+  tag stops with the list of supported ones. The same table, genome
+  files and tags as ChIP-seq v1.0.0.
+- `bin/getGenomeBuildBAM.sh` is now ChIP-seq's copy, and the two must
+  stay identical. It names the PEMapper `human_hg38+mm39` hybrid
+  (`hg38+mm39`) and the `mm10+b37` mouse hybrid, both unsupported, so
+  such a BAM stops with a named error.
+
+### Fixes
+
+- A BAM whose header cannot be read (missing file, not a BAM) stops the
+  run before any job with "cannot identify the genome of [BAM]" in
+  `MESSAGE`. Before, `getGenomeBuildBAM.sh` printed the md5 of an empty
+  header as an "unknown" genome.
+
+- `bin/loadTools.sh` no longer fails under `set -u` when `TMPDIR` is
+  unset (a script with `set -u` run by hand on a login node).
+
+### Not tested
+
+- b37 and mm10 were checked only with header-only BAMs (detection, the
+  genome table and the file checks); no b37 or mm10 run has been made on
+  this version (`00.ISSUES.md` #14).
 
 ## [v1.5.1] — 2026-10-10
 

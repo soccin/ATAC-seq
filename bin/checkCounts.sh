@@ -27,7 +27,7 @@
 # one-line output of bin/assignedCheck.sh (BAM<TAB>FRAGMENTS), a count of
 # the fragments overlapping the atlas made with samtools alone. It must
 # equal the Assigned row of the BAM's column exactly; on the first
-# full-size project (12 b38 samples) and the 11 downsampled BAMs they
+# full-size project (12 hg38 samples) and the 11 downsampled BAMs they
 # were equal for every sample. Every BAM column must have one.
 #
 

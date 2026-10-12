@@ -1,18 +1,19 @@
 args <- commandArgs(trailing = TRUE)
-if (len(args) < 3) {
+if (len(args) < 2) {
   cat("
 ================================================================================
   Pairwise Differential ChIP-seq Peak Analysis using edgeR
 ================================================================================
 
 USAGE:
-  Rscript diffAnalysisPairwise.R GENOME MANIFEST COMPARISONS [RUNTAG]
+  Rscript diffAnalysisPairwise.R MANIFEST COMPARISONS [RUNTAG]
+
+Run from the analysis directory of a pipe.sh run. The genome is not an
+argument: it is GENOME= in 00.RUNSTATUS.txt there (b37, hg38 or mm10),
+and the annotation (TxDb, org.db, chr prefix) comes from
+lib/genomes/GENOMES.tsv.
 
 REQUIRED ARGUMENTS:
-  GENOME        Genome assembly, one of:
-                  hg19   human, UCSC hg19 (org.Hs.eg.db)
-                  b38    human, UCSC hg38 (org.Hs.eg.db)
-                  mm10   mouse, UCSC mm10 (org.Mm.eg.db)
   MANIFEST      Sample manifest CSV file (with header row)
   COMPARISONS   Comparison pairs CSV file (NO header row)
 
@@ -53,13 +54,13 @@ COMPARISONS FILE FORMAT (NO header):
 
 --------------------------------------------------------------------------------
 EXAMPLE USAGE:
-  Rscript diffAnalysisPairwise.R mm10 R/sampleManifest.csv R/comparisions.csv
-  Rscript diffAnalysisPairwise.R b38 manifest.csv comps.csv run1
+  Rscript diffAnalysisPairwise.R R/sampleManifest.csv R/comparisions.csv
+  Rscript diffAnalysisPairwise.R manifest.csv comps.csv run1
 
 ================================================================================
 
 ")
-  quit()
+  quit(status = 1)
 }
 
 #' Fix sample names based on naming convention
@@ -168,6 +169,15 @@ suppressPackageStartupMessages({
 })
 cat(" done\n")
 
+# The ATAC-seq checkout is the parent of this script's directory
+SDIR <- commandArgs(trailingOnly = FALSE) |>
+  str_subset("^--file=") |>
+  str_remove("^--file=") |>
+  normalizePath() |>
+  dirname() |>
+  dirname()
+source(file.path(SDIR, "R", "genomeInfo.R"))
+
 # Locate feature counts summary file
 # Works with both ATACseq and ChIPSeq pipeline structures
 peak_counts_file <- fs::dir_ls(regex = "peaks_raw_fcCounts.txt.summary")
@@ -180,26 +190,18 @@ if (len(peak_counts_file) == 0) {
 feature_summary <- read_tsv(peak_counts_file,show_col_types = FALSE)
 
 # Parse command line arguments
-GENOME <- args[1]
-MANIFEST_FILE <- args[2]
-COMPARISON_FILE <- args[3]
-RUNTAG <- if (len(args) == 4) args[4] else ""
+MANIFEST_FILE <- args[1]
+COMPARISON_FILE <- args[2]
+RUNTAG <- if (len(args) == 3) args[3] else ""
 
-# Set genome-specific annotation databases
-if (GENOME == "hg19") {
-  txdb <- TxDb.Hsapiens.UCSC.hg19.knownGene::TxDb.Hsapiens.UCSC.hg19.knownGene
-  annoDb <- "org.Hs.eg.db"
-} else if (GENOME == "b38") {
-  txdb <- TxDb.Hsapiens.UCSC.hg38.knownGene::TxDb.Hsapiens.UCSC.hg38.knownGene
-  annoDb <- "org.Hs.eg.db"
-} else if (GENOME == "mm10") {
-  txdb <- TxDb.Mmusculus.UCSC.mm10.knownGene::TxDb.Mmusculus.UCSC.mm10.knownGene
-  annoDb <- "org.Mm.eg.db"
-} else {
-  cat("\n\tUnknown GENOME", GENOME, "\n")
-  cat("\tValid genomes: hg19, b38, mm10\n\n")
-  quit()
-}
+# Genome of the run and its annotation databases, from GENOMES.tsv
+GENOME <- runGenome()
+cat("GENOME =", GENOME, "\n")
+txdb_pkg <- genomeInfo(GENOME, "TXDB", SDIR)
+txdb <- getExportedValue(txdb_pkg, txdb_pkg)
+annoDb <- genomeInfo(GENOME, "ORGDB", SDIR)
+add_chr <- genomeInfo(GENOME, "ADD_CHR", SDIR) == "yes"
+mito_contig <- genomeInfo(GENOME, "MITO", SDIR)
 
 # Load sample manifest and create renaming lookup
 manifest <- read_csv(MANIFEST_FILE,show_col_types = FALSE) |> arrange(SampleID)
@@ -376,7 +378,7 @@ do_differential_analysis <- function(dge_object, design, contrast,
     filter(FDR < fdr_cut) |>
     left_join(peak.annote, by = "PeakNo") |>
     select(-matches("^F$|^LR")) |>
-    filter(Chr != "MT")
+    filter(Chr != mito_contig)
 
   # Prepare significant peaks for ChIPseeker annotation
   sig_peaks_bed <- sig_results |>
@@ -385,8 +387,9 @@ do_differential_analysis <- function(dge_object, design, contrast,
 
   # Annotate significant peaks with nearest genes
   if (nrow(sig_results) > 0) {
-    # Add "chr" prefix if missing (genome-dependent)
-    if (substr(sig_results$Chr[1], 1, 3) != "chr") {
+    # Add "chr" prefix for builds whose contigs lack it (b37), so the
+    # names match the UCSC TxDb; the rule is ADD_CHR in GENOMES.tsv
+    if (add_chr) {
       sig_peaks_bed <- sig_peaks_bed |>
         mutate(V1 = paste0("chr", V1)) |>
         data.frame()

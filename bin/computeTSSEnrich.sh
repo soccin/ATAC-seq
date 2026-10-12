@@ -7,11 +7,30 @@ RDIR=$SDIR/../R
 
 . $SDIR/loadTools.sh
 
-BAM=$1
+#
+# GENOME is the run's genome, detected once by pipe.sh from the input
+# BAMs, not detected again here.
+#
+if [ "$#" != "2" ]; then
+    echo "usage: computeTSSEnrich.sh GENOME BAM" >&2
+    exit 1
+fi
+
+GENOME=$1
+BAM=$2
 ODIR=$(dirname $BAM)
 
-GENOME=$($SDIR/getGenomeBuildBAM.sh $BAM)
+$SDIR/genomeInfo.sh "$GENOME" TAG >/dev/null
 echo "\$GENOME=$GENOME"
+
+CHRSZ=$RDIR/TSSEnrich/lib/${GENOME}.chrom.sizes
+TSS=$RDIR/TSSEnrich/lib/${GENOME}_tss.bed
+for F in $CHRSZ $TSS; do
+    if [ ! -s "$F" ]; then
+        echo "ERROR: no TSS enrichment file $F" >&2
+        exit 1
+    fi
+done
 
 READ_LEN=$(
     samtools view $BAM \
@@ -36,6 +55,6 @@ fi
 Rscript $RDIR/TSSEnrich/tss_enrich.R \
     --nodup-bam $BAM \
     --read-len $READ_LEN \
-    --chrsz $RDIR/TSSEnrich/lib/${GENOME}.chrom.sizes \
-    --tss $RDIR/TSSEnrich/lib/${GENOME}_tss.bed \
+    --chrsz $CHRSZ \
+    --tss $TSS \
     --out-dir $ODIR

@@ -21,7 +21,7 @@ usage() {
     echo
     echo "    usage: postMapBamProcessing_ATACSeq.sh [(-q | --mapq) MAPQ] GENOME INPUT_BAM [OUTPUT_BAM]"
     echo
-    echo "    GENOME : b37 | b38 | mm10"
+    echo "    GENOME : a tag in lib/genomes/GENOMES.tsv (b37 | hg38 | mm10)"
     echo
     exit "${1:-0}"
 }
@@ -57,24 +57,17 @@ echo "MAPQ = ${MAPQ}"
 GENOME=$1
 shift 1
 
-case $GENOME in
-  b37)
-  GENOME_BED=$SDIR/lib/genomes/human_b37.genome.bed
-  ;;
-
-  b38)
-  GENOME_BED=$SDIR/lib/genomes/human_b38.genome.bed
-  ;;
-
-  mm10)
-  GENOME_BED=$SDIR/lib/genomes/mouse_mm10.genome.bed
-  ;;
-
-  *)
-  echo -e "\n\nunknown" \$GENOME=$GENOME "\n\n"
-  exit 1
-  ;;
-esac
+#
+# lib/genomes/<GENOME>.genome lists the contigs analyzed: autosomes, X
+# and Y. Mitochondrial, unplaced, random, decoy and viral contigs are
+# left out of the shifted BED, so out of peaks, bigWigs and the atlas.
+#
+MITO=$($SDIR/bin/genomeInfo.sh "$GENOME" MITO) || exit 1
+GENOME_FILE=$SDIR/lib/genomes/$GENOME.genome
+if [ ! -s "$GENOME_FILE" ]; then
+    echo "FATAL ERROR: no genome file $GENOME_FILE"
+    exit 1
+fi
 
 
 [ "$#" == "0" ] && usage 1
@@ -130,12 +123,26 @@ picard CollectInsertSizeMetrics LEVEL=null LEVEL=SAMPLE I=$OBAM O=${OBAM/.bam/__
 INS_PID=$!
 
 #
-# Do Tn5 shift and remove non-standard chromosomes (keep those in genome)
+# Do Tn5 shift and keep only the contigs of the genome file. On the way,
+# count the reads on the mitochondrial contig ($MITO) out of all reads
+# in the filtered BAM, before they are dropped, for the ___MITO.txt
+# metric.
 #
+
+awk 'BEGIN {OFS = "\t"} {print $1, 0, $2}' $GENOME_FILE >$TDIR/genome.bed \
+    || { echo "FATAL ERROR: cannot write $TDIR/genome.bed"; exit 1; }
+
+MITO_TXT=${OBAM/.bam/___MITO.txt}
 
 samtools view -b $OBAM \
     | bedtools bamtobed -i - \
-    | bedtools intersect -nonamecheck -a - -b $GENOME_BED \
+    | awk -F'\t' -v mito="$MITO" -v sid="$SID" -v out="$MITO_TXT" '
+        { n++; if ($1 == mito) m++; print }
+        END {
+            printf "SAMPLE\tMITO_CONTIG\tREADS\tMITO_READS\tFRAC_MITO\n" >out
+            printf "%s\t%s\t%d\t%d\t%.4f\n", sid, mito, n, m, (n ? m / n : 0) >out
+        }' \
+    | bedtools intersect -nonamecheck -a - -b $TDIR/genome.bed \
     | awk -F'\t' \
         'BEGIN {OFS = FS} { if ($6 == "+") {$2 = $2 + 4} else if ($6 == "-") {$3 = $3 - 5} print $0}' \
     | gzip -nc >${OBAM/.bam/.shifted.bed.gz} \

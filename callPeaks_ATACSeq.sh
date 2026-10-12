@@ -12,6 +12,13 @@ set -o pipefail
 GENOMEBUILD=$1
 IBED=$2
 
+genome=$($SDIR/bin/genomeInfo.sh "$GENOMEBUILD" MACS_GSIZE) || exit 1
+GENOME_FILE=$SDIR/lib/genomes/$GENOMEBUILD.genome
+if [ ! -s "$GENOME_FILE" ]; then
+    echo "FATAL ERROR: no genome file $GENOME_FILE"
+    exit 1
+fi
+
 echo "md5sum ${IBED}"
 echo $(md5sum ${IBED})
 
@@ -49,44 +56,14 @@ echo $TDIR, $ODIR
 export TMPDIR=$TDIR
 
 #
-# Clean up BED file to remove non-main chromosomes
+# Clean up BED file to keep only the contigs of the genome file
 #
 
-# MACS2 args
-
-case $GENOMEBUILD in
-
-    b37)
-    genome=hs
-    GENOME_BED=$SDIR/lib/genomes/human_b37.genome.bed
-    ;;
-
-    b38)
-    genome=hs
-    GENOME_BED=$SDIR/lib/genomes/human_b38.genome.bed
-    ;;
-
-    mm10)
-    genome=mm
-    GENOME_BED=$SDIR/lib/genomes/mouse_mm10.genome.bed
-    ;;
-
-    sCer+sMik_IFO1815)
-    genome=23606800
-    GENOME_BED=$SDIR/lib/genomes/sCer+sMik_IFO1815.genome.bed
-    ;;
-
-    *)
-    echo
-    echo "    Unknown GENOMEBUILD [$GENOMEBUILD]"
-    echo
-    exit 1
-    ;;
-
-esac
+awk 'BEGIN {OFS = "\t"} {print $1, 0, $2}' $GENOME_FILE >$TDIR/genome.bed \
+  || { echo "FATAL ERROR: cannot write $TDIR/genome.bed"; rm -rf $TDIR; exit 1; }
 
 zcat $IBED \
-  | bedtools intersect -nonamecheck -a - -b ${GENOME_BED} \
+  | bedtools intersect -nonamecheck -a - -b $TDIR/genome.bed \
   | gzip -c - > $TDIR/cleanBED.bed.gz \
   || { echo "FATAL ERROR: chromosome filter of $IBED failed"; rm -rf $TDIR; exit 1; }
 
