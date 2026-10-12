@@ -42,7 +42,7 @@ unset ATAC_TOOL
 
 ATAC_LOCAL_TMP=${ATAC_LOCAL_TMP:-/localscratch/$USER}
 
-if [[ "$TMPDIR" != "$ATAC_LOCAL_TMP"/* ]]; then
+if [[ "${TMPDIR:-}" != "$ATAC_LOCAL_TMP"/* ]]; then
     export TMPDIR=$ATAC_LOCAL_TMP
 fi
 

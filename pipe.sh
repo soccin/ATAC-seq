@@ -277,7 +277,7 @@ onExit() {
     if [ "$RUN_DONE" != "1" ]; then
         #
         # A failed bCheck leaves the reason in the stage job logs; copy it
-        # into MESSAGE, ahead of the mm10 TSS warning if there is one.
+        # into MESSAGE, ahead of any message already there.
         #
         local reason=""
         reason=$(failedJobsMessage "$RUN_STAGE" "$JOBS" 2>/dev/null) || true
@@ -297,16 +297,22 @@ onExit() {
 trap onExit EXIT
 
 #
-# Every BAM must be on the same build, and on one every stage takes:
-# postMapBamProcessing_ATACSeq.sh accepts only b37, b38 and mm10. Any
-# other tag getGenomeBuildBAM.sh can emit (hg19, b37_dmp, GRCh37-lite,
-# ...) would pass on to POST and fail there, in every job.
+# Every BAM must be on the same build, and the build must be a row of
+# lib/genomes/GENOMES.tsv (b37, hg38, mm10). Any other tag
+# getGenomeBuildBAM.sh can emit (hg19, b37_dmp, hg38+mm39, ...) would
+# pass on to POST and fail there, in every job. getGenomeBuildBAM.sh exits
+# 1 when it cannot read the header; under set -e a bare $(...) would end
+# pipe.sh with no MESSAGE, so it is called in an if.
 #
-SUPPORTED_GENOMES="b37 b38 mm10"
-
 GENOME=""
 for BAM in $BAMS; do
-    BUILD=$($SDIR/bin/getGenomeBuildBAM.sh $BAM)
+    if ! BUILD=$($SDIR/bin/getGenomeBuildBAM.sh $BAM); then
+        RUN_MESSAGE="cannot identify the genome of [$BAM]"
+        echo
+        echo "    FATAL ERROR: $RUN_MESSAGE"
+        echo
+        exit 1
+    fi
     echo "    genome [$BUILD] $BAM"
     if [ -z "$GENOME" ]; then
         GENOME=$BUILD
@@ -319,39 +325,31 @@ for BAM in $BAMS; do
     fi
 done
 
-case " $SUPPORTED_GENOMES " in
-    *" $GENOME "*)
-        ;;
-    *)
-        RUN_MESSAGE="unsupported genome [$GENOME]; supported: $SUPPORTED_GENOMES"
-        echo
-        echo "    FATAL ERROR: $RUN_MESSAGE"
-        echo
-        exit 1
-        ;;
-esac
+if ! GENOME_ERR=$($SDIR/bin/genomeInfo.sh "$GENOME" TAG 2>&1 >/dev/null); then
+    RUN_MESSAGE=${GENOME_ERR#genomeInfo.sh: }
+    echo
+    echo "    FATAL ERROR: $RUN_MESSAGE"
+    echo
+    exit 1
+fi
 
 echo GENOME=$GENOME
 
 #
-# TSS enrichment (stage TSSE) needs R/TSSEnrich/lib/<GENOME>_tss.bed and
-# <GENOME>.chrom.sizes, which exist for b37 and b38 only. For any other
-# build (mm10) the stage is skipped with a warning in this log and in
-# the MESSAGE of the status file, and its output is left out of staging
-# and of the deliverables check. Adding the two files (see
-# R/TSSEnrich/README.md) turns the stage on.
+# Every supported genome has its genome file and its TSS enrichment files
+# (R/TSSEnrich/lib/<GENOME>_tss.bed and <GENOME>.chrom.sizes). A missing
+# one is a broken checkout; stop before submitting anything.
 #
 TSS_LIB=$SDIR/R/TSSEnrich/lib
-RUN_TSSE=1
-TSSE_WARNING=""
-if [ ! -s "$TSS_LIB/${GENOME}_tss.bed" ] || [ ! -s "$TSS_LIB/${GENOME}.chrom.sizes" ]; then
-    RUN_TSSE=0
-    TSSE_WARNING="WARNING: TSS enrichment skipped; no R/TSSEnrich/lib files for $GENOME"
-    RUN_MESSAGE=$TSSE_WARNING
-    echo
-    echo "    $TSSE_WARNING"
-    echo
-fi
+for F in $SDIR/lib/genomes/$GENOME.genome $TSS_LIB/${GENOME}_tss.bed $TSS_LIB/${GENOME}.chrom.sizes; do
+    if [ ! -s "$F" ]; then
+        RUN_MESSAGE="genome $GENOME: missing file $F"
+        echo
+        echo "    FATAL ERROR: $RUN_MESSAGE"
+        echo
+        exit 1
+    fi
+done
 
 getSMTag () {
     samtools view -H $1 \
@@ -431,7 +429,7 @@ LONG_W=12:00:00
 
 #
 # Minutes per GB of input, the slowest measured on a full-size run
-# (Proj_18143_B: 12 b38 samples, 4.6 to 14.1 GB BAMs, 2026-10-09) rounded
+# (Proj_18143_B: 12 hg38 samples, 4.6 to 14.1 GB BAMs, 2026-10-09) rounded
 # up; the measured range is in the comment. See docs/SLURM_PORT.md.
 #
 RATE_POST=6        # input BAM                     3.5 to 5.3
@@ -641,19 +639,13 @@ fi
 
 waitStage DESEQ
 
-if [ "$RUN_TSSE" == "1" ]; then
-    for PBAM in out/*/*_postProcess.bam; do
-        CLASS=$(runClass $RATE_TSSE $PBAM)
-        atacSub TSSE $(basename $(dirname $PBAM)) SLURM.06.QC $CLASS "-n 2 -M 32G" \
-            $SDIR/bin/computeTSSEnrich.sh $PBAM
-    done
+for PBAM in out/*/*_postProcess.bam; do
+    CLASS=$(runClass $RATE_TSSE $PBAM)
+    atacSub TSSE $(basename $(dirname $PBAM)) SLURM.06.QC $CLASS "-n 2 -M 32G" \
+        $SDIR/bin/computeTSSEnrich.sh $GENOME $PBAM
+done
 
-    waitStage TSSE
-else
-    echo
-    echo "    $TSSE_WARNING"
-    echo
-fi
+waitStage TSSE
 
 setStage REPORTS
 
@@ -683,16 +675,13 @@ mv *_postProcess.shifted.10mNorm.bw atacSeq/bigwig
 cp -val callpeaks/* atacSeq/macs
 cp *__postInsDistribution.pdf *__ATACSeqQC.pdf atacSeq/metrics
 
-cp -val out/*/*___INS.* atacSeq/metrics
-if [ "$RUN_TSSE" == "1" ]; then
-    cp -val out/*/*enrich* atacSeq/metrics
-fi
+cp -val out/*/*___INS.* out/*/*___MITO.txt atacSeq/metrics
+cp -val out/*/*enrich* atacSeq/metrics
 
 #
 # Every sample must have each of its deliverables, not just the run as a
 # whole. A peak file may legitimately be empty, so it only has to exist;
-# everything else has to be non-empty. The TSS enrichment is required
-# only when the TSSE stage ran.
+# everything else has to be non-empty.
 #
 setStage DELIVERABLES
 
@@ -719,9 +708,8 @@ done
 for SID in $SAMPLES; do
     checkFile atacSeq/bigwig/${SID}_postProcess.shifted.10mNorm.bw
     checkFile atacSeq/metrics/${SID}_postProcess___INS.txt
-    if [ "$RUN_TSSE" == "1" ]; then
-        checkFile atacSeq/metrics/${SID}_postProcess.tss_enrich.csv
-    fi
+    checkFile atacSeq/metrics/${SID}_postProcess___MITO.txt
+    checkFile atacSeq/metrics/${SID}_postProcess.tss_enrich.csv
     PEAKS=atacSeq/macs/${SID}_postProcess.shifted/${SID}_postProcess.shifted_peaks.narrowPeak
     if [ ! -e "$PEAKS" ]; then
         MISSING="$MISSING $PEAKS"

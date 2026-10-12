@@ -1,0 +1,4 @@
+TAG	SPECIES	MACS_GSIZE	TXDB	ORGDB	ADD_CHR	MITO
+b37	human	hs	TxDb.Hsapiens.UCSC.hg19.knownGene	org.Hs.eg.db	yes	MT
+hg38	human	hs	TxDb.Hsapiens.UCSC.hg38.knownGene	org.Hs.eg.db	no	chrM
+mm10	mouse	mm	TxDb.Mmusculus.UCSC.mm10.knownGene	org.Mm.eg.db	no	chrM

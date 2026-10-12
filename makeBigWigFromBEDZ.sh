@@ -8,6 +8,13 @@ set -o pipefail
 GENOMEBUILD=$1
 BEDZ=$2
 
+$SDIR/bin/genomeInfo.sh "$GENOMEBUILD" TAG >/dev/null || exit 1
+GENOME=$SDIR/lib/genomes/$GENOMEBUILD.genome
+if [ ! -s "$GENOME" ]; then
+    echo "FATAL ERROR: no genome file $GENOME"
+    exit 1
+fi
+
 echo "md5sum ${BEDZ}"
 echo $(md5sum ${BEDZ})
 
@@ -44,32 +51,10 @@ else
     OUT=$(basename $BEDZ | sed 's/.bed.gz/.10mNorm.bw/')
 fi
 
-case $GENOMEBUILD in
-
-    b37)
-    GENOME=$SDIR/lib/genomes/human_b37.genome
-    ;;
-
-    b38)
-    GENOME=$SDIR/lib/genomes/human_b38.genome
-    ;;
-
-    mm10)
-    GENOME=$SDIR/lib/genomes/mouse_mm10.genome
-    ;;
-
-    sCer+sMik_IFO1815)
-    GENOME=$SDIR/lib/genomes/sCer+sMik_IFO1815.genome
-    ;;
-
-    *)
-    echo
-    echo "    Unknown GENOMEBUILD [$GENOMEBUILD]"
-    echo
-    exit 1
-    ;;
-
-esac
+GENOME_BED=$(mktemp -p "$TMPDIR" genome.XXXXXX.bed) \
+    || { echo "FATAL ERROR: mktemp in $TMPDIR failed"; exit 1; }
+awk 'BEGIN {OFS = "\t"} {print $1, 0, $2}' $GENOME >$GENOME_BED \
+    || { echo "FATAL ERROR: cannot write $GENOME_BED"; exit 1; }
 
 #
 # N.B. -scale argument is multiplicative
@@ -81,7 +66,9 @@ echo "scaleFactor=${scaleFactor}"
 
 zcat $BEDZ \
     | bedtools slop -i - -g $GENOME -s -l 0 -r 0 \
-    | bedtools intersect -nonamecheck -a - -b ${GENOME}.bed \
+    | bedtools intersect -nonamecheck -a - -b $GENOME_BED \
     | bedtools genomecov -i - -g $GENOME -bg -scale $scaleFactor \
     | $SDIR/bin/wigToBigWig stdin $GENOME $OUT \
-    || { echo "FATAL ERROR: bigWig build for $BEDZ failed"; exit 1; }
+    || { echo "FATAL ERROR: bigWig build for $BEDZ failed"; rm -f $GENOME_BED; exit 1; }
+
+rm -f $GENOME_BED
