@@ -14,13 +14,18 @@ refers to the old list unless it says otherwise.
 Never numbered here: finding C-03 of `ENCODE_PIPE_CONCORDANCE.md`.
 
 **No blacklist filtering of peaks** (`pre-port`) — No peak set was
-filtered against a blacklist. `callPeaks_ATACSeq.sh` now drops peaks
-overlapping ENCODE's blacklist (`lib/genomes/<TAG>.blacklist.bed`,
-built by `lib/genomes/getBlacklists.sh`) and caps the score at 1000,
-as `encode_lib_blacklist_filter.py` does; `mergePeaksToSAF.sh`
-subtracts it from the merged atlas, which can otherwise bridge a
-blacklisted region; `pipe.sh` checks the file exists. Tested in test31
-(hg38) and test32 (b37) against test27 and test28
+filtered against a blacklist. `callPeaks_ATACSeq.sh` now writes
+`*_peaks.blacklistFiltered.narrowPeak` beside MACS2's own (unchanged)
+files: the peaks not overlapping ENCODE's blacklist
+(`lib/genomes/<TAG>.blacklist.bed`, built by
+`lib/genomes/getBlacklists.sh`), score capped at 1000, as
+`encode_lib_blacklist_filter.py` does. The atlas is built from those
+only, and `mergePeaksToSAF.sh` subtracts the blacklist from it, since
+a merge can otherwise bridge a blacklisted region; `pipe.sh` checks
+the file exists. A first version wrote the filtered peaks under
+MACS2's own file name and lost MACS2's output; never overwrite a
+primary tool's files. Tested in test33 (hg38) and test34 (b37) against
+test27, test28, test31 and test32
 (`docs/SLURM_PORT.md`, "Validation"; `docs/GENOMES.md`, "Blacklist").
 
 ## Closed — fixed on `fix/macs2-encode`

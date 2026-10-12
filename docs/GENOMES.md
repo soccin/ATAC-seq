@@ -58,7 +58,8 @@ Per tag there are also:
   it selected 0 reads (the 3-column BED selected 447,141).
 - `lib/genomes/<TAG>.blacklist.bed`: the peak blacklist of the ENCODE
   ATAC-seq pipeline (`scripts/download_genome_data.sh`, `VER=v3`).
-  CALLP drops every peak that overlaps it (see "Blacklist" below).
+  CALLP writes a second peak file without every peak that overlaps it
+  (see "Blacklist" below).
 - `R/TSSEnrich/lib/<TAG>_tss.bed` and `<TAG>.chrom.sizes`: the TSS
   enrichment references. The chrom sizes cover the whole BAM header,
   not just the analyzed contigs (see `R/TSSEnrich/README.md`).
@@ -136,14 +137,17 @@ Sources:
 Since v2.0.0 `callPeaks_ATACSeq.sh` filters each sample's peaks as
 ENCODE's `encode_lib_blacklist_filter.py` does: `bedtools intersect
 -nonamecheck -v` against the blacklist (a peak overlapping it by 1 bp
-or more is dropped), then the score (column 5) capped at 1000. MACS2
-writes to scratch and only the filtered narrowPeak, the summits of the
-peaks kept and MACS2's `.xls` table (unfiltered) go to `callpeaks/`.
-ENCODE's third step, keeping `chr[\dXY]+` contigs, is already done by
-the genome file.
+or more is dropped), then the score (column 5) capped at 1000. MACS2's
+own files in `callpeaks/<PREFIX>/` are not changed; the result is
+written beside them as `<PREFIX>_peaks.blacklistFiltered.narrowPeak`,
+with the summits of the peaks kept in
+`<PREFIX>_summits.blacklistFiltered.bed`. Both sets are delivered in
+`atacSeq/macs/`. ENCODE's third step, keeping `chr[\dXY]+` contigs, is
+already done by the genome file.
 
 The atlas needs one more step, which ENCODE does not have because it
-never merges peaks: `mergePeaksToSAF.sh` merges peaks within 500 bp,
+never merges peaks: `mergePeaksToSAF.sh` merges the
+`blacklistFiltered` peaks (only those) within 500 bp,
 and where a small blacklisted region lies between two kept peaks the
 merged peak covers it (5 atlas peaks in the hg38 test, 1 in b37). It
 subtracts the blacklist from the merged regions (`bedtools subtract`),
