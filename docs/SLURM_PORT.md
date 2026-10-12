@@ -53,8 +53,9 @@ Memory per stage: POST 32G (the `~/bin/picard` wrapper runs `-Xmx24g`, so
 the cap has to sit above that heap), BW 24G (`sort -S20g`), CALLP 3 cores
 18G, MergePeaks 3 cores 24G (`sort -S 16g`), Count 8 cores 24G
 (`featureCounts -T` from the job's CPUs; 10 cores before v2.0.0),
-CountCheck 2 cores 8G (`sort -S 4G`), Index 4G, DESEQ 24G, TSS 2 cores
-32G.
+CountCheck 2 cores 12G (`sort -S 4G`; 8G until 2026-10-12), Index 4G,
+DESEQ 24G, TSS 2 cores 32G. See "Memory" below for what each stage
+really uses.
 
 ## Walltime classes
 
@@ -92,21 +93,19 @@ every job `SHORT` at the time). No job reached `OUT_OF_MEMORY` or
 | BW | `shifted.bed.gz` | 0:27:25 | 24.5 to 26.0 | 30 | 2 GB |
 | CALLP | `shifted.bed.gz` | 0:08:34 | 8.1 to 9.5 | 10 | 6 GB |
 | TSSE | postProcess BAM | 0:10:13 | 1.6 to 2.9 | 3.5 | 17 GB |
-| Count | all postProcess BAMs, summed | 0:35:04 | 0.94 | 1.2 | 50 GB |
-| CountCheck | postProcess BAM | 0:04:56 | 0.9 to 1.1 | 1.5 | 40 GB |
+| Count | all postProcess BAMs, summed | 0:01:44 | 0.05 | 0.1 | 600 GB |
+| CountCheck | postProcess BAM | 0:05:20 | 0.79 to 1.02 | 1.5 | 40 GB |
 | Index | | 0:01:31 | | always `SHORT` | |
 | MergePeaks | | 0:00:30 | | always `SHORT` | |
 | DESEQ | | 0:00:15 | | always `SHORT` | |
 | control job | | 2:22:55 | | `#SBATCH`, 3 days | |
 
-The Count row is featureCounts v1.6.0, the counter until v2.0.0. v2.1.1
-counted the same 12 BAMs in 116 s at `-T 8`, but in an interactive
-allocation, possibly from page cache; `RATE_COUNT` stays at 1.2 until the
-v2.0.0 rerun of Proj_18143_B measures it in a job, together with the
-Count MaxRSS. The CountCheck row (Check B, `bin/assignedCheck.sh`) comes
-from a prototype on the same 12 BAMs, 4 at a time in an 8-core
-interactive allocation on isca006, not from Slurm jobs; remeasure it on
-that rerun too.
+The Count and CountCheck rows come from a later run, Proj_18143 on
+v2.x-pre2 (15 hg38 samples, postProcess BAMs 0.53 to 5.2 GB, 35.0 GB in
+all, control job 18983501, 2026-10-12). Count is featureCounts v2.1.1 at
+`-T 8`: 104 s for the 35.0 GB, against 35 min for v1.6.0 at `-T 10` on
+Proj_18143_B. `RATE_COUNT` is twice the measured rate. CountCheck is
+Check B, `bin/assignedCheck.sh`, one job per sample.
 
 With these rates only the 14.1 GB sample's POST job of that run would
 have been `LONG` (estimate 85 min; it took 64). POST is single-threaded
@@ -114,15 +113,48 @@ and I/O bound (TotalCPU close to Elapsed; it read 120 GB and wrote 102 GB
 for the largest sample), so its time depends on shared filesystem load
 as much as on the node.
 
-Memory was not changed. `sacct MaxRSS` counts page cache here: POST
-reports 32.0G against its 32G cap and Count 24.0G against 24G, both
-without being killed, so the figures say only that the jobs read a lot
-of data. An `OUT_OF_MEMORY` state is the signal to raise a cap; none
-occurred. The control job peaked at 1.1G of its 16G.
-
 CPU requests are larger than the use. TotalCPU/Elapsed: CALLP about 1.2
-of 3 cores, TSSE 1.0 of 2, MergePeaks about 2 of 3, Count 0.75 of 10
-(I/O bound across 12 BAMs). They were left as they are (00.ISSUES.md).
+of 3 cores, TSSE 1.0 of 2, MergePeaks about 2 of 3 (00.ISSUES.md). Count
+with featureCounts v2.1.1 used 6.7 of its 8 cores on Proj_18143, so
+`-n 8` stays.
+
+## Memory
+
+`sacct` MaxRSS does not show how much memory a job's processes use.
+IRIS gathers it with `jobacct_gather/cgroup` on cgroup v1, so it
+includes the file cache of everything the job read and wrote. The kernel
+frees that cache when the job reaches its cap, so a job reports MaxRSS at
+its cap and still completes. On Proj_18143, 9 of 15 POST jobs reported
+32.0G against 32G, the Index jobs on one node 4.0G against 4G
+(`samtools index`), and the ED6-2 CountCheck 8.0G against 8G. None was
+killed. A job really out of memory ends in State `OUT_OF_MEMORY`, which
+`bCheck` and `bin/checkRun.sh` report.
+
+The memory the processes allocate (`total_rss` in the job's
+`memory.stat`, without cache) was measured on 2026-10-12 by sampling
+the job cgroup every 5 s. Inputs were the largest Proj_18143 sample,
+ED6-1: 49M fragments, 5.2 GB postProcess BAM. The probe script is
+`/scratch/core001/bic/soccin/AFTER_ACTION_261011/p18143_resources/memProbe.sh`.
+
+| Stage | Cap | Peak without cache | Peak cache | Bounded by |
+| --- | --- | --- | --- | --- |
+| POST | 32G | 24.1G (SortSam) | 26.3G | the picard heap, `-Xmx24g` in `~/bin/picard`; CollectInsertSizeMetrics used 0.8G |
+| CountCheck | 12G (was 8G) | 4.0G | 5.8G | `sort -S 4G` |
+
+In both, the process memory is set by a fixed limit, not by the input:
+sort spills to disk once its buffer is full, and the JVM never exceeds
+its heap. A larger sample therefore needs no larger cap. CountCheck was
+raised to 12G anyway so that its sacct MaxRSS no longer sits at the cap.
+For BW (`sort -S20g`, 24G) and MergePeaks (`sort -S 16g`, 24G) the same
+bound applies. Count (featureCounts), TSSE, Index, DESEQ and the control
+job reported at most 16.2G, 4.8G, 4.0G, 1.1G and 1.4G with cache, well
+under their caps. If `~/bin/picard` ever gets a larger `-Xmx`, raise the
+POST cap with it.
+
+Checked with test24 (control job 19151733, 2026-10-12, the 11
+downsampled BAMs at `-q 20`): `COMPLETED`, 69 of 69 jobs, every
+CountCheck job ran with 12G, Count was `SHORT` at 0.1 min/GB, and the
+count matrix and count-check report are identical to test23.
 
 ## Checking a run
 
@@ -359,8 +391,8 @@ Done 2026-10-11 on `fix/genome-tags` (`docs/GENOMES.md`), same BAMs and
 Not run: b37 and mm10 pipelines (`00.ISSUES.md` #14).
 
 Still to do: the full-size rerun of Proj_18143_B, which must reproduce
-the corrected EV_2 counts and gives the job-measured `RATE_COUNT`,
-`RATE_CCHECK` and Count MaxRSS.
+the corrected EV_2 counts. The job-measured `RATE_COUNT`, `RATE_CCHECK`
+and memory came from Proj_18143 instead ("Walltime classes", "Memory").
 
 ## Not done
 

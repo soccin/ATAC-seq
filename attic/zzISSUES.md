@@ -9,6 +9,23 @@ issues were renumbered on 2026-10-10 (old to new: #8 to #1, #9 to #2,
 #9, #28 to #10, #29 to #11, #30 to #12, #31 to #13), so a number below
 refers to the old list unless it says otherwise.
 
+## Closed — fixed on `fix/resources-02`
+
+Numbers here are from the list as renumbered on 2026-10-10.
+
+**#15 Count and CountCheck rates not measured in jobs** — Measured on
+the Proj_18143 run on v2.x-pre2 (15 hg38 samples, 35.0 GB of
+postProcess BAMs, control job 18983501, 2026-10-12). Count with
+featureCounts v2.1.1 took 104 s, 0.05 min/GB: `RATE_COUNT` 1.2 to 0.1.
+CountCheck took 0.79 to 1.02 min/GB: `RATE_CCHECK` stays 1.5. sacct
+MaxRSS includes file cache on IRIS, so the process memory was measured
+from the job cgroup on ED6-1, the largest sample: CountCheck 4.0G (set
+by `sort -S 4G`), POST 24.1G (the picard `-Xmx24g` heap). The
+CountCheck cap went from 8G to 12G, because ED6-2 had reported 8.0G
+MaxRSS against 8G. Details in `docs/SLURM_PORT.md`, "Memory". The Count
+part of #13 also closed: featureCounts used 6.7 of 8 cores, so `-n 8`
+stays.
+
 ## Closed — fixed on `fix/message`
 
 Numbers here are from the list as renumbered on 2026-10-10.
