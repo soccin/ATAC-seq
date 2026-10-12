@@ -186,7 +186,8 @@ and can be run by hand from an analysis directory to audit a run.
 - **Check B (independent count)**: `bin/assignedCheck.sh` counts the
   distinct read names among reads that `samtools view -L` finds over the
   atlas. It must equal featureCounts' `Assigned` **exactly**; it did for
-  all 23 BAMs tested (12 full-size, 11 downsampled). A difference fails
+  all 42 BAMs tested (27 full-size hg38, 11 downsampled hg38, 4
+  downsampled b37). A difference fails
   the run and must be explained before anything is changed; do not add a
   tolerance to make it pass. It relies on the postProcess BAM being
   already filtered; if that filter changes, apply it there too.
@@ -226,6 +227,12 @@ The standalone subread binary is not Bioconductor.
   camelCase). Match the file you are in.
 - Pipeline R scripts print `## START: <script>` / `## END: <script>` for log
   tracing and wrap library loads in `suppressPackageStartupMessages`.
+- Always name the method of `p.adjust()`: its default is Holm, which
+  made the diff `FDR` column a Holm correction until v2.0.0. The diff
+  FDR is `method = "fdr"`.
+- A PCA of samples is `prcomp(t(logCPM))` and its scores `$x` (samples
+  as observations), never the `$rotation` of `prcomp(logCPM)`; that
+  plotted the profile all samples share as PC1 until v2.0.0.
 - `R/attic/` and `attic/` hold superseded versions kept for reference. Do not
   edit them; do not treat them as live code.
 

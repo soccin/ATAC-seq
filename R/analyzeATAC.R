@@ -3,7 +3,7 @@ cat("## START: analyzeATAC.R\n")
 args=commandArgs(trailing=T)
 if(len(args)<1) {
     cat("\n   Usage: analyzeATAC.R SampleManifest.csv [RUNTAG]\n\n")
-    quit()
+    quit(status=1)
 }
 
 fixSampleNames<-function(ss) {
@@ -105,14 +105,28 @@ keep <- filterByExpr(y)
 y <- y[keep,,keep.lib.sizes=FALSE]
 y <- calcNormFactors(y)
 
-pr=prcomp(cpm(y,log=T),scale=F)
-dp=pr$rotation %>%
+#
+# 34 group colors; scale_color_uchicago() alone has 9 and draws any
+# further group in grey
+#
+groupColors=c(pal_uchicago("default")(9),pals::cols25())
+
+#
+# PCA of the samples: the samples are the observations, so each peak is
+# centered across samples and PC1 is the largest difference between them.
+# (Before v2.0.0 the peaks were the observations and the plot showed the
+# rotation; its PC1 was the profile all samples share.)
+#
+pr=prcomp(t(cpm(y,log=T)),scale=F)
+pct=round(100*summary(pr)$importance[2,1:2])
+pcaAxes=labs(x=str_glue("PC1 ({pct[1]}%)"),y=str_glue("PC2 ({pct[2]}%)"))
+dp=pr$x %>%
   data.frame %>%
   rownames_to_column("SampleID") %>%
   left_join(manifest,by = join_by(SampleID))
 
-pp1=ggplot(dp,aes(PC1,PC2,color=Group,label=SampleID)) + theme_light(base_size=16) + geom_point(size=4,alpha=.6) + scale_color_uchicago()
-pp2=ggplot(dp,aes(PC1,PC2,color=Group,label=SampleID)) + theme_light(base_size=16) + geom_point(size=2) + scale_color_uchicago() +
+pp1=ggplot(dp,aes(PC1,PC2,color=Group,label=SampleID)) + theme_light(base_size=16) + geom_point(size=4,alpha=.6) + scale_color_manual(values=groupColors) + pcaAxes
+pp2=ggplot(dp,aes(PC1,PC2,color=Group,label=SampleID)) + theme_light(base_size=16) + geom_point(size=2) + scale_color_manual(values=groupColors) + pcaAxes +
     geom_label_repel(
         color="black",
         max.overlaps=Inf,
@@ -122,8 +136,15 @@ pp2=ggplot(dp,aes(PC1,PC2,color=Group,label=SampleID)) + theme_light(base_size=1
         max.time=10,
         max.iter=100000)
 
+#
+# Project for output naming: the last directory of the working directory
+# path named Proj_* or B-<digits>, else ATAC
+#
 pp=strsplit(getwd(),"/")[[1]]
-projNo=grep("^Proj_|^B-\\d+",pp,value=T)
+projNo=tail(grep("^Proj_|^B-\\d+",pp,value=T),1)
+if(len(projNo)==0) {
+    projNo="ATAC"
+}
 
 pfile=cc(projNo,RUNTAG,"ATACSeqQC.pdf")
 pdf(file=pfile,width=11,height=8.5)

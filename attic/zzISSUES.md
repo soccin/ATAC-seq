@@ -9,6 +9,21 @@ issues were renumbered on 2026-10-10 (old to new: #8 to #1, #9 to #2,
 #9, #28 to #10, #29 to #11, #30 to #12, #31 to #13), so a number below
 refers to the old list unless it says otherwise.
 
+## Closed — fixed on `fix/diff-stats`
+
+Numbers here are from the list as renumbered on 2026-10-10.
+
+**#19 `diffAnalysisPairwise.R` output names outside a `Proj_`
+directory** — `plotINSStats.R`, `R/analyzeATAC.R` and
+`R/diffAnalysisPairwise.R` now use the last `Proj_*` or `B-<digits>`
+directory of the path, else `ATAC`. Found during the pre-release review
+on 2026-10-12, together with defects that were never issues here: the
+diff `FDR` was Holm (`p.adjust()` with no method), the QC PCA plotted
+the shared profile as PC1, and an `EXC` group or edited `SampleID`s
+stopped the diff analysis (`CHANGELOG.md`, v2.0.0). Tested in test25
+(b37), on a scratch copy of the Proj_18741 count matrix, and in test26
+(hg38, `docs/SLURM_PORT.md`, "Validation").
+
 ## Closed — fixed on `fix/resources-02`
 
 Numbers here are from the list as renumbered on 2026-10-10.

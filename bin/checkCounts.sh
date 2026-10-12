@@ -26,9 +26,9 @@
 # Check B (independent count), when ASSIGNED files are given. Each is the
 # one-line output of bin/assignedCheck.sh (BAM<TAB>FRAGMENTS), a count of
 # the fragments overlapping the atlas made with samtools alone. It must
-# equal the Assigned row of the BAM's column exactly; on the first
-# full-size project (12 hg38 samples) and the 11 downsampled BAMs they
-# were equal for every sample. Every BAM column must have one.
+# equal the Assigned row of the BAM's column exactly; on 42 BAMs (27
+# full-size hg38, 11 downsampled hg38, 4 downsampled b37) they were equal
+# for every sample. Every BAM column must have one.
 #
 
 set -o pipefail

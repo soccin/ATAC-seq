@@ -46,8 +46,15 @@ sample's mitochondrial fraction is in `atacSeq/metrics/*___MITO.txt`.
 
 - Post-alignment filtering:
 
-    - Mark Duplicates
+    - Proper pairs only; reads marked as duplicates (the marking is done
+      upstream, by the mapper), secondary and QC-fail reads removed
     - MAPQ 10+ (`-q MAPQ`; the count matrix uses the same cutoff)
+
+- Count matrix: featureCounts v2.1.1 counts fragments over the merged
+  peak atlas. Two checks must pass before the run continues (the
+  fragment total against the mapped reads, and an independent samtools
+  count of the fragments in peaks); the results are in
+  `peaks_raw_fcCounts.checks.txt`.
 
 - BigWig file generation.
 
@@ -80,6 +87,13 @@ Example inputs:
 
    Sign convention X2-X1; e.g., aNSC_p53-aNSC_loxp15
 ```
+
+Each comparison is an edgeR likelihood ratio test on the samples of its
+two groups. A peak is significant at FDR < 0.05 (`p.adjust(method =
+"fdr")`, i.e. Benjamini-Hochberg). Before v2.0.0 the `FDR` column was
+Holm's correction, which is much stricter. Samples whose `Group` starts
+with `EXC` are left out. Every count matrix column must have a manifest
+row (`MapID` is the BAM's SM tag), and every row a column.
 
 ## MACS2, IDR Installation
 
