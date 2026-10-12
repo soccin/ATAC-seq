@@ -104,8 +104,10 @@ paths `/ifs/res/seq/pi/invest` and `~/Code/BIC/Delivery`. Deliver the
    mitochondrial fraction → `*___MITO.txt`
 2. `makeBigWigFromBEDZ.sh` — 10M-read-normalized bigWig via bedtools +
    `bin/wigToBigWig`
-3. `callPeaks_ATACSeq.sh` — MACS2 on the BED (not BAM), `--nomodel --shift 75
-   --extsize 150 --call-summits -p 0.01`
+3. `callPeaks_ATACSeq.sh` — MACS2 on the BED (not BAM) with ENCODE's
+   settings, `--nomodel --shift -75 --extsize 150 --keep-dup all
+   --call-summits -p 0.01` (until v2.0.0 `--shift 75` and the default
+   `--keep-dup 1`)
 4. `mergePeaksToSAF.sh` — merge all narrowPeak within 500bp into
    `macsPeaksMerged.saf` (the peak atlas)
 5. `bin/countPeaks.sh` → `bin/featureCounts` (v2.1.1) — raw count matrix

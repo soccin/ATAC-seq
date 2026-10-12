@@ -16,6 +16,28 @@ any v1.x run may be wrong for one or more samples.
   the PCA, with exit 0 and no error. It was found in 5 projects run since
   2022. On the same tests v2.1.1 failed 0 of 250 times, and for samples
   that v1.6.0 handled correctly its counts are identical, cell for cell.
+- **MACS2 now runs with ENCODE's settings**, `--shift -75 --extsize
+  150 --keep-dup all`. Since the first version of
+  `callPeaks_ATACSeq.sh` it ran with `--shift 75` and no `--keep-dup`:
+  - The sign of the shift was lost when the settings were copied from
+    the Kundaje lab pipeline (ENCODE's predecessor). Each read
+    contributed the region 75 to 225 bp downstream of its cut site,
+    instead of the 150 bp centered on it, so the signal of an
+    accessible region was split between the strands and moved off
+    center.
+  - The MACS2 default `--keep-dup 1` keeps one read per cut site and
+    strand. POST has already removed PCR duplicates, so the reads it
+    dropped were distinct fragments; on the full-size Proj_18143 run
+    that was 5 to 17% of each sample's reads, more in deeper samples.
+
+  Every narrowPeak, the atlas, the count matrix, the scale factors, the
+  QC PDF and any differential analysis of an earlier run were made with
+  the old settings. BAMs, shifted BEDs, bigWigs, insert sizes, the
+  mitochondrial fraction and TSS enrichment do not use MACS2 and do not
+  change. On the downsampled test sets the fraction of a sample's reads
+  in its own peaks went from 0.70-0.78 to 0.90-0.95 (hg38) and from
+  0.59-0.69 to 0.86-0.89 (b37), with up to 7% (hg38) and 8-17% (b37)
+  fewer peaks (`docs/SLURM_PORT.md`, "Validation").
 - The `.summary` file has the 2.x status rows: `Unassigned_Read_Type` and
   `Unassigned_Singleton` are new, `Unassigned_Nonjunction` is now
   `Unassigned_NonSplit`, and the row order changed. The R reports keep
