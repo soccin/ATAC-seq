@@ -9,6 +9,19 @@ issues were renumbered on 2026-10-10 (old to new: #8 to #1, #9 to #2,
 #9, #28 to #10, #29 to #11, #30 to #12, #31 to #13), so a number below
 refers to the old list unless it says otherwise.
 
+## Closed — fixed on `fix/macs2-encode`
+
+Never numbered here: tracked in `BUGFIXES_v2.md` (deleted once fixed)
+and the external ENCODE concordance review of 2026-10-12 (C-01, C-02).
+
+**MACS2 `--shift 75` and the default `--keep-dup 1`** (`pre-port`) —
+`callPeaks_ATACSeq.sh` copied its settings from the Kundaje lab pipeline
+but passed `+75` where it passes `-75`, and left out `--keep-dup all`.
+Now `--shift -75 --extsize 150 --keep-dup all`, as in ENCODE's
+`encode_task_macs2_atac.py`. Shift direction checked on a two-read
+input; tested in test27 (hg38) and test28 (b37) against test26 and
+test25 (`docs/SLURM_PORT.md`, "Validation"; `CHANGELOG.md`, v2.0.0).
+
 ## Closed — fixed on `fix/diff-stats`
 
 Numbers here are from the list as renumbered on 2026-10-10.
