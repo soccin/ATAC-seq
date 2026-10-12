@@ -9,6 +9,20 @@ issues were renumbered on 2026-10-10 (old to new: #8 to #1, #9 to #2,
 #9, #28 to #10, #29 to #11, #30 to #12, #31 to #13), so a number below
 refers to the old list unless it says otherwise.
 
+## Closed — fixed on `fix/blacklist`
+
+Never numbered here: finding C-03 of `ENCODE_PIPE_CONCORDANCE.md`.
+
+**No blacklist filtering of peaks** (`pre-port`) — No peak set was
+filtered against a blacklist. `callPeaks_ATACSeq.sh` now drops peaks
+overlapping ENCODE's blacklist (`lib/genomes/<TAG>.blacklist.bed`,
+built by `lib/genomes/getBlacklists.sh`) and caps the score at 1000,
+as `encode_lib_blacklist_filter.py` does; `mergePeaksToSAF.sh`
+subtracts it from the merged atlas, which can otherwise bridge a
+blacklisted region; `pipe.sh` checks the file exists. Tested in test31
+(hg38) and test32 (b37) against test27 and test28
+(`docs/SLURM_PORT.md`, "Validation"; `docs/GENOMES.md`, "Blacklist").
+
 ## Closed — fixed on `fix/macs2-encode`
 
 Never numbered here: tracked in `BUGFIXES_v2.md` (deleted once fixed)
