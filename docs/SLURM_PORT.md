@@ -402,6 +402,26 @@ Done 2026-10-12. Scripts in
 | `R/analyzeATAC.R` on the same matrix, one group per sample (24 groups) | PCA with 24 distinct colors and the variance explained on the axes (PC1 22%, PC2 15%) |
 | test26, the 11 hg38 BAMs with `-q 20` on `fix/diff-stats` (control job 19202406) | `COMPLETED`, 69 of 69 jobs; reports named `ATAC__*.pdf` (no `Proj_` in the path) and accepted by the deliverables check; count matrix, count checks and scale factors identical to test24. `diffAnalysisPairwise.R` rc 0, `GENOME = hg38`, GD1 vs EV 2 peaks at FDR < 0.05, both annotated |
 
+### MACS2 `--shift -75 --keep-dup all` (v2.0.0)
+
+Done 2026-10-12 on `fix/macs2-encode`. Scripts in
+`/scratch/core001/bic/soccin/AFTER_ACTION_261011/macs2_probe/`
+(`compare.sh`, `shiftcheck/run.sh`). FRiP is ENCODE's: reads of the
+shifted BED over the sample's own peaks / all its reads. Values of the
+earlier run are in parentheses.
+
+| Test | Result |
+| --- | --- |
+| MACS2 2.2.9.1 on one `+` read with its cut site at 100000 and one `-` read with its cut site at 200000, `-B` pileup | `--shift -75`: 99925-100075 and 199925-200075, centered on both cut sites. `--shift 75`: 100075-100225 and 199775-199925 |
+| test27, the 11 hg38 BAMs with `-q 20` (control job 19224611), against test26 | `COMPLETED`, 69 of 69 jobs; Checks A and B pass. Peaks per sample from 7% fewer to 0.4% more (150,451 to 267,009), median width 203-215 bp (208-245), FRiP 0.90-0.95 (0.70-0.78), atlas 903,877 (919,558). Of each sample's top 10,000 peaks, 21-29% have the summit within 500 bp of a TSS (14-28%) |
+| test28, the 4 b37 BAMs, MAPQ 10 (control job 19224612), against test25 | `COMPLETED`, 27 of 27 jobs; Checks A and B pass. Peaks 8-17% fewer (265,241 to 366,622), median width 199-209 bp (150-229), FRiP 0.86-0.89 (0.59-0.69), atlas 760,751 (745,067). Top-10,000 summits within 500 bp of a TSS 25-32% (27-31%) |
+| `--keep-dup 1` loss, from the MACS2 `.xls` "tags after filtering" | 0.2-0.4% of reads on the downsampled BAMs; 5.0-16.8% on the full-size Proj_18143 run (control job 18983501), the most in the deepest samples |
+
+The downsampled BAMs have 0.3 to 0.9 million reads after filtering, so
+their 150,000 to 370,000 peaks at `-p 0.01` are mostly weak; the TSS
+figures are the least reliable of these comparisons. The full-size
+Proj_18143 run is the test that remains.
+
 Not run: an mm10 pipeline (`00.ISSUES.md` #14).
 
 ## Not done

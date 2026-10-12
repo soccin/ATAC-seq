@@ -68,21 +68,35 @@ zcat $IBED \
   || { echo "FATAL ERROR: chromosome filter of $IBED failed"; rm -rf $TDIR; exit 1; }
 
 #
-# From:
-#   https://github.com/kundajelab/atac_dnase_pipelines/blob/803e3d92435f52ef31b02fa264fecb5706d550e3/atac.bds#L16
-#   Line: 16
+# MACS2 settings of the ENCODE ATAC-seq pipeline,
+# src/encode_task_macs2_atac.py:
+#
+#   shiftsize = -int(round(float(smooth_win)/2.0))
+#   macs2 callpeak -t {ta} -f BED -n {prefix} -g {gensz} -p {pval_thresh}
+#     --shift {shiftsize} --extsize {extsize}
+#     --nomodel -B --SPMR --keep-dup all --call-summits
+#
+# -B --SPMR only write signal bedGraphs, which this pipeline does not use
+# (its bigWigs come from makeBigWigFromBEDZ.sh), so they are left out.
 #
 
 smooth_window=150
 
-# ./modules/callpeak_macs2_atac.bds:    shiftsize := round( smooth_window.parseReal()/2.0 )
-
-shiftsize=$((smooth_window / 2))
-
-# From paper (Philip, et al, )
+#
+# Negative: move each cut site (the 5' end of the shifted read) back half
+# the window, so --extsize centers a smooth_window-wide region on it.
+# Until v2.0.0 this was +75, which put the region 75-225 bp downstream of
+# the cut site.
+#
+shiftsize=$(( -smooth_window / 2 ))
 
 pval_thres=0.01
 
+#
+# --keep-dup all: duplicates are already removed in POST (-F 1804), so
+# reads with the same cut site are distinct fragments. Until v2.0.0 the
+# MACS2 default (1) kept one of them.
+#
 $MACS callpeak \
     -t $TDIR/cleanBED.bed.gz \
     -f BED \
@@ -92,6 +106,7 @@ $MACS callpeak \
     --nomodel \
     --shift $shiftsize \
     --extsize $smooth_window \
+    --keep-dup all \
     --call-summits \
     --outdir $ODIR
 
