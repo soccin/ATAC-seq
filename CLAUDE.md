@@ -107,9 +107,14 @@ paths `/ifs/res/seq/pi/invest` and `~/Code/BIC/Delivery`. Deliver the
 3. `callPeaks_ATACSeq.sh` — MACS2 on the BED (not BAM) with ENCODE's
    settings, `--nomodel --shift -75 --extsize 150 --keep-dup all
    --call-summits -p 0.01` (until v2.0.0 `--shift 75` and the default
-   `--keep-dup 1`)
-4. `mergePeaksToSAF.sh` — merge all narrowPeak within 500bp into
-   `macsPeaksMerged.saf` (the peak atlas)
+   `--keep-dup 1`). MACS2 writes to scratch; peaks overlapping
+   `lib/genomes/<TAG>.blacklist.bed` are dropped (and scores capped at
+   1000, as ENCODE does) before the narrowPeak and summits are written
+   to `callpeaks/`, so nothing downstream sees them
+4. `mergePeaksToSAF.sh GENOME callpeaks` — merge all narrowPeak within
+   500bp into `macsPeaksMerged.saf` (the peak atlas), then subtract the
+   blacklist again, since a merge can bridge a blacklisted region
+   between two kept peaks
 5. `bin/countPeaks.sh` → `bin/featureCounts` (v2.1.1) — raw count matrix
    `peaks_raw_fcCounts.txt` over the atlas, `-O -p --countReadPairs`, with
    `-Q` set to the same MAPQ as stage 1, then Check A. Beside it, one
@@ -156,9 +161,10 @@ supported genome is a row of it. Shell reads it with
 `R/genomeInfo.R`; both fail on an unknown tag or field. There is no
 `case` on genome names anywhere. Adding a genome is data only: its md5
 in `getGenomeBuildBAM.sh`, a row in `GENOMES.tsv`,
-`lib/genomes/<TAG>.genome`, and `R/TSSEnrich/lib/<TAG>_tss.bed` and
-`<TAG>.chrom.sizes`. `pipe.sh` stops if any of the three files is
-missing.
+`lib/genomes/<TAG>.genome`, `lib/genomes/<TAG>.blacklist.bed` (ENCODE's
+list, built by `lib/genomes/getBlacklists.sh`), and
+`R/TSSEnrich/lib/<TAG>_tss.bed` and `<TAG>.chrom.sizes`. `pipe.sh`
+stops if any of the four files is missing.
 
 Chromosome filtering is allowlist-driven: `lib/genomes/<TAG>.genome` lists
 autosomes, X and Y only (no mitochondria, no unplaced, random, decoy or

@@ -36,8 +36,8 @@ The genome is detected from the BAM headers and recorded as `GENOME=` in
 must be one of `b37` (GRCh37, contigs `1`, `2`, ...), `hg38` (GRCh38,
 `chr1`, ...; called `b38` before v2.0.0) or `mm10`; otherwise the run
 stops before submitting any job, with the reason in `00.RUNSTATUS.txt`.
-See `docs/GENOMES.md`. Only hg38 has been tested on this version; b37
-and mm10 runs have not been made yet.
+See `docs/GENOMES.md`. hg38 and b37 have been tested on this version;
+no mm10 run has been made yet.
 
 Peaks, bigWigs and the atlas use reads on the autosomes, X and Y only.
 Mitochondrial reads are left out for every build, as in the ENCODE
@@ -62,6 +62,13 @@ sample's mitochondrial fraction is in `atacSeq/metrics/*___MITO.txt`.
 	- extend reads to library size in the 3’ direction for ChIP, no read extension for ATAC
 	- compute density for bigwig formation
 		- normalizing to 10 million mapped reads
+
+- Peak calling: MACS2 on the Tn5-shifted reads with the ENCODE ATAC-seq
+  settings (`--nomodel --shift -75 --extsize 150 --keep-dup all
+  --call-summits -p 0.01`). Peaks that overlap the ENCODE blacklist of
+  the genome (`lib/genomes/<TAG>.blacklist.bed`) are removed, and the
+  blacklist is subtracted from the merged atlas, so blacklisted regions
+  are in neither the delivered peak files nor the counts.
 
 
 ## Differential analysis

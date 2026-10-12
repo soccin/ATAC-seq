@@ -336,12 +336,14 @@ fi
 echo GENOME=$GENOME
 
 #
-# Every supported genome has its genome file and its TSS enrichment files
+# Every supported genome has its genome file, its peak blacklist
+# (lib/genomes/<GENOME>.blacklist.bed) and its TSS enrichment files
 # (R/TSSEnrich/lib/<GENOME>_tss.bed and <GENOME>.chrom.sizes). A missing
 # one is a broken checkout; stop before submitting anything.
 #
 TSS_LIB=$SDIR/R/TSSEnrich/lib
-for F in $SDIR/lib/genomes/$GENOME.genome $TSS_LIB/${GENOME}_tss.bed $TSS_LIB/${GENOME}.chrom.sizes; do
+for F in $SDIR/lib/genomes/$GENOME.genome $SDIR/lib/genomes/$GENOME.blacklist.bed \
+         $TSS_LIB/${GENOME}_tss.bed $TSS_LIB/${GENOME}.chrom.sizes; do
     if [ ! -s "$F" ]; then
         RUN_MESSAGE="genome $GENOME: missing file $F"
         echo
@@ -589,7 +591,7 @@ waitStage CALLP2
 # DependencyNeverSatisfied.
 #
 atacSub MergePeaks all SLURM.04a.CALLP SHORT "-n 3 -M 24G" \
-    $SDIR/mergePeaksToSAF.sh callpeaks \>macsPeaksMerged.saf
+    $SDIR/mergePeaksToSAF.sh $GENOME callpeaks \>macsPeaksMerged.saf
 
 waitStage MergePeaks
 
