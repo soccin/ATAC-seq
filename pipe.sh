@@ -429,15 +429,26 @@ LONG_W=12:00:00
 
 #
 # Minutes per GB of input, the slowest measured on a full-size run
-# (Proj_18143_B: 12 hg38 samples, 4.6 to 14.1 GB BAMs, 2026-10-09) rounded
-# up; the measured range is in the comment. See docs/SLURM_PORT.md.
+# (Proj_18143_B: 12 hg38 samples, 4.6 to 14.1 GB BAMs, 2026-10-09; Count
+# and CountCheck on Proj_18143: 15 hg38 samples, 2026-10-12) rounded up;
+# the measured range is in the comment. See docs/SLURM_PORT.md.
 #
 RATE_POST=6        # input BAM                     3.5 to 5.3
 RATE_BW=30         # shifted.bed.gz                24.5 to 26.0
 RATE_CALLP=10      # shifted.bed.gz                8.1 to 9.5
 RATE_TSSE=3.5      # postProcess BAM               1.6 to 2.9
-RATE_COUNT=1.2     # all postProcess BAMs, summed  0.94 (featureCounts 1.6.0)
-RATE_CCHECK=1.5    # postProcess BAM               0.9 to 1.1 (prototype)
+RATE_COUNT=0.1     # all postProcess BAMs, summed  0.05
+RATE_CCHECK=1.5    # postProcess BAM               0.79 to 1.02
+
+#
+# Memory (-M) is a hard cap. In each stage the memory the processes
+# allocate is bounded by a fixed setting, not by the input size: the
+# picard heap (-Xmx24g in ~/bin/picard) in POST, sort -S in BW, MergePeaks
+# and CountCheck. The cap sits well above that setting. sacct MaxRSS on
+# IRIS includes file cache, which the kernel frees at the cap, so a job
+# that reports MaxRSS at its cap has not run out of memory. Measured
+# without cache in docs/SLURM_PORT.md, "Memory".
+#
 
 #
 # A job is SHORT if its estimated run time is at most SHORT_MAX_MIN, half
@@ -605,7 +616,7 @@ atacSub Count all SLURM.04b.CALLP $CLASS "-n 8 -M 24G" \
 
 for PBAM in $PBAMS; do
     CLASS=$(runClass $RATE_CCHECK $PBAM)
-    atacSub CountCheck $(basename $(dirname $PBAM)) SLURM.04d.CHECK $CLASS "-n 2 -M 8G" \
+    atacSub CountCheck $(basename $(dirname $PBAM)) SLURM.04d.CHECK $CLASS "-n 2 -M 12G" \
         $SDIR/bin/assignedCheck.sh $PBAM macsPeaksMerged.saf ${PBAM%.bam}.atlasFragments.txt
 done
 

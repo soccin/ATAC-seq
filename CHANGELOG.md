@@ -100,6 +100,16 @@ any v1.x run may be wrong for one or more samples.
 - `bin/loadTools.sh` no longer fails under `set -u` when `TMPDIR` is
   unset (a script with `set -u` run by hand on a login node).
 
+- CountCheck memory cap raised from 8G to 12G. Its process memory is
+  4.0G, set by `sort -S 4G`, but sacct MaxRSS includes file cache and
+  reached the 8G cap on a 46M-fragment sample.
+- `RATE_COUNT` lowered from 1.2 to 0.1 min/GB, measured with
+  featureCounts v2.1.1 in a job (0.05 min/GB), so Count runs on the
+  short partition for up to 600 GB of BAMs. `RATE_CCHECK` stays 1.5
+  (measured 0.79 to 1.02).
+- `docs/SLURM_PORT.md` has a new "Memory" section with what each stage
+  really allocates, measured without file cache.
+
 ### Not tested
 
 - b37 and mm10 were checked only with header-only BAMs (detection, the
