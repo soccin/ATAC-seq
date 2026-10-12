@@ -65,10 +65,16 @@ sample's mitochondrial fraction is in `atacSeq/metrics/*___MITO.txt`.
 
 - Peak calling: MACS2 on the Tn5-shifted reads with the ENCODE ATAC-seq
   settings (`--nomodel --shift -75 --extsize 150 --keep-dup all
-  --call-summits -p 0.01`). Peaks that overlap the ENCODE blacklist of
-  the genome (`lib/genomes/<TAG>.blacklist.bed`) are removed, and the
-  blacklist is subtracted from the merged atlas, so blacklisted regions
-  are in neither the delivered peak files nor the counts.
+  --call-summits -p 0.01`). Each sample's directory in `atacSeq/macs`
+  has MACS2's own files, unchanged (`*_peaks.narrowPeak`,
+  `*_summits.bed`, `*_peaks.xls`), and two files without the peaks
+  that overlap the ENCODE blacklist of the genome
+  (`lib/genomes/<TAG>.blacklist.bed`):
+  `*_peaks.blacklistFiltered.narrowPeak` (score capped at 1000, as
+  ENCODE does) and `*_summits.blacklistFiltered.bed`. The atlas and the
+  counts are built from the `blacklistFiltered` peaks, and the
+  blacklist is subtracted from the merged atlas too, so no count comes
+  from a blacklisted region.
 
 
 ## Differential analysis
