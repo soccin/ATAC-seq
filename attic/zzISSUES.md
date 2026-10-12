@@ -41,12 +41,13 @@ fragments for 33,426,192 pairs), and so were its DESeq2 scale factor
 and its place in the QC PCA. featureCounts exited 0 and nothing checked
 the totals. On the downsampled test16 BAMs it failed in 6 of 20 runs at
 `-T 10` and 19 of 20 with a node-local temp dir. Found in 5 projects run
-since 2022 (the brief, section 5); remediating them is separate from
-this fix.
+since 2022 (listed in the brief, which now holds only the open
+items); remediating them is separate from this fix.
 
 Fixed by:
 - featureCounts v2.1.1 with `-p --countReadPairs --tmpDir "$TMPDIR"`,
-  in the new `bin/countPeaks.sh`. 0 failures in 50 runs (brief) plus 200
+  in the new `bin/countPeaks.sh`. 0 failures in 50 runs
+  (`AFTER_ACTION_261011/repro_v211_T10_local/`) plus 200
   on the downsampled BAMs at `-T 2/4/8/16/32` with local and shared temp
   dirs; every matrix identical to the v1.6.0 `-T 1` reference.
 - Check A in the Count job: fragment total / (mapped reads / 2) within
