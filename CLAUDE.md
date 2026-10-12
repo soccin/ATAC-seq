@@ -240,7 +240,9 @@ The standalone subread binary is not Bioconductor.
 
 `sbatch` (the `SBATCH_SCRIPT_DIR` wrapper), `bsub` (the openlava shim),
 `bSync.sh`, `picard` and `bedtools` come from `~/bin`; `samtools` is loaded by `bin/loadTools.sh` via `module load
-samtools/1.20`. `sacct`, `squeue` and `scancel` are the Slurm client tools.
+samtools/1.20`. ImageMagick (`convert`, used only by the unused
+`mergePNGs`/`merge_pngs` helpers in the R reports) is `module load
+imagemagick` (7.1.2-33); nothing loads it yet. `sacct`, `squeue` and `scancel` are the Slurm client tools.
 Scratch for intermediates is
 `${ATAC_SCRATCH_ROOT:-/scratch/core001/bic/$USER/ATACSeq}`.
 
