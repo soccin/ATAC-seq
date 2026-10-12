@@ -422,7 +422,21 @@ their 150,000 to 370,000 peaks at `-p 0.01` are mostly weak; the TSS
 figures are the least reliable of these comparisons. The full-size
 Proj_18143 run is the test that remains.
 
-Not run: an mm10 pipeline (`00.ISSUES.md` #14).
+### Blacklist filter (v2.0.0)
+
+Done 2026-10-12 on `fix/blacklist`, against test27 and test28 (same
+BAMs and MACS2 settings, no blacklist). Script
+`/scratch/core001/bic/soccin/AFTER_ACTION_261011/macs2_probe/checkBL.sh`.
+
+| Test | Result |
+| --- | --- |
+| test29 (hg38, control job 19231490) and test30 (b37, 19231491), peak filter only | `COMPLETED`; delivered peaks correct (as below), but the atlas still overlapped the blacklist at 5 (hg38) and 1 (b37) merged peaks: a 106-383 bp blacklisted region between two kept peaks less than 500 bp apart. Led to the subtract in `mergePeaksToSAF.sh` |
+| test31, the 11 hg38 BAMs with `-q 20` (control job 19234652) | `COMPLETED`, 69 of 69 jobs; Checks A and B pass. Per sample 264-475 of 150,451-267,009 peaks removed; each delivered narrowPeak is byte-identical to test27's filtered by hand (`intersect -v`, score cap); 0 peaks on the blacklist; one summit per peak; largest score 498. Atlas 901,681 peaks (test27 903,877, of which 2,353 overlapped the blacklist), 0 overlapping it |
+| test32, the 4 b37 BAMs, MAPQ 10 (control job 19234654) | `COMPLETED`, 27 of 27 jobs; Checks A and B pass. 652-891 of 265,241-366,622 peaks removed per sample, same checks as test31 all pass. Atlas 758,830 (test28 760,751, 1,946 overlapping), 0 overlapping |
+| Counts in the atlas rows that overlapped the blacklist | test27 0.28% of all counts, 2 of the 10 and 5 of the 100 rows with the most counts; test28 0.29%, 1 and 4; full-size Proj_18143 (v2.x-pre2) 1,376 of 654,370 rows, 0.43% of counts, 3 of the top 10, 7 of the top 100 |
+
+Not run: an mm10 pipeline (`00.ISSUES.md` #14). The mm10 blacklist was
+checked only by `getBlacklists.sh` (md5, contigs in `mm10.genome`).
 
 ## Not done
 
