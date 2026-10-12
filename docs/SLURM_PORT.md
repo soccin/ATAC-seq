@@ -388,11 +388,21 @@ Done 2026-10-11 on `fix/genome-tags` (`docs/GENOMES.md`), same BAMs and
 | `bin/genomeInfo.sh` every tag and field; `b38`, empty and `unknown <md5>` tags; `HOMER` field | values as in the table; rc 1 with the reason for each bad input |
 | Stage scripts by hand on one hg38 BAM (EV_1) | POST, BW, CALLP and TSSE rc 0; `___MITO.txt` 39,952 of 488,265 reads, the same as `samtools idxstats`; TSSE `pct_tss_used` 1 |
 
-Not run: b37 and mm10 pipelines (`00.ISSUES.md` #14).
+### Full-size hg38, b37 and the R reports (v2.0.0)
 
-Still to do: the full-size rerun of Proj_18143_B, which must reproduce
-the corrected EV_2 counts. The job-measured `RATE_COUNT`, `RATE_CCHECK`
-and memory came from Proj_18143 instead ("Walltime classes", "Memory").
+Done 2026-10-12. Scripts in
+`/scratch/core001/bic/soccin/AFTER_ACTION_261011/b37_probe/`.
+
+| Test | Result |
+| --- | --- |
+| Proj_18143 on v2.x-pre2, full size (15 hg38 samples, `Proj_18143/ATACseq`, control job 18983501) | `COMPLETED`, 93 of 93 jobs; Check A 1.0004 to 1.0008, Check B equal for all 15. Against the 2026-03-14 delivery (featureCounts 1.6.0): atlas identical (654,370 peaks), 13 count columns identical, BD6-3 and BRAF-1 about 1.9 times lower (the bug) |
+| test25, b37: 4 Proj_18741 BAMs (MCF7-DMSO-1/2, MCF7-LYFUL-1/2) downsampled 100x, MAPQ 10 (control job 19196648) | `COMPLETED`, 27 of 27 jobs, `GENOME=b37` from real BAM headers. `___MITO.txt` contig `MT`, 4.2 to 5.2%, reads and MT reads equal to `samtools idxstats`. Shifted BEDs, narrowPeaks, atlas and bigWigs hold 1-22, X, Y only; bigWig scale from the filtered BED. Checks A and B pass. TSSE 19.0 to 20.6, `pct_tss_used` 1 (full-size delivery 19.7 to 21.3) |
+| `diffAnalysisPairwise.R` (`fix/diff-stats`) in test25 with the generated manifest, an `EXC` sample, and `SampleID`s that differ from the `MapID`s | rc 0 for each (the last two stopped with "Count matrix validation failed" before the fix). A manifest missing a sample: rc 1, the sample named |
+| Same, on a scratch copy of the full-size Proj_18741 count matrix (b37, 24 samples, 5 comparisons) | rc 0; 14,032 to 100,697 peaks at FDR < 0.05 against 752 to 18,872 in the delivered (Holm) workbook from the same matrix; 99.99% annotated with a gene symbol (`chr` added) |
+| `R/analyzeATAC.R` on the same matrix, one group per sample (24 groups) | PCA with 24 distinct colors and the variance explained on the axes (PC1 22%, PC2 15%) |
+| test26, the 11 hg38 BAMs with `-q 20` on `fix/diff-stats` (control job 19202406) | `COMPLETED`, 69 of 69 jobs; reports named `ATAC__*.pdf` (no `Proj_` in the path) and accepted by the deliverables check; count matrix, count checks and scale factors identical to test24. `diffAnalysisPairwise.R` rc 0, `GENOME = hg38`, GD1 vs EV 2 peaks at FDR < 0.05, both annotated |
+
+Not run: an mm10 pipeline (`00.ISSUES.md` #14).
 
 ## Not done
 

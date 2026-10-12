@@ -33,6 +33,22 @@ any v1.x run may be wrong for one or more samples.
   **every earlier b37 and mm10 run** included them (5.2% of the reads in
   one b37 sample checked). Earlier b38 runs are not affected. The
   postProcess BAM still holds every read.
+- **The `FDR` of `R/diffAnalysisPairwise.R` is now the false discovery
+  rate** (`p.adjust(method = "fdr")`). Since the first diff script in
+  2022 it was `p.adjust()` with no method, which is Holm's
+  family-wise correction, so the `FDR` column and the FDR < 0.05 cut
+  that picks the significant peaks were Holm. Every earlier
+  `DiffPeaksEdgeR` workbook lists far fewer peaks than an FDR of 0.05
+  gives; nothing in it is a false call at that level. On the Proj_18741
+  count matrix the five comparisons went from 752 to 18,872 significant
+  peaks to 14,032 to 100,697 (3.6 to 33 times as many).
+- **The PCA in `*__ATACSeqQC.pdf` and `*DiffPeaks_V4.pdf` is the usual
+  PCA of the samples** (log-CPM, each peak centered across samples), with
+  the variance explained on the axes. Before, the peaks were the
+  observations and the plot showed the rotation: its PC1 was the profile
+  that all samples share (81% of the variance on Proj_18143, every sample
+  at -0.24 to -0.29) and carried no information about them, its PC2 was
+  the real PC1, and the real PC2 was not shown.
 - **`R/diffAnalysisPairwise.R` takes no genome argument**:
   `Rscript R/diffAnalysisPairwise.R MANIFEST COMPARISONS [RUNTAG]`, run
   from the analysis directory, whose `00.RUNSTATUS.txt` gives the genome.
@@ -96,13 +112,29 @@ any v1.x run may be wrong for one or more samples.
   run before any job with "cannot identify the genome of [BAM]" in
   `MESSAGE`. Before, `getGenomeBuildBAM.sh` printed the md5 of an empty
   header as an "unknown" genome.
-
 - `bin/loadTools.sh` no longer fails under `set -u` when `TMPDIR` is
   unset (a script with `set -u` run by hand on a login node).
-
-- CountCheck memory cap raised from 8G to 12G. Its process memory is
-  4.0G, set by `sort -S 4G`, but sacct MaxRSS includes file cache and
-  reached the 8G cap on a 46M-fragment sample.
+- `R/diffAnalysisPairwise.R` with a manifest whose `SampleID`s differ
+  from the `MapID`s (as the generated manifest does for `s_` names), or
+  with an `EXC` group, stopped with "Count matrix validation failed".
+  Both now work. A count matrix column with no manifest row, a manifest
+  row with no column, or a duplicated `MapID` or `SampleID` stops it
+  with the names; before, an unmatched PEmap column was left out
+  silently.
+- A group whose name contains `group` (e.g. `groupA`) gave an invalid
+  contrast in `R/diffAnalysisPairwise.R`.
+- Output names of `plotINSStats.R`, `R/analyzeATAC.R` and
+  `R/diffAnalysisPairwise.R` use the last `Proj_*` or `B-<digits>`
+  directory of the path, else `ATAC`. Before, a path with none gave
+  names starting with `_`, and a path with two put both in the name.
+- `plotINSStats.R` and `R/analyzeATAC.R` color up to 34 groups; with
+  `scale_color_uchicago()` alone, groups past the ninth were grey.
+- `plotINSStats.R` passes its text to `read_tsv()` with `I()`, as readr
+  2.2.0 requires for literal data (it warned).
+- `R/analyzeATAC.R` with no arguments exits 1 (it exited 0).
+- CountCheck's memory cap is 12G. Its process memory is 4.0G, set by
+  `sort -S 4G`, but sacct MaxRSS includes file cache and reached 8G on
+  a 46M-fragment sample.
 - `RATE_COUNT` lowered from 1.2 to 0.1 min/GB, measured with
   featureCounts v2.1.1 in a job (0.05 min/GB), so Count runs on the
   short partition for up to 600 GB of BAMs. `RATE_CCHECK` stays 1.5
@@ -112,9 +144,10 @@ any v1.x run may be wrong for one or more samples.
 
 ### Not tested
 
-- b37 and mm10 were checked only with header-only BAMs (detection, the
-  genome table and the file checks); no b37 or mm10 run has been made on
-  this version (`00.ISSUES.md` #14).
+- mm10 was checked only with header-only BAMs (detection, the genome
+  table and the file checks); no mm10 run has been made on this version
+  (`00.ISSUES.md` #14). hg38 and b37 were run (`docs/SLURM_PORT.md`,
+  "Validation").
 
 ## [v1.5.1] — 2026-10-10
 
