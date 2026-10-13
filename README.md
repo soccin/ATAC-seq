@@ -9,7 +9,10 @@ Input: paired-end BAMs aligned with PEMapper, duplicates marked. Peak
 calling and bigWigs use each read of a pair as a single read; the
 count matrix counts fragments. BigWigs and the DESeq2 scale factors
 follow R. Koche's methods (`NOTES.md`); read filtering and peak calling
-follow the ENCODE ATAC-seq pipeline. Open work is in `00.FIXME.md`.
+follow the ENCODE ATAC-seq pipeline, except for the MAPQ cutoff, where
+duplicates are marked, and two read filters that ENCODE does not have
+(see "Post-alignment filtering" below and `CHANGELOG.md`). Open work
+is in `00.FIXME.md`.
 
 MACS2 must be installed in a local venv first. See below.
 

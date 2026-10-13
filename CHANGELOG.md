@@ -12,10 +12,19 @@ ENCODE's settings, and each sample's peaks are capped, clipped and
 blacklist-filtered as ENCODE does, so the peaks, the atlas, the counts
 and every report built on them change. From the read filter to each
 sample's filtered peaks the pipeline now does what the ENCODE ATAC-seq
-pipeline does, with two exceptions: the MAPQ filter (MAPQ 10, R.
-Koche's cutoff; ENCODE by default keeps up to 4 multimappers, or uses
-MAPQ 30 with multimapping off), and where duplicates are marked (by
-PEMapper, before the filter). The ENCODE review is
+pipeline does, with four exceptions:
+
+- the MAPQ filter: MAPQ 10, R. Koche's cutoff; ENCODE by default keeps
+  up to 4 multimappers, or uses MAPQ 30 with multimapping off;
+- where duplicates are marked: by PEMapper, before the filter;
+- reads whose 5' end is soft-clipped are removed, with their mates;
+- pairs with an insert of 30 bp or less are removed.
+
+The last two filters remove BWA-MEM's local alignments of reads that
+are not from the reference, which pile up on single bases, mostly in
+peaks. ENCODE has neither filter: its end-to-end aligner (bowtie2)
+leaves such reads unaligned. They can be dropped only with such an
+aligner (C-21). The ENCODE review is
 `attic/ENCODE_PIPE_CONCORDANCE.md`; the differences that remain are in
 `00.FIXME.md`.
 

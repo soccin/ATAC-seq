@@ -13,9 +13,11 @@ The code is at
 [https://github.com/soccin/ATAC-seq/releases/tag/v2.0.0](https://github.com/soccin/ATAC-seq/releases/tag/v2.0.0).
 
 Read filtering, the Tn5 shift and peak calling follow the ENCODE
-ATAC-seq pipeline (ENCODE-DCC/atac-seq-pipeline v2.2.3). The signal
-tracks, the peak atlas and the count normalization follow the methods
-of R. Koche (MSKCC Center for Epigenetics Research).
+ATAC-seq pipeline (ENCODE-DCC/atac-seq-pipeline v2.2.3), with a
+different mapping quality cutoff and two additional read filters,
+described below. The signal tracks, the peak atlas and the count
+normalization follow the methods of R. Koche (MSKCC Center for
+Epigenetics Research).
 
 Reads were aligned to one of three reference genomes: GRCh37 (b37),
 GRCh38 (the GDC `GRCh38.d1.vd1` build, hg38) or GRCm38 (mm10). The
@@ -36,8 +38,11 @@ in the `@PG` header line of each BAM.
 reduced to properly paired reads with mapping quality 10 or more,
 without unmapped reads, reads whose mate is unmapped, secondary
 alignments, reads failing vendor QC or duplicates (`-q 10 -f 3 -F
-1804`). Two further filters, which the ENCODE pipeline does not have,
-correct for an artifact of BWA-MEM local alignment. A read whose
+1804`). The cutoff of 10 is R. Koche's; the ENCODE pipeline by
+default keeps reads with up to four alignments, or uses a cutoff of 30
+when multimapping reads are not kept. Two further filters, which the
+ENCODE pipeline does not have, correct for an artifact of BWA-MEM
+local alignment. A read whose
 sequence is not from the reference, or only partly from it, can still
 be reported as a short alignment of 19 to 35 bp with the rest of the
 read soft-clipped. Such reads carry the same non-reference sequence,
