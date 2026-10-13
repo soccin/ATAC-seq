@@ -10,6 +10,11 @@ Updated 2026-10-12 on branch `fix/peak-cap` (from `encode-2026`):
 C-01 to C-04 are fixed (section 1, "Status"); the other findings
 are open and their text is brought up to date with the fixed code.
 
+Triaged 2026-10-12: C-05 is "Design (Koche)", C-09 and C-21 are
+"Deferred (mapper)", and C-08 is "Not applicable"; each finding gives
+the reason in its first line. C-04, C-06, C-07 and C-17 are raised to
+High because they change the atlas or the bigWigs.
+
 The review covers every stage from the input BAM to the delivered
 `atacSeq/` directory: `pipe.sh`, `postMapBamProcessing_ATACSeq.sh`,
 `makeBigWigFromBEDZ.sh`, `callPeaks_ATACSeq.sh`, `mergePeaksToSAF.sh`,
@@ -43,11 +48,16 @@ Conventions used in this document:
   downsampled 100x at MAPQ 20; the b37 runs (test25, test28, test34,
   test36, test38, test40) use 4 b37 BAMs downsampled 100x at MAPQ 10.
 - Findings C-01 to C-22 are numbered in stage order, not by severity.
-  High means the finding changes peaks or counts materially; Medium
+  High means the finding changes peaks, the atlas, the bigWigs or the
+  counts, by any amount; Medium
   means it changes a delivered number or hides a QC failure; Low means
   a small or documented difference. "Design" marks a deliberate choice
-  of this pipeline; "inherent" marks a difference fixed by the
-  upstream aligner that this pipeline cannot remove.
+  of this pipeline; "Design (Koche)" one that comes from R. Koche's
+  method (`NOTES.md`). "Deferred (mapper)" marks a difference that
+  comes from the mapper, PEMapper (BWA-MEM `-M`, then Picard
+  MarkDuplicates); the pipeline stays on PEMapper, so these are not
+  being worked on now. "Not applicable" marks a finding that does not
+  arise for PEMapper BAMs.
 
 ## 1. Summary
 
@@ -65,32 +75,33 @@ blacklist (C-03). Those three are fixed, and so is C-04, the peak cap
 ENCODE's commands produce. ENCODE's FRiP and QC metrics are still
 missing (C-11, C-16), and the atlas, counts, size factors, QC PDF and
 differential analysis have no ENCODE counterpart (section 5). The
-table lists every finding:
+table lists every finding, the open ones first; those fixed or not
+being worked on are at the end:
 
 | ID | Finding | Severity |
 | --- | --- | --- |
-| C-01 | MACS2 `--shift` has the wrong sign (`+75`; ENCODE `-75`) | High; fixed |
-| C-02 | MACS2 `--keep-dup all` missing (default `1` collapses cut sites) | High; fixed |
-| C-03 | No blacklist filtering of peaks, anywhere | High; fixed |
-| C-04 | No peak capping, p-value sorting or coordinate clipping after MACS2 | Medium; fixed |
-| C-05 | Read filter: MAPQ 10 on BWA output; ENCODE keeps up to 4 multimappers with no MAPQ filter (or `-q 30` when multimapping is off) | Medium |
-| C-09 | Duplicates: Picard MarkDuplicates upstream, removed here by flag, as ENCODE does; but marked on the unfiltered BAM, with no check that the input was marked and no duplicate rate or NRF/PBC1/PBC2 reported | Low-Medium |
+| C-06 | Orphan reads (mate failed MAPQ) kept; ENCODE removes them with `fixmate -r` | High |
+| C-07 | Extra filter: fragments with insert size <= 30 bp dropped | High |
+| C-17 | SAF atlas coordinates are off by one (BED start used as 1-based start) | High |
 | C-10 | `frac_mito` is computed after filtering; ENCODE computes it on the raw BAM | Medium |
 | C-11 | "Fraction reads in peaks" is not ENCODE FRiP (atlas instead of own peaks; mito reads in the denominator) | Medium |
 | C-16 | Most ENCODE QC metrics are absent (library complexity, fragment-length QC pass/fail, annotation enrichment, number of peaks, JSD, GC bias, reproducibility) | Medium |
-| C-06 | Orphan reads (mate failed MAPQ) kept; ENCODE removes them with `fixmate -r` | Low |
-| C-07 | Extra filter: fragments with insert size <= 30 bp dropped | Low |
-| C-08 | Supplementary alignments (flag 0x800) pass the filter; a BWA-specific consequence of `-F 1804` | Low |
 | C-12 | Signal track is a 10M-read-scaled read coverage, not MACS2 fold-enrichment and p-value tracks | Low (design) |
 | C-13 | No pooled, pseudoreplicate, overlap or IDR peak sets; the merged atlas replaces them | Low (design) |
 | C-14 | TSS enrichment: older ENCODE TSS annotation; 1 bp minus-strand offset for odd read lengths; 0.85% residual difference to the Python original | Low |
 | C-15 | Fragment-length QC: histogram only; no NFR fraction, NFR/mono-nucleosome ratio or peak-presence checks | Low |
-| C-17 | SAF atlas coordinates are off by one (BED start used as 1-based start) | Low |
 | C-18 | Atlas merges peaks within 500 bp; ENCODE never merges | Low (design) |
 | C-19 | Tn5 shift lacks ENCODE's guard against start >= end | Very low |
 | C-20 | Tool versions differ (MACS2 2.2.9.1 vs 2.2.4, samtools 1.20 vs 1.9, bedtools unknown vs 2.29.0) | Low |
-| C-21 | Aligner, trimming and reference differ (BWA-MEM on GDC GRCh38.d1.vd1 vs cutadapt + bowtie2 `-X2000` on the no-alt analysis set) | Inherent |
 | C-22 | Documentation out of step with the code: `NOTES.md` describes MACS2 on the BAM, `README.md` says duplicates are marked "by the mapper", `R/TSSEnrich/README.md` gives one threshold rule for every genome | Low (docs) |
+| C-01 | MACS2 `--shift` has the wrong sign (`+75`; ENCODE `-75`) | High; fixed |
+| C-02 | MACS2 `--keep-dup all` missing (default `1` collapses cut sites) | High; fixed |
+| C-03 | No blacklist filtering of peaks, anywhere | High; fixed |
+| C-04 | No peak capping, p-value sorting or coordinate clipping after MACS2 | High; fixed |
+| C-05 | Read filter: MAPQ 10 on BWA output; ENCODE keeps up to 4 multimappers with no MAPQ filter (or `-q 30` when multimapping is off) | Design (Koche) |
+| C-08 | Supplementary alignments (flag 0x800) pass the filter; a BWA-specific consequence of `-F 1804` | Not applicable |
+| C-09 | Duplicates: Picard MarkDuplicates upstream, removed here by flag, as ENCODE does; but marked on the unfiltered BAM, with no check that the input was marked and no duplicate rate or NRF/PBC1/PBC2 reported | Deferred (mapper) |
+| C-21 | Aligner, trimming and reference differ (BWA-MEM on GDC GRCh38.d1.vd1 vs cutadapt + bowtie2 `-X2000` on the no-alt analysis set) | Deferred (mapper) |
 
 ### Status
 
@@ -254,7 +265,7 @@ body of its `.xls` (its `#` header differs only in the per-job temp
 path of the input file); the hg38 atlas has 901,681 peaks
 (903,877 before) and the b37 atlas 758,830 (760,751).
 
-### C-04 No capping, sorting or clipping after MACS2 (Medium; fixed)
+### C-04 No capping, sorting or clipping after MACS2 (High; fixed)
 
 ENCODE (`encode_task_macs2_atac.py`, then `bed_clip` in
 `encode_lib_genomic.py`), on MACS2's narrowPeak:
@@ -308,7 +319,11 @@ of four b37 samples were capped at 300,000; the b37 atlas went from
 758,830 to 727,125 peaks. `bedClip` found no peak to clip in any
 sample.
 
-### C-05 Read filter: MAPQ threshold and multimappers (Medium)
+### C-05 Read filter: MAPQ threshold and multimappers (Design, Koche)
+
+Design (Koche): MAPQ 10 is R. Koche's filter (`NOTES.md:9` and the
+`-Q 10` of `NOTES.md:13`), and the multimapper handling needs bowtie2
+(C-21).
 
 ENCODE `rm_unmapped_lowq_reads_pe` has two paths. The default
 (`multimapping = 4`) is:
@@ -343,12 +358,12 @@ looser than ENCODE's explicit `-q 30` mode for reads with a close
 suboptimal hit. Either way the retained read sets differ at repeats,
 which is where blacklist regions sit (C-03).
 
-Fix: none that makes it equal. Document the choice in `README.md`, and
-consider `MAPQ=30` as the default, which is the threshold ENCODE uses
-whenever it filters on MAPQ at all (ATAC with `multimapping = 0`, and
-the ENCODE ChIP-seq pipeline, which does use BWA).
+Fix: none that makes it equal. The default stays MAPQ 10, as Koche
+specified; ENCODE uses 30 whenever it filters on MAPQ at all (ATAC with
+`multimapping = 0`, and the ENCODE ChIP-seq pipeline, which does use
+BWA).
 
-### C-06 Orphan reads are kept (Low)
+### C-06 Orphan reads are kept (High)
 
 ENCODE runs `samtools fixmate -r` after the MAPQ filter and then
 `-f 2` again, so a read whose mate was removed is removed too. This
@@ -358,40 +373,51 @@ documents the effect: Check A ratios of 1.000 to 1.004 are expected,
 the excess being singletons whose mate failed the MAPQ filter. The
 full-size Proj_18143 run gave 1.0004 to 1.0008 (`docs/SLURM_PORT.md`),
 that is under 0.1% of fragments. featureCounts counts them as
-fragments; the tagAlign has one line for them instead of two.
+fragments; the tagAlign has one line for them instead of two. Those
+lines are in the shifted BED, so they enter the peaks, the atlas and
+the bigWigs (the coverage and the read count of the 10M scale).
 
 Fix (optional): `samtools sort -n | samtools fixmate -r | samtools
 view -f 2` between the MAPQ filter and SortSam. Check A's expected
 ratio then becomes exactly 1.000.
 
-### C-07 Insert size <= 30 bp filter (Low)
+### C-07 Insert size <= 30 bp filter (High)
 
 `postMapBamProcessing_ATACSeq.sh:111` drops pairs with `|TLEN| <= 30`.
 ENCODE has no such filter. Fragments that short are adapter dimers or
 artifacts and are rare among BWA proper pairs, so the effect is small,
 but it is an undocumented deviation and it slightly truncates the left
-edge of the insert-size histogram that ENCODE reports in full.
+edge of the insert-size histogram that ENCODE reports in full. The
+filter runs before the shifted BED is written, so it changes the
+peaks, the atlas and the bigWigs.
 
 Fix: document it in `README.md`, or remove it for concordance.
 
-### C-08 Supplementary alignments pass the filter (Low)
+### C-08 Supplementary alignments pass the filter (Not applicable)
+
+Not applicable: PEMapper runs `bwa mem -M`, which writes no
+supplementary records, so `-F 1804` already gives what ENCODE gets.
 
 `-F 1804` excludes unmapped, mate unmapped, secondary, QC-fail and
 duplicate reads but not supplementary alignments (0x800). ENCODE uses
 the same mask, but bowtie2 never emits supplementary records, so for
-ENCODE the question does not arise. BWA-MEM does emit them for
-chimeric reads, and they carry the proper-pair flag of the primary.
-Each one adds an extra tagAlign line and an extra read span to the
-bigWig coverage, and is counted as a read in the 10M scale factor
-(`bamtobed` appends `/1` and `/2` to names, so `sort | uniq` counts
-reads, and a supplementary record shares its primary's name and
-suffix).
+ENCODE the question does not arise. BWA-MEM by default does emit them
+for the extra pieces of split (chimeric) reads; with `-M` it flags
+those pieces secondary (0x100) instead, and `-F 1804` drops them.
+PEMapper sets `-M` by default (`BWA_OPTS="-M"`, PEMapper `pipe.sh:40`;
+`-b` only adds options), and the Proj_18143_B BAMs record
+`bwa mem -M -t 8` (BWA 0.7.19) in their `@PG` lines. PEMapper is the
+only mapper used with this pipeline.
 
-Fix: measure first (`samtools view -c -f 2048` on a postProcess BAM).
-If the fraction is not negligible, use `-F 3852` (1804 + 2048).
-`assignedCheck.sh` reads the same BAM, so Check B stays consistent.
+Fix: none. If BAMs from another mapper are ever used, filter with
+`-F 3852` (1804 + 2048) in POST; `assignedCheck.sh` reads the same BAM,
+so Check B stays consistent.
 
-### C-09 Duplicates: same tool, different stage, no check and no metrics (Low-Medium)
+### C-09 Duplicates: same tool, different stage, no check and no metrics (Deferred, mapper)
+
+Deferred (mapper): PEMapper marks duplicates with Picard MarkDuplicates
+and POST removes them as ENCODE does; what differs is where PEMapper
+marks them. The duplicate rate and NRF/PBC1/PBC2 stay open under C-16.
 
 The input BAMs come from PEMapper with duplicates marked, not removed,
 by Picard MarkDuplicates (`REMOVE_DUPLICATES=FALSE`, flag 0x400 set).
@@ -645,7 +671,7 @@ Enabled by default in `atac.wdl` and absent here:
 
 | ENCODE metric | Standard | Here |
 | --- | --- | --- |
-| Alignment stats, raw and filtered (`samstats`) | > 95% mapped | none; upstream |
+| Alignment stats, raw and filtered (`samstats`) | > 95% mapped | none; upstream (deferred, mapper) |
 | Duplicate metrics (`dup.qc`) | | written by PEMapper, not carried into the delivery (C-09) |
 | NRF, PBC1, PBC2 (`lib_complexity.qc`) | > 0.9, > 0.9, > 3 | none (C-09) |
 | `frac_mito` from the unfiltered alignments | | post-filter version (C-10) |
@@ -661,7 +687,7 @@ Enabled by default in `atac.wdl` and absent here:
 Off by default in ENCODE and also absent: cross-correlation (`xcor`,
 needs phantompeakqualtools), preseq.
 
-### C-17 SAF coordinates are off by one (Low)
+### C-17 SAF coordinates are off by one (High)
 
 `mergePeaksToSAF.sh:44-48` writes the `bedtools merge` and `bedtools
 subtract` output (BED, 0-based half-open start) straight into SAF
@@ -716,7 +742,10 @@ recorded), IDR 2.0.3 (unused). No known behavioral change between
 MACS2 2.2.4 and 2.2.9.1 for `callpeak` with these options, but the
 versions should be recorded in `00.RUNSTATUS.txt` for reproducibility.
 
-### C-21 Aligner, trimming and reference (Inherent)
+### C-21 Aligner, trimming and reference (Deferred, mapper)
+
+Deferred (mapper): the pipeline stays on PEMapper (BWA-MEM); moving to
+ENCODE's cutadapt and bowtie2 is too large a change for now.
 
 ENCODE trims adapters with cutadapt (`-e 0.1 -m 5`) and aligns with
 bowtie2 end-to-end, `-X2000`, `-k 5`, to the GRCh38 no-alt analysis
@@ -788,15 +817,18 @@ arguments, so the delivered 10M-normalized bigWigs are not affected.
 
 ## 6. Recommended order of work
 
-C-01 to C-04 are done (section 1, "Status"). The rest:
+C-01 to C-04 are done (section 1, "Status"). Not being worked on:
+C-05 (Design, Koche), C-08 (Not applicable), C-09 and C-21 (Deferred,
+mapper). The rest:
 
-1. C-09 duplicate-marking check and NRF/PBC1/PBC2; C-10 raw-BAM
-   `frac_mito`; C-11 ENCODE FRiP; C-15 fragment-length pass/fail.
-   These are new metrics files, not changes to existing outputs.
-2. C-17 SAF off-by-one (three files, one Check B rerun).
-3. C-05, C-06, C-07, C-08: decide and document the read filter; a
-   change here invalidates comparisons with earlier runs and should be
-   a separate, named release.
+1. C-17 SAF off-by-one (three files, one Check B rerun).
+2. C-06, C-07: decide and document the read filter; a change here
+   invalidates comparisons with earlier runs and should be a separate,
+   named release.
+3. Duplicate rate and NRF/PBC1/PBC2 (C-16, with C-09's method); C-10
+   raw-BAM `frac_mito`; C-11 ENCODE FRiP; C-15 fragment-length
+   pass/fail. These are new metrics files, not changes to existing
+   outputs.
 4. C-14 integer shift in `tss_enrich.R`; README notes on annotation
    version and mm10 thresholds.
 5. Record tool versions in `00.RUNSTATUS.txt` (C-20).
