@@ -52,6 +52,8 @@ any v1.x run may be wrong for one or more samples.
   peak that overlaps `lib/genomes/<TAG>.blacklist.bed` and with the
   score capped at 1000 (ENCODE's `encode_lib_blacklist_filter.py`),
   and `*_summits.blacklistFiltered.bed`, the summits of those peaks.
+  Both are delivered, and the deliverables check requires them and
+  MACS2's three files for every sample.
   The atlas is built from the `blacklistFiltered` peaks only.
   `mergePeaksToSAF.sh GENOME MACS_OUTDIR` (it now takes the genome)
   also subtracts the blacklist from the merged atlas, because merging

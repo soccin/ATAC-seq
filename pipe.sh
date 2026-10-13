@@ -723,8 +723,10 @@ for SID in $SAMPLES; do
     checkFile atacSeq/metrics/${SID}_postProcess___INS.txt
     checkFile atacSeq/metrics/${SID}_postProcess___MITO.txt
     checkFile atacSeq/metrics/${SID}_postProcess.tss_enrich.csv
-    PEAKS=atacSeq/macs/${SID}_postProcess.shifted/${SID}_postProcess.shifted_peaks
-    for F in $PEAKS.narrowPeak $PEAKS.blacklistFiltered.narrowPeak; do
+    MACS=atacSeq/macs/${SID}_postProcess.shifted/${SID}_postProcess.shifted
+    for F in ${MACS}_peaks.narrowPeak ${MACS}_summits.bed ${MACS}_peaks.xls \
+             ${MACS}_peaks.blacklistFiltered.narrowPeak \
+             ${MACS}_summits.blacklistFiltered.bed; do
         if [ ! -e "$F" ]; then
             MISSING="$MISSING $F"
         fi
