@@ -5,7 +5,7 @@
 **Historical.** b38 support shipped in v1.1.0 under the tag `b38`, not
 `hg38` (see `CHANGELOG.md`). The boxes below were never ticked and the
 line numbers refer to the code before that release. Kept for reference
-only; open work is in `00.ISSUES.md`.
+only; open work is in `00.FIXME.md`.
 
 Derived from `UPDATE_TO_B38.md`. Each item is one atomic change.
 
