@@ -105,7 +105,8 @@ call instead of running them. `GENOME`, `MAPQ` and `VERSION` come from
 and `{VERSION}`. The email lists each folder and its main files with
 a sentence or two each, at the level of the v1 email; how a file is
 made belongs in `docs/output.md` and `docs/methods.md`, not in the
-email. A new deliverable needs an entry there.
+email. It names only the files a client looks at first; the rest
+are in `docs/output.md`.
 `bin/readme2yaml.R` writes `project.yaml`
 with the delivery folder as `root` and the build tag as `genome`.
 `VERSION` is `git describe --long`, which sees only annotated tags:

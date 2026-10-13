@@ -28,11 +28,7 @@ Where you will find the following subfolders:
 
       - PCA from the peak atlas. Can be used to look for potential outliers. A second PCA, with every sample downsampled to the same depth, shows whether an outlier is one only because of its depth.
 
-   - Proj_{PROJNO}__ATACSeqDepth.csv: the depth numbers of the QC report, one row per sample.
-
    - <sample>_postProcess.tss_enrich.csv: TSS enrichment score per sample. The tss_enrich column is the key QC metric; ENCODE considers values above 7 ideal for hg38 (above 10 for b37, above 15 for mm10). The plots tss_enrich.pdf and large_tss_enrich.png show the read coverage centered on transcription start sites.
 
-   - <sample>_postProcess___MITO.txt: the fraction of reads on the mitochondrial genome. Mitochondrial reads are left out of the peaks, the atlas and the coverage profiles.
-
-   - <sample>_postProcess___INS.txt and ___INS.pdf: Picard's insert size metrics and histogram per sample.
+   - <sample>_postProcess___INS.pdf: Picard's insert size histogram per sample.
 
