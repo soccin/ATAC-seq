@@ -129,7 +129,7 @@ scale factors `scaleFactorsDESeq2.csv` (inverted, `NOTES.md`) and
 
 `docs/output.md` describes every delivered file for the client and
 `docs/methods.md` the methods; both are rendered to HTML and PDF by
-`docs/MAKE_DOCS.sh`.
+`docs/MAKE_DOCS.sh`, and the PDFs are delivered in `atacSeq/docs`.
 
 ## Differential analysis
 
@@ -176,6 +176,43 @@ sheet and, per comparison, the significant peaks with their nearest
 gene) and `<PROJ>_<RUNTAG>_DiffPeaks_V4.pdf` (PCA, MA and volcano
 plots). `<PROJ>` is the last `Proj_*` or `B-<digits>` directory in
 the path of the analysis directory, else `ATAC`.
+
+## Delivery
+
+From the analysis directory, after `bin/checkRun.sh` exits 0, and
+after the differential analysis if there is one:
+
+```bash
+/path/to/ATAC-seq/deliverResults.sh -n -d     # dry run: print, write nothing
+/path/to/ATAC-seq/deliverResults.sh -d
+```
+
+`-d` delivers to `/data1/core002/res/bic/results/<pi>/<invest>/Proj_<no>`,
+taken from the path `.../Users/<Pi>/<Invest>/Proj_<no>/...`; any other
+delivery folder can be given instead. The run folder is the next
+`r_NNN` there, unless the path ends in one. The script stops unless
+the run `COMPLETED`, then:
+
+- writes `project.yaml` (`bin/readme2yaml.R`) from the run's
+  `GENOME` and the PI and investigator emails of the first
+  `README.txt` found going up from the analysis directory to
+  `Proj_<no>`;
+- copies, as `svc_core001_bot01`, `atacSeq/` to `r_NNN/atacSeq`,
+  `docs/output.pdf` and `docs/methods.pdf` of this checkout to
+  `atacSeq/docs`, and the project's `*_DiffPeaksEdgeR_V4.xlsx` and
+  `*_DiffPeaks_V4.pdf` (any RUNTAG) to `atacSeq/diff`;
+- writes the email, from `tmpldeliveryEmail_*.txt`, to
+  `deliveryEmail_<no>_<yymmdd>.txt`;
+- registers the run with the bicdelivery permissions database
+  (`~/Code/BIC/Delivery/Version2j`).
+
+The email gives the release tag of the run (`VERSION` in
+`00.RUNSTATUS.txt` without its `-N-gSHA`) and links to the docs at
+that tag. A run not made on a release tag, docs from a checkout other
+than the run's, or diff files with a RUNTAG (the email names the
+untagged files) give a `WARNING`: edit the email before sending it.
+`git describe` sees only annotated tags, so tag releases with
+`git tag -a`.
 
 ## Installing MACS2
 

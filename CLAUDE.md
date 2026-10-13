@@ -93,9 +93,19 @@ estimates the run time from the input size using the `RATE_*` values
 measured on a full-size run; the other stages are always `SHORT`. A new
 stage whose run time grows with its input needs a measured `RATE_*`.
 
-`deliverResults.sh` has not been ported: it still points at the JUNO
-paths `/ifs/res/seq/pi/invest` and `~/Code/BIC/Delivery`. Deliver the
-`atacSeq/` directory by hand until it is updated (`00.FIXME.md` #2).
+`deliverResults.sh [-n] -d|DELIVERY_DIR[/r_NNN]`, run from the
+analysis directory, delivers a run whose `bin/checkRun.sh` exits 0
+(README.md, "Delivery"). It follows adagio's `bin/deliver.sh`: every
+write to the delivery area goes through `asbot` (`dzdo -u
+svc_core001_bot01`), `-d` derives the folder from the
+`.../Users/<Pi>/<Invest>/Proj_<no>` path, the run folder is the next
+`r_NNN`, and `-n` prints those writes and the permissions-database
+call instead of running them. `GENOME`, `MAPQ` and `VERSION` come from
+`00.RUNSTATUS.txt`; the email templates take `{PROJNO}`, `{RUNDIR}`,
+`{VERSION}` and `{MAPQ}`. `bin/readme2yaml.R` writes `project.yaml`
+with the delivery folder as `root` and the build tag as `genome`.
+`VERSION` is `git describe --long`, which sees only annotated tags:
+tag releases with `git tag -a`.
 
 ## Pipeline stages (pipe.sh)
 
