@@ -289,10 +289,11 @@ PEMapper, before the filter). The ENCODE review is
   table and the file checks); no mm10 run has been made on this version
   (`00.FIXME.md` #4). hg38 and b37 were run (`docs/SLURM_PORT.md`,
   "Validation").
-- The MACS2 settings, the blacklist, the peak cap, the read filter and
-  the 1-based atlas were tested on downsampled BAMs only. The one
-  full-size run (Proj_18143, hg38) was made before them, on v2.x-pre2
-  (`00.FIXME.md` #1).
+- Full-size runs were made on hg38 only: Proj_18143 (15 samples) on
+  v2.x-pre3 to v2.x-pre5, which carry the MACS2 settings, the
+  blacklist, the peak cap, the read filters and the 1-based atlas
+  (`docs/SLURM_PORT.md`, "Insert-size and 5' clip filters"). b37 was
+  run on the 4 downsampled Proj_18741 BAMs only.
 
 ## [v1.5.1] — 2026-10-10
 
