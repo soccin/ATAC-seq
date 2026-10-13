@@ -39,8 +39,8 @@ differential analysis. <code>bigwig</code> holds a normalized signal
 track per sample for a genome browser. <code>metrics</code> holds the QC
 metrics and plots. Projects with replicates have a <code>diff</code>
 folder with the differential accessibility analysis. <code>docs</code>
-holds this document and the methods document as PDF files. How each file
-was made is described in <code>methods.md</code>.</p>
+holds this document, <code>output.pdf</code>, and the methods document,
+<code>methods.pdf</code>, which describes how each file was made.</p>
 <p>In the names below, <code>&lt;sample&gt;</code> is the sample ID of
 the BAM and <code>&lt;no&gt;</code> is the project number (for example
 <code>18143</code>). Coordinates are 0-based with an exclusive end (BED
@@ -104,7 +104,7 @@ position, pileup, -log10 p-value, fold enrichment and -log10 q-value.
 The header lines record the MACS2 command and settings.</li>
 </ul>
 <p><strong>Filtered peaks.</strong> The same peaks after the ENCODE
-post-processing steps (see <code>methods.md</code>): at most 300,000
+post-processing steps (see <code>methods.pdf</code>): at most 300,000
 peaks per sample, the most significant by p-value, clipped to the
 chromosome ends, with every peak that overlaps the ENCODE blacklist
 removed and the score capped at 1000. Peaks keep their MACS2 names, so a
