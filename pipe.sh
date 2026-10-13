@@ -59,7 +59,7 @@ if [ ! -e "$SDIR/venv" ]; then
     exit 1
 fi
 
-SCRIPT_VERSION=$(git --git-dir=$SDIR/.git --work-tree=$SDIR describe --always --long)
+SCRIPT_VERSION=$(git --git-dir=$SDIR/.git --work-tree=$SDIR describe --tags --always --long)
 PIPENAME="ATAC-Seq"
 
 ##
