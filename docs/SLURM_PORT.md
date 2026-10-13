@@ -402,6 +402,21 @@ Done 2026-10-12. Scripts in
 | `R/analyzeATAC.R` on the same matrix, one group per sample (24 groups) | PCA with 24 distinct colors and the variance explained on the axes (PC1 22%, PC2 15%) |
 | test26, the 11 hg38 BAMs with `-q 20` on `fix/diff-stats` (control job 19202406) | `COMPLETED`, 69 of 69 jobs; reports named `ATAC__*.pdf` (no `Proj_` in the path) and accepted by the deliverables check; count matrix, count checks and scale factors identical to test24. `diffAnalysisPairwise.R` rc 0, `GENOME = hg38`, GD1 vs EV 2 peaks at FDR < 0.05, both annotated |
 
+### Read filter: orphans out, no insert-size filter (v2.0.0)
+
+Done 2026-10-12 on `fix/read-filter` (C-06 and C-07 of
+`ENCODE_PIPE_CONCORDANCE.md`), against test39 and test40. Script
+`/scratch/core001/bic/soccin/AFTER_ACTION_261011/read_filter/compareRuns.sh`
+compares two runs; per sample it counts the postProcess reads, the
+reads whose name is not there twice (orphans) and the reads with
+`|TLEN| <= 30`.
+
+| Test | Result |
+| --- | --- |
+| test43, the 11 hg38 BAMs with `-q 20` (control job 19283036) | `COMPLETED`, 69 of 69 jobs; Checks A and B pass, Check A exactly 1.0000 for every sample (test39 1.0003-1.0005). 0 orphans (test39 116-305 per sample); 1,126-2,164 reads with `|TLEN| <= 30` kept per sample; postProcess BAMs 0.2-0.4% larger. Filtered peaks 150,408-266,678; 9 samples gained 136-477 and GD1_1 and GD1_2 lost 2,352 and 1,510. Both losses are in MACS2's own output and among peaks with a pileup of 1 (GD1_1 146,348 to 143,782, GD1_2 103,839 to 102,023), which pass `-p 0.01` only just in 100x downsampled data; peaks with a pileup of 2 or more increased slightly. Atlas 902,445 peaks (test39 901,681) |
+| test44, the 4 b37 BAMs, MAPQ 10 (control job 19283038) | `COMPLETED`, 27 of 27 jobs; Checks A and B pass, Check A exactly 1.0000. 0 orphans (test40 302-371); 2,188-5,162 reads with `|TLEN| <= 30` kept; filtered peaks within 7 of test40's for the 3 capped samples, 647 more for the fourth. Atlas 727,558 peaks (test40 727,125) |
+| POST run time with the name sort and `fixmate` | 25-41 s (hg38) and 43-53 s (b37), against 24-34 s and 33-41 s; to be measured on a full-size run |
+
 ### MACS2 `--shift -75 --keep-dup all` (v2.0.0)
 
 Done 2026-10-12 on `fix/macs2-encode`. Scripts in

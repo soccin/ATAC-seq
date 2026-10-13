@@ -16,6 +16,17 @@ any v1.x run may be wrong for one or more samples.
   the PCA, with exit 0 and no error. It was found in 5 projects run since
   2022. On the same tests v2.1.1 failed 0 of 250 times, and for samples
   that v1.6.0 handled correctly its counts are identical, cell for cell.
+- **POST filters reads as the ENCODE ATAC-seq pipeline does.** After
+  the MAPQ and flag filter, `postMapBamProcessing_ATACSeq.sh` now runs
+  `samtools fixmate -r` on the name-sorted reads and the flag filter
+  again, which removes a read whose mate failed the MAPQ cutoff; such
+  orphans were kept before. The filter that removed pairs with an
+  insert size of 30 bp or less, which ENCODE does not have, is gone.
+  The postProcess BAM, the shifted BED, and so the insert sizes,
+  bigWigs, peaks, atlas and counts all change slightly; Check A now
+  gives exactly 1.000. On the downsampled tests each sample lost
+  116-371 orphan reads and kept 1,126-5,162 reads of short pairs; the
+  postProcess BAMs grew by 0.2-0.5%.
 - **MACS2 now runs with ENCODE's settings**, `--shift -75 --extsize
   150 --keep-dup all`. Since the first version of
   `callPeaks_ATACSeq.sh` it ran with `--shift 75` and no `--keep-dup`:
