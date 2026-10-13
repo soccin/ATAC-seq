@@ -102,11 +102,6 @@ pval_thres=0.01
 # reads with the same cut site are distinct fragments. Until v2.0.0 the
 # MACS2 default (1) kept one of them.
 #
-# MACS2 writes to scratch; only the blacklist-filtered peaks below go to
-# callpeaks/.
-#
-mkdir -p $TDIR/macs
-
 $MACS callpeak \
     -t $TDIR/cleanBED.bed.gz \
     -f BED \
@@ -118,7 +113,7 @@ $MACS callpeak \
     --extsize $smooth_window \
     --keep-dup all \
     --call-summits \
-    --outdir $TDIR/macs
+    --outdir $ODIR
 
 MACS_ERROR=$?
 
@@ -133,29 +128,36 @@ fi
 #
 # Blacklist filter, as ENCODE's encode_lib_blacklist_filter.py does for
 # every peak set: drop each peak that overlaps a blacklisted region and
-# cap the score (column 5) at 1000. Only the filtered peaks are written
-# to callpeaks/, so the atlas, the counts and the delivered narrowPeak
-# all leave them out. The summits are those of the peaks kept (matched
-# by peak name). The .xls is MACS2's own table, before the filter.
+# cap the score (column 5) at 1000. MACS2's own files are left as they
+# are; the filtered peaks, and the summits of the peaks kept (matched by
+# peak name), are written beside them as *.blacklistFiltered.*. The
+# atlas, and so the counts, use only the blacklistFiltered peaks.
 #
 
-RAW=$TDIR/macs/${PREFIX}_peaks.narrowPeak
+RAW_PEAKS=$ODIR/${PREFIX}_peaks.narrowPeak
+RAW_SUMMITS=$ODIR/${PREFIX}_summits.bed
+BL_PEAKS=$ODIR/${PREFIX}_peaks.blacklistFiltered.narrowPeak
+BL_SUMMITS=$ODIR/${PREFIX}_summits.blacklistFiltered.bed
 
-bedtools intersect -nonamecheck -v -a $RAW -b $BLACKLIST \
+for F in $RAW_PEAKS $RAW_SUMMITS; do
+    if [ ! -e "$F" ]; then
+        echo "FATAL ERROR: macs2 did not write $F"
+        rm -rf $TDIR
+        exit 1
+    fi
+done
+
+bedtools intersect -nonamecheck -v -a $RAW_PEAKS -b $BLACKLIST \
   | awk 'BEGIN {OFS = "\t"} {if ($5 > 1000) $5 = 1000; print}' \
-  > $ODIR/${PREFIX}_peaks.narrowPeak \
-  || { echo "FATAL ERROR: blacklist filter of $RAW failed"; rm -rf $TDIR; exit 1; }
+  > $BL_PEAKS \
+  || { echo "FATAL ERROR: blacklist filter of $RAW_PEAKS failed"; rm -rf $TDIR; exit 1; }
 
-awk 'NR == FNR {keep[$4] = 1; next} $4 in keep' \
-    $ODIR/${PREFIX}_peaks.narrowPeak $TDIR/macs/${PREFIX}_summits.bed \
-  > $ODIR/${PREFIX}_summits.bed \
+awk 'NR == FNR {keep[$4] = 1; next} $4 in keep' $BL_PEAKS $RAW_SUMMITS \
+  > $BL_SUMMITS \
   || { echo "FATAL ERROR: summit filter failed"; rm -rf $TDIR; exit 1; }
 
-cp $TDIR/macs/${PREFIX}_peaks.xls $ODIR \
-  || { echo "FATAL ERROR: cannot copy ${PREFIX}_peaks.xls"; rm -rf $TDIR; exit 1; }
-
-echo "blacklist $BLACKLIST: kept $(wc -l <$ODIR/${PREFIX}_peaks.narrowPeak)" \
-     "of $(wc -l <$RAW) peaks"
+echo "blacklist $BLACKLIST: kept $(wc -l <$BL_PEAKS)" \
+     "of $(wc -l <$RAW_PEAKS) peaks"
 
 rm -rf $TDIR
 

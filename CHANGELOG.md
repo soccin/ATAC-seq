@@ -38,24 +38,31 @@ any v1.x run may be wrong for one or more samples.
   in its own peaks went from 0.70-0.78 to 0.90-0.95 (hg38) and from
   0.59-0.69 to 0.86-0.89 (b37), with up to 7% (hg38) and 8-17% (b37)
   fewer peaks (`docs/SLURM_PORT.md`, "Validation").
-- **Peaks in ENCODE blacklisted regions are removed**, as in the ENCODE
-  ATAC-seq pipeline. There was no blacklist filter before, so artifact
-  regions (satellite repeats, centromeres, high-signal regions) were in
-  every delivered narrowPeak, the atlas and the counts. On the
-  full-size Proj_18143 run they were 1,376 of 654,370 atlas peaks with
-  0.4% of all counts, but 3 of the 10 and 7 of the 100 peaks with the
-  most counts, which weigh on the scale factors, the PCA and the
-  differential analysis. `callPeaks_ATACSeq.sh` drops every peak that
-  overlaps `lib/genomes/<TAG>.blacklist.bed` and caps the narrowPeak
-  score at 1000 (ENCODE's `encode_lib_blacklist_filter.py`); the
-  summits file keeps the summits of the peaks kept. The `.xls` is still
-  MACS2's unfiltered table. `mergePeaksToSAF.sh GENOME MACS_OUTDIR`
-  (it now takes the genome) subtracts the blacklist from the merged
-  atlas, because merging within 500 bp can bridge a blacklisted region
-  between two kept peaks; such a peak is split in two. Blacklists:
-  hg38 `ENCFF356LFX`, mm10 `ENCFF547MET`, b37 the hg19 list `ENCFF001TDO` without `chr` and
-  `chrM`, built by `lib/genomes/getBlacklists.sh` (`docs/GENOMES.md`).
-  `pipe.sh` stops if the genome's blacklist is missing.
+- **Peaks in ENCODE blacklisted regions are left out of the atlas and
+  the counts**, as in the ENCODE ATAC-seq pipeline. There was no
+  blacklist filter before, so artifact regions (satellite repeats,
+  centromeres, high-signal regions) were in the atlas and the counts.
+  On the full-size Proj_18143 run they were 1,376 of 654,370 atlas
+  peaks with 0.4% of all counts, but 3 of the 10 and 7 of the 100
+  peaks with the most counts, which weigh on the scale factors, the PCA
+  and the differential analysis. MACS2's own files in
+  `callpeaks/<sample>/` (and `atacSeq/macs/<sample>/`) are unchanged.
+  Beside them, `callPeaks_ATACSeq.sh` writes two new files:
+  `*_peaks.blacklistFiltered.narrowPeak`, MACS2's peaks without every
+  peak that overlaps `lib/genomes/<TAG>.blacklist.bed` and with the
+  score capped at 1000 (ENCODE's `encode_lib_blacklist_filter.py`),
+  and `*_summits.blacklistFiltered.bed`, the summits of those peaks.
+  Both are delivered, and the deliverables check requires them and
+  MACS2's three files for every sample.
+  The atlas is built from the `blacklistFiltered` peaks only.
+  `mergePeaksToSAF.sh GENOME MACS_OUTDIR` (it now takes the genome)
+  also subtracts the blacklist from the merged atlas, because merging
+  within 500 bp can bridge a blacklisted region between two kept
+  peaks; such a peak is split in two. Blacklists: hg38 `ENCFF356LFX`,
+  mm10 `ENCFF547MET`, b37 the hg19 list `ENCFF001TDO` without `chr`
+  and `chrM`, built by `lib/genomes/getBlacklists.sh`
+  (`docs/GENOMES.md`). `pipe.sh` stops if the genome's blacklist is
+  missing.
 - The `.summary` file has the 2.x status rows: `Unassigned_Read_Type` and
   `Unassigned_Singleton` are new, `Unassigned_Nonjunction` is now
   `Unassigned_NonSplit`, and the row order changed. The R reports keep

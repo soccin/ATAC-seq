@@ -107,14 +107,18 @@ paths `/ifs/res/seq/pi/invest` and `~/Code/BIC/Delivery`. Deliver the
 3. `callPeaks_ATACSeq.sh` — MACS2 on the BED (not BAM) with ENCODE's
    settings, `--nomodel --shift -75 --extsize 150 --keep-dup all
    --call-summits -p 0.01` (until v2.0.0 `--shift 75` and the default
-   `--keep-dup 1`). MACS2 writes to scratch; peaks overlapping
-   `lib/genomes/<TAG>.blacklist.bed` are dropped (and scores capped at
-   1000, as ENCODE does) before the narrowPeak and summits are written
-   to `callpeaks/`, so nothing downstream sees them
-4. `mergePeaksToSAF.sh GENOME callpeaks` — merge all narrowPeak within
-   500bp into `macsPeaksMerged.saf` (the peak atlas), then subtract the
-   blacklist again, since a merge can bridge a blacklisted region
-   between two kept peaks
+   `--keep-dup 1`). MACS2's files in `callpeaks/<PREFIX>/` are left as
+   written; the peaks not overlapping `lib/genomes/<TAG>.blacklist.bed`
+   (scores capped at 1000, as ENCODE does) and their summits are
+   written beside them as `*_peaks.blacklistFiltered.narrowPeak` and
+   `*_summits.blacklistFiltered.bed`. Never overwrite or replace a
+   primary tool's output; write derived files under a new, readable
+   name
+4. `mergePeaksToSAF.sh GENOME callpeaks` — merge all
+   `*_peaks.blacklistFiltered.narrowPeak` (never MACS2's
+   `*_peaks.narrowPeak`) within 500bp into `macsPeaksMerged.saf` (the
+   peak atlas), then subtract the blacklist again, since a merge can
+   bridge a blacklisted region between two kept peaks
 5. `bin/countPeaks.sh` → `bin/featureCounts` (v2.1.1) — raw count matrix
    `peaks_raw_fcCounts.txt` over the atlas, `-O -p --countReadPairs`, with
    `-Q` set to the same MAPQ as stage 1, then Check A. Beside it, one
