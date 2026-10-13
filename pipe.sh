@@ -336,12 +336,14 @@ fi
 echo GENOME=$GENOME
 
 #
-# Every supported genome has its genome file and its TSS enrichment files
+# Every supported genome has its genome file, its peak blacklist
+# (lib/genomes/<GENOME>.blacklist.bed) and its TSS enrichment files
 # (R/TSSEnrich/lib/<GENOME>_tss.bed and <GENOME>.chrom.sizes). A missing
 # one is a broken checkout; stop before submitting anything.
 #
 TSS_LIB=$SDIR/R/TSSEnrich/lib
-for F in $SDIR/lib/genomes/$GENOME.genome $TSS_LIB/${GENOME}_tss.bed $TSS_LIB/${GENOME}.chrom.sizes; do
+for F in $SDIR/lib/genomes/$GENOME.genome $SDIR/lib/genomes/$GENOME.blacklist.bed \
+         $TSS_LIB/${GENOME}_tss.bed $TSS_LIB/${GENOME}.chrom.sizes; do
     if [ ! -s "$F" ]; then
         RUN_MESSAGE="genome $GENOME: missing file $F"
         echo
@@ -589,7 +591,7 @@ waitStage CALLP2
 # DependencyNeverSatisfied.
 #
 atacSub MergePeaks all SLURM.04a.CALLP SHORT "-n 3 -M 24G" \
-    $SDIR/mergePeaksToSAF.sh callpeaks \>macsPeaksMerged.saf
+    $SDIR/mergePeaksToSAF.sh $GENOME callpeaks \>macsPeaksMerged.saf
 
 waitStage MergePeaks
 
@@ -721,10 +723,14 @@ for SID in $SAMPLES; do
     checkFile atacSeq/metrics/${SID}_postProcess___INS.txt
     checkFile atacSeq/metrics/${SID}_postProcess___MITO.txt
     checkFile atacSeq/metrics/${SID}_postProcess.tss_enrich.csv
-    PEAKS=atacSeq/macs/${SID}_postProcess.shifted/${SID}_postProcess.shifted_peaks.narrowPeak
-    if [ ! -e "$PEAKS" ]; then
-        MISSING="$MISSING $PEAKS"
-    fi
+    MACS=atacSeq/macs/${SID}_postProcess.shifted/${SID}_postProcess.shifted
+    for F in ${MACS}_peaks.narrowPeak ${MACS}_summits.bed ${MACS}_peaks.xls \
+             ${MACS}_peaks.blacklistFiltered.narrowPeak \
+             ${MACS}_summits.blacklistFiltered.bed; do
+        if [ ! -e "$F" ]; then
+            MISSING="$MISSING $F"
+        fi
+    done
 done
 
 if [ -n "$MISSING" ]; then

@@ -402,13 +402,108 @@ Done 2026-10-12. Scripts in
 | `R/analyzeATAC.R` on the same matrix, one group per sample (24 groups) | PCA with 24 distinct colors and the variance explained on the axes (PC1 22%, PC2 15%) |
 | test26, the 11 hg38 BAMs with `-q 20` on `fix/diff-stats` (control job 19202406) | `COMPLETED`, 69 of 69 jobs; reports named `ATAC__*.pdf` (no `Proj_` in the path) and accepted by the deliverables check; count matrix, count checks and scale factors identical to test24. `diffAnalysisPairwise.R` rc 0, `GENOME = hg38`, GD1 vs EV 2 peaks at FDR < 0.05, both annotated |
 
-Not run: an mm10 pipeline (`00.ISSUES.md` #14).
+### Read filter: orphans out, no insert-size filter (v2.0.0)
+
+Done 2026-10-12 on `fix/read-filter` (C-06 and C-07 of
+`ENCODE_PIPE_CONCORDANCE.md`), against test39 and test40. Script
+`/scratch/core001/bic/soccin/AFTER_ACTION_261011/read_filter/compareRuns.sh`
+compares two runs; per sample it counts the postProcess reads, the
+reads whose name is not there twice (orphans) and the reads with
+`|TLEN| <= 30`.
+
+| Test | Result |
+| --- | --- |
+| test43, the 11 hg38 BAMs with `-q 20` (control job 19283036) | `COMPLETED`, 69 of 69 jobs; Checks A and B pass, Check A exactly 1.0000 for every sample (test39 1.0003-1.0005). 0 orphans (test39 116-305 per sample); 1,126-2,164 reads with `|TLEN| <= 30` kept per sample; postProcess BAMs 0.2-0.4% larger. Filtered peaks 150,408-266,678; 9 samples gained 136-477 and GD1_1 and GD1_2 lost 2,352 and 1,510. Both losses are in MACS2's own output and among peaks with a pileup of 1 (GD1_1 146,348 to 143,782, GD1_2 103,839 to 102,023), which pass `-p 0.01` only just in 100x downsampled data; peaks with a pileup of 2 or more increased slightly. Atlas 902,445 peaks (test39 901,681) |
+| test44, the 4 b37 BAMs, MAPQ 10 (control job 19283038) | `COMPLETED`, 27 of 27 jobs; Checks A and B pass, Check A exactly 1.0000. 0 orphans (test40 302-371); 2,188-5,162 reads with `|TLEN| <= 30` kept; filtered peaks within 7 of test40's for the 3 capped samples, 647 more for the fourth. Atlas 727,558 peaks (test40 727,125) |
+| POST run time with the name sort and `fixmate` | 25-41 s (hg38) and 43-53 s (b37), against 24-34 s and 33-41 s; to be measured on a full-size run |
+
+### MACS2 `--shift -75 --keep-dup all` (v2.0.0)
+
+Done 2026-10-12 on `fix/macs2-encode`. Scripts in
+`/scratch/core001/bic/soccin/AFTER_ACTION_261011/macs2_probe/`
+(`compare.sh`, `shiftcheck/run.sh`). FRiP is ENCODE's: reads of the
+shifted BED over the sample's own peaks / all its reads. Values of the
+earlier run are in parentheses.
+
+| Test | Result |
+| --- | --- |
+| MACS2 2.2.9.1 on one `+` read with its cut site at 100000 and one `-` read with its cut site at 200000, `-B` pileup | `--shift -75`: 99925-100075 and 199925-200075, centered on both cut sites. `--shift 75`: 100075-100225 and 199775-199925 |
+| test27, the 11 hg38 BAMs with `-q 20` (control job 19224611), against test26 | `COMPLETED`, 69 of 69 jobs; Checks A and B pass. Peaks per sample from 7% fewer to 0.4% more (150,451 to 267,009), median width 203-215 bp (208-245), FRiP 0.90-0.95 (0.70-0.78), atlas 903,877 (919,558). Of each sample's top 10,000 peaks, 21-29% have the summit within 500 bp of a TSS (14-28%) |
+| test28, the 4 b37 BAMs, MAPQ 10 (control job 19224612), against test25 | `COMPLETED`, 27 of 27 jobs; Checks A and B pass. Peaks 8-17% fewer (265,241 to 366,622), median width 199-209 bp (150-229), FRiP 0.86-0.89 (0.59-0.69), atlas 760,751 (745,067). Top-10,000 summits within 500 bp of a TSS 25-32% (27-31%) |
+| `--keep-dup 1` loss, from the MACS2 `.xls` "tags after filtering" | 0.2-0.4% of reads on the downsampled BAMs; 5.0-16.8% on the full-size Proj_18143 run (control job 18983501), the most in the deepest samples |
+
+The downsampled BAMs have 0.3 to 0.9 million reads after filtering, so
+their 150,000 to 370,000 peaks at `-p 0.01` are mostly weak; the TSS
+figures are the least reliable of these comparisons. The full-size
+Proj_18143 run is the test that remains.
+
+### Blacklist filter (v2.0.0)
+
+Done 2026-10-12 on `fix/blacklist`, against test27 and test28 (same
+BAMs and MACS2 settings, no blacklist). Scripts
+`/scratch/core001/bic/soccin/AFTER_ACTION_261011/macs2_probe/checkBL.sh`
+and `checkBL3.sh`.
+
+test29 to test32 ran a first version that wrote the filtered peaks
+under MACS2's own names (`*_peaks.narrowPeak`, `*_summits.bed`) and
+did not keep MACS2's files. The version kept, tested in test33 and
+test34, leaves MACS2's files as written and adds
+`*_peaks.blacklistFiltered.narrowPeak` and
+`*_summits.blacklistFiltered.bed`. In the test29 to test32 rows,
+"filtered narrowPeak" is the file that is now
+`*_peaks.blacklistFiltered.narrowPeak`.
+
+| Test | Result |
+| --- | --- |
+| test29 (hg38, control job 19231490) and test30 (b37, 19231491), first version, peak filter only | `COMPLETED`; filtered peaks correct (as below), but the atlas still overlapped the blacklist at 5 (hg38) and 1 (b37) merged peaks: a 106-383 bp blacklisted region between two kept peaks less than 500 bp apart. Led to the subtract in `mergePeaksToSAF.sh` |
+| test31, the 11 hg38 BAMs with `-q 20` (control job 19234652), first version | `COMPLETED`, 69 of 69 jobs; Checks A and B pass. Per sample 264-475 of 150,451-267,009 peaks removed; each filtered narrowPeak is byte-identical to test27's filtered by hand (`intersect -v`, score cap); 0 peaks on the blacklist; one summit per peak; largest score 498. Atlas 901,681 peaks (test27 903,877, of which 2,353 overlapped the blacklist), 0 overlapping it |
+| test32, the 4 b37 BAMs, MAPQ 10 (control job 19234654), first version | `COMPLETED`, 27 of 27 jobs; Checks A and B pass. 652-891 of 265,241-366,622 peaks removed per sample, same checks as test31 all pass. Atlas 758,830 (test28 760,751, 1,946 overlapping), 0 overlapping |
+| test33 (hg38, as test31, control job 19248967) and test34 (b37, as test32, 19248968), version kept | `COMPLETED`, 69 and 27 jobs; Checks A and B pass. For all 15 samples MACS2's `*_peaks.narrowPeak`, `*_summits.bed` and `*_peaks.xls` (body) are byte-identical to test27/test28, and the `blacklistFiltered` narrowPeak and summits to test31/test32's filtered files; 0 filtered peaks on the blacklist; all five files in `atacSeq/macs/`. Atlas, count matrix, `.summary` and scale factors identical to test31/test32 |
+| test35 (hg38, as test33, control job 19253399) and test36 (b37, as test34, 19253400), `fix/blacklist` at `b0cda24`, run to look over the delivered layout | `COMPLETED`, 69 and 27 jobs; Checks A and B pass; same checks and results as test33/test34. No narrowPeak has a negative start or a missing summit (`-1`) |
+| test37 (hg38, as test35, control job 19260883) and test38 (b37, as test36, 19260884), `encode-2026` at `bb486a4`: adds the five-file deliverables check (`507116c`) and the one-`sort` atlas merge (`533308e`) | `COMPLETED`, 69 and 27 jobs; Checks A and B pass; same checks and results as test33/test34 |
+| Counts in the atlas rows that overlapped the blacklist | test27 0.28% of all counts, 2 of the 10 and 5 of the 100 rows with the most counts; test28 0.29%, 1 and 4; full-size Proj_18143 (v2.x-pre2) 1,376 of 654,370 rows, 0.43% of counts, 3 of the top 10, 7 of the top 100 |
+
+Not run: an mm10 pipeline (`00.ISSUES.md` #14). The mm10 blacklist was
+checked only by `getBlacklists.sh` (md5, contigs in `mm10.genome`).
+
+### Peak cap (v2.0.0)
+
+Done 2026-10-12 on `fix/peak-cap` (C-04 of
+`ENCODE_PIPE_CONCORDANCE.md`), against test37 and test38. Script
+`/scratch/core001/bic/soccin/AFTER_ACTION_261011/peak_cap/compareWithEncode.sh`
+applies ENCODE's own commands (`encode_task_macs2_atac.py`,
+`bed_clip`, `encode_lib_blacklist_filter.py`) to each sample's MACS2
+narrowPeak and compares the result with the pipeline's
+`*_peaks.blacklistFiltered.narrowPeak`, every column but the peak
+name.
+
+| Test | Result |
+| --- | --- |
+| test39, the 11 hg38 BAMs with `-q 20` (control job 19268482) | `COMPLETED`, 69 of 69 jobs; Checks A and B pass. No sample over 300,000 peaks (150,451-267,009); every `blacklistFiltered` file equal to ENCODE's commands; MACS2's files and summits equal to test37's; atlas, `.summary` and scale factors byte-identical to test37's |
+| test40, the 4 b37 BAMs, MAPQ 10 (control job 19268483) | `COMPLETED`, 27 of 27 jobs; Checks A and B pass. 3 samples capped at 300,000 (315,877, 366,622, 339,604 from MACS2), 299,207-299,329 kept after the blacklist; every `blacklistFiltered` file equal to ENCODE's commands; MACS2's files equal to test38's. Atlas 727,125 peaks (test38 758,830), 0 on the blacklist |
+| `bedClip` | ran for all 15 samples; no peak needed clipping |
+| The block itself, on crafted files with the cap set to 3 | sort, cap, p-value tie broken by the whole line, clamped start, summit `-1`, end clipped, blacklist, score cap and summits as expected; a peak wholly past its contig end and a contig not in `<TAG>.genome` each stop the job |
+
+### 1-based atlas start (v2.0.0)
+
+Done 2026-10-12 on `fix/saf-start` (C-17 of
+`ENCODE_PIPE_CONCORDANCE.md`), against test39 and test40. Script
+`/scratch/core001/bic/soccin/AFTER_ACTION_261011/read_filter/compareRuns.sh`
+compares two runs: BAMs, shifted BEDs, filtered peaks, the atlas and
+every cell of the count matrix.
+
+| Test | Result |
+| --- | --- |
+| test41, the 11 hg38 BAMs with `-q 20` (control job 19282732) | `COMPLETED`, 69 of 69 jobs; Checks A and B pass. BAMs, shifted BEDs and filtered peaks identical to test39's; atlas equal to test39's with every start plus 1 (901,681 peaks); 55 of 9,918,491 count cells differ, each by -1: a fragment that overlapped only the base left of a peak |
+| test42, the 4 b37 BAMs, MAPQ 10 (control job 19282733) | `COMPLETED`, 27 of 27 jobs; Checks A and B pass. Same as test40 but for the atlas starts (727,125 peaks, each start plus 1); 112 of 2,908,500 count cells differ, each by -1 |
+| test45, the 11 hg38 BAMs with `-q 20`, on `encode-2026` at `ba329b6` with this fix and the read filter (control job 19287472) | `COMPLETED`, 69 of 69 jobs; Checks A and B pass, Check A 1.0000. BAMs, shifted BEDs and filtered peaks identical to test43's; atlas equal to test43's with every start plus 1 (902,445 peaks); 55 of 9,926,895 count cells differ, each by -1 |
+| test46, the 4 b37 BAMs, MAPQ 10, same code (control job 19287473) | `COMPLETED`, 27 of 27 jobs; Checks A and B pass, Check A 1.0000. Identical to test44 but for the atlas starts (727,558 peaks, each start plus 1); 109 of 2,910,232 count cells differ, each by -1 |
 
 ## Not done
 
 - `deliverResults.sh` still points at `/ifs/res/seq/pi/invest` and
   `~/Code/BIC/Delivery`; not a scheduler change and not touched. It is
-  `00.ISSUES.md` #1.
+  `00.FIXME.md` #2.
 - The `RATE_*` values come from one project on one genome. Check the
   `runClass` lines in the control log against `sacct` Elapsed on new
   projects, and raise a rate if a job gets close to its walltime.

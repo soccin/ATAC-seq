@@ -16,6 +16,86 @@ any v1.x run may be wrong for one or more samples.
   the PCA, with exit 0 and no error. It was found in 5 projects run since
   2022. On the same tests v2.1.1 failed 0 of 250 times, and for samples
   that v1.6.0 handled correctly its counts are identical, cell for cell.
+- **POST filters reads as the ENCODE ATAC-seq pipeline does.** After
+  the MAPQ and flag filter, `postMapBamProcessing_ATACSeq.sh` now runs
+  `samtools fixmate -r` on the name-sorted reads and the flag filter
+  again, which removes a read whose mate failed the MAPQ cutoff; such
+  orphans were kept before. The filter that removed pairs with an
+  insert size of 30 bp or less, which ENCODE does not have, is gone.
+  The postProcess BAM, the shifted BED, and so the insert sizes,
+  bigWigs, peaks, atlas and counts all change slightly; Check A now
+  gives exactly 1.000. On the downsampled tests each sample lost
+  116-371 orphan reads and kept 1,126-5,162 reads of short pairs; the
+  postProcess BAMs grew by 0.2-0.5%.
+- **MACS2 now runs with ENCODE's settings**, `--shift -75 --extsize
+  150 --keep-dup all`. Since the first version of
+  `callPeaks_ATACSeq.sh` it ran with `--shift 75` and no `--keep-dup`:
+  - The sign of the shift was lost when the settings were copied from
+    the Kundaje lab pipeline (ENCODE's predecessor). Each read
+    contributed the region 75 to 225 bp downstream of its cut site,
+    instead of the 150 bp centered on it, so the signal of an
+    accessible region was split between the strands and moved off
+    center.
+  - The MACS2 default `--keep-dup 1` keeps one read per cut site and
+    strand. POST has already removed PCR duplicates, so the reads it
+    dropped were distinct fragments; on the full-size Proj_18143 run
+    that was 5 to 17% of each sample's reads, more in deeper samples.
+
+  Every narrowPeak, the atlas, the count matrix, the scale factors, the
+  QC PDF and any differential analysis of an earlier run were made with
+  the old settings. BAMs, shifted BEDs, bigWigs, insert sizes, the
+  mitochondrial fraction and TSS enrichment do not use MACS2 and do not
+  change. On the downsampled test sets the fraction of a sample's reads
+  in its own peaks went from 0.70-0.78 to 0.90-0.95 (hg38) and from
+  0.59-0.69 to 0.86-0.89 (b37), with up to 7% (hg38) and 8-17% (b37)
+  fewer peaks (`docs/SLURM_PORT.md`, "Validation").
+- **Peaks in ENCODE blacklisted regions are left out of the atlas and
+  the counts**, as in the ENCODE ATAC-seq pipeline. There was no
+  blacklist filter before, so artifact regions (satellite repeats,
+  centromeres, high-signal regions) were in the atlas and the counts.
+  On the full-size Proj_18143 run they were 1,376 of 654,370 atlas
+  peaks with 0.4% of all counts, but 3 of the 10 and 7 of the 100
+  peaks with the most counts, which weigh on the scale factors, the PCA
+  and the differential analysis. MACS2's own files in
+  `callpeaks/<sample>/` (and `atacSeq/macs/<sample>/`) are unchanged.
+  Beside them, `callPeaks_ATACSeq.sh` writes two new files:
+  `*_peaks.blacklistFiltered.narrowPeak`, MACS2's peaks without every
+  peak that overlaps `lib/genomes/<TAG>.blacklist.bed` and with the
+  score capped at 1000 (ENCODE's `encode_lib_blacklist_filter.py`),
+  and `*_summits.blacklistFiltered.bed`, the summits of those peaks.
+  Both are delivered, and the deliverables check requires them and
+  MACS2's three files for every sample.
+  The atlas is built from the `blacklistFiltered` peaks only.
+  `mergePeaksToSAF.sh GENOME MACS_OUTDIR` (it now takes the genome)
+  also subtracts the blacklist from the merged atlas, because merging
+  within 500 bp can bridge a blacklisted region between two kept
+  peaks; such a peak is split in two. Blacklists: hg38 `ENCFF356LFX`,
+  mm10 `ENCFF547MET`, b37 the hg19 list `ENCFF001TDO` without `chr`
+  and `chrM`, built by `lib/genomes/getBlacklists.sh`
+  (`docs/GENOMES.md`). `pipe.sh` stops if the genome's blacklist is
+  missing.
+- **Each sample keeps at most its 300,000 strongest peaks**, as in the
+  ENCODE ATAC-seq pipeline (`encode_task_macs2_atac.py`). Before the
+  blacklist filter, `callPeaks_ATACSeq.sh` now sorts MACS2's peaks by
+  `-log10 p`, keeps the top 300,000, clamps negative coordinates to 0
+  and clips peak ends to the contig ends (`bin/bedClip -truncate`,
+  the UCSC v369 build ENCODE uses). The blacklist filter is applied
+  to that set, so `*_peaks.blacklistFiltered.narrowPeak` and its
+  summits now hold at most 300,000 peaks, sorted by p-value. MACS2's
+  own files are unchanged, and the peaks keep MACS2's names (ENCODE
+  renames them `Peak_N`). On the full-size Proj_18143 run (old MACS2
+  settings) 9 of 15 samples had more than 300,000 peaks, up to
+  396,453. On the downsampled tests, no hg38 sample reached the cap;
+  3 of 4 b37 samples did, and the b37 atlas went from 758,830 to
+  727,125 peaks.
+- **The atlas `Start` is 1-based**, as SAF requires.
+  `mergePeaksToSAF.sh` wrote the 0-based start of `bedtools merge` into
+  `macsPeaksMerged.saf`, and featureCounts reads SAF as 1-based, so
+  each atlas peak was counted one base wider on the left. The `Start`
+  of `macsPeaksMerged.saf`, `peaks_raw_fcCounts.txt` and the
+  `DiffPeaksEdgeR` workbooks is now 1 higher than before, `End` is
+  unchanged, and the peaks given to ChIPseeker for gene annotation are
+  one base shorter on the left, as they should be.
 - The `.summary` file has the 2.x status rows: `Unassigned_Read_Type` and
   `Unassigned_Singleton` are new, `Unassigned_Nonjunction` is now
   `Unassigned_NonSplit`, and the row order changed. The R reports keep
@@ -141,6 +221,12 @@ any v1.x run may be wrong for one or more samples.
   (measured 0.79 to 1.02).
 - `docs/SLURM_PORT.md` has a new "Memory" section with what each stage
   really allocates, measured without file cache.
+- `mergePeaksToSAF.sh` sorts every sample's peaks in one `sort`, which
+  reads the file names from `find -print0` (`--files0-from`). It used
+  `find | xargs sort`: past about 128 KB of file names (roughly 1,000
+  samples) xargs ran several sorts, `bedtools merge` stopped at the
+  first out-of-order peak, and the run failed; a space in a sample
+  name split the file name and failed the run too.
 
 ### Not tested
 

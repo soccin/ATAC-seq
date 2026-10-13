@@ -93,21 +93,40 @@ stage whose run time grows with its input needs a measured `RATE_*`.
 
 `deliverResults.sh` has not been ported: it still points at the JUNO
 paths `/ifs/res/seq/pi/invest` and `~/Code/BIC/Delivery`. Deliver the
-`atacSeq/` directory by hand until it is updated (`00.ISSUES.md` #1).
+`atacSeq/` directory by hand until it is updated (`00.FIXME.md` #2).
 
 ## Pipeline stages (pipe.sh)
 
 1. `postMapBamProcessing_ATACSeq.sh` — MAPQ + flag filter (`-f 3 -F 1804`),
-   drop inserts <=30bp, Picard SortSam + CollectInsertSizeMetrics, then
+   then ENCODE's `samtools fixmate -r` on the name-sorted reads and the
+   flag filter again, which removes a read whose mate failed (until
+   v2.0.0 such orphans were kept, and inserts <=30bp were dropped,
+   which ENCODE does not do), Picard SortSam + CollectInsertSizeMetrics, then
    bamToBed with the Tn5 shift (+4 on `+`, -5 on `-`), keeping only the
    contigs of `lib/genomes/<TAG>.genome` → `*.shifted.bed.gz`; also the
    mitochondrial fraction → `*___MITO.txt`
 2. `makeBigWigFromBEDZ.sh` — 10M-read-normalized bigWig via bedtools +
    `bin/wigToBigWig`
-3. `callPeaks_ATACSeq.sh` — MACS2 on the BED (not BAM), `--nomodel --shift 75
-   --extsize 150 --call-summits -p 0.01`
-4. `mergePeaksToSAF.sh` — merge all narrowPeak within 500bp into
-   `macsPeaksMerged.saf` (the peak atlas)
+3. `callPeaks_ATACSeq.sh` — MACS2 on the BED (not BAM) with ENCODE's
+   settings, `--nomodel --shift -75 --extsize 150 --keep-dup all
+   --call-summits -p 0.01` (until v2.0.0 `--shift 75` and the default
+   `--keep-dup 1`). MACS2's files in `callpeaks/<PREFIX>/` are left as
+   written. Then ENCODE's steps, in its order: sort by `-log10 p`, keep
+   the top 300,000, clamp negative coordinates, clip to the contig ends
+   (`bin/bedClip -truncate`), drop the peaks overlapping
+   `lib/genomes/<TAG>.blacklist.bed` and cap the score at 1000. The
+   result and its summits are written beside MACS2's files as
+   `*_peaks.blacklistFiltered.narrowPeak` and
+   `*_summits.blacklistFiltered.bed`; peaks keep MACS2's names (ENCODE
+   renames them `Peak_N`). Never overwrite or replace a primary tool's
+   output; write derived files under a new, readable name
+4. `mergePeaksToSAF.sh GENOME callpeaks` — merge all
+   `*_peaks.blacklistFiltered.narrowPeak` (never MACS2's
+   `*_peaks.narrowPeak`) within 500bp into `macsPeaksMerged.saf` (the
+   peak atlas), then subtract the blacklist again, since a merge can
+   bridge a blacklisted region between two kept peaks. SAF is 1-based
+   and inclusive: its `Start` is the BED start plus 1 (until v2.0.0 the
+   BED start was written as is)
 5. `bin/countPeaks.sh` → `bin/featureCounts` (v2.1.1) — raw count matrix
    `peaks_raw_fcCounts.txt` over the atlas, `-O -p --countReadPairs`, with
    `-Q` set to the same MAPQ as stage 1, then Check A. Beside it, one
@@ -154,9 +173,10 @@ supported genome is a row of it. Shell reads it with
 `R/genomeInfo.R`; both fail on an unknown tag or field. There is no
 `case` on genome names anywhere. Adding a genome is data only: its md5
 in `getGenomeBuildBAM.sh`, a row in `GENOMES.tsv`,
-`lib/genomes/<TAG>.genome`, and `R/TSSEnrich/lib/<TAG>_tss.bed` and
-`<TAG>.chrom.sizes`. `pipe.sh` stops if any of the three files is
-missing.
+`lib/genomes/<TAG>.genome`, `lib/genomes/<TAG>.blacklist.bed` (ENCODE's
+list, built by `lib/genomes/getBlacklists.sh`), and
+`R/TSSEnrich/lib/<TAG>_tss.bed` and `<TAG>.chrom.sizes`. `pipe.sh`
+stops if any of the four files is missing.
 
 Chromosome filtering is allowlist-driven: `lib/genomes/<TAG>.genome` lists
 autosomes, X and Y only (no mitochondria, no unplaced, random, decoy or
@@ -180,7 +200,8 @@ and can be run by hand from an analysis directory to audit a run.
 - **Check A (pairing)**, in the Count job: each sample's fragment total
   (the sum of every `.summary` row, not rows picked by name) divided by
   mapped reads / 2 (`samtools idxstats`, so Count waits for Index) must
-  be within 0.95 to 1.05. Correct runs give 1.000 to 1.005; an unpaired
+  be within 0.95 to 1.05. Correct runs give 1.000 (1.000 to 1.005
+  until v2.0.0, when POST kept orphan reads); an unpaired
   BAM, or featureCounts 2.x with `-p` but without `--countReadPairs`,
   gives 2.0.
 - **Check B (independent count)**: `bin/assignedCheck.sh` counts the
@@ -255,9 +276,14 @@ tool with its own temp-dir option gets `$TMPDIR` or a scratch dir, never
 its default. R is the 4.5.1
 on PATH; `tss_enrich.R` needs `optparse`.
 
-`bin/featureCounts`, `bin/wigToBigWig`, and `bin/bedGraphToBigWig` are
-vendored Linux x86-64 binaries — they will not run on macOS, so anything
-invoking them can only be tested on the cluster. `bin/featureCounts` is
+`bin/featureCounts`, `bin/wigToBigWig`, `bin/bedGraphToBigWig` and
+`bin/bedClip` are vendored Linux x86-64 binaries — they will not run on
+macOS, so anything invoking them can only be tested on the cluster.
+`bin/bedClip` is the
+UCSC v369 build that ENCODE installs
+(<https://hgdownload.soe.ucsc.edu/admin/exe/linux.x86_64.v369/bedClip>,
+md5 `7b4d41d51a340f8641e6786383136c63`); the current UCSC build needs
+glibc 2.34 and IRIS has 2.28. `bin/featureCounts` is
 subread v2.1.1, statically linked, md5
 `0eff90d8e30311160dbddda542f17383`, from
 `subread-2.1.1-Linux-x86_64.tar.gz` (md5
@@ -280,5 +306,8 @@ count fragments.
   Historical: the checkboxes were never ticked and the line numbers are
   out of date.
 - `CHANGELOG.md` — kept current; add entries for user-visible changes.
-- `00.ISSUES.md` — open issues only, numbered in order of work;
-  `attic/zzISSUES.md` — the closed ones, with the reason.
+- `00.FIXME.md` — the one list of open work, numbered in order of
+  work and grouped by priority; `attic/zzISSUES.md` — the closed
+  issues, with the reason. `attic/00.ISSUES.md` and
+  `attic/ENCODE_PIPE_CONCORDANCE.md` (the ENCODE review, with what
+  ENCODE does for each C-NN finding) are the two lists it replaced.

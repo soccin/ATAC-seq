@@ -36,8 +36,8 @@ The genome is detected from the BAM headers and recorded as `GENOME=` in
 must be one of `b37` (GRCh37, contigs `1`, `2`, ...), `hg38` (GRCh38,
 `chr1`, ...; called `b38` before v2.0.0) or `mm10`; otherwise the run
 stops before submitting any job, with the reason in `00.RUNSTATUS.txt`.
-See `docs/GENOMES.md`. Only hg38 has been tested on this version; b37
-and mm10 runs have not been made yet.
+See `docs/GENOMES.md`. hg38 and b37 have been tested on this version;
+no mm10 run has been made yet.
 
 Peaks, bigWigs and the atlas use reads on the autosomes, X and Y only.
 Mitochondrial reads are left out for every build, as in the ENCODE
@@ -49,6 +49,11 @@ sample's mitochondrial fraction is in `atacSeq/metrics/*___MITO.txt`.
     - Proper pairs only; reads marked as duplicates (the marking is done
       upstream, by the mapper), secondary and QC-fail reads removed
     - MAPQ 10+ (`-q MAPQ`; the count matrix uses the same cutoff)
+    - A read whose mate was removed is removed too (`samtools fixmate
+      -r`, as in the ENCODE ATAC-seq pipeline); there is no filter on
+      insert size (before v2.0.0 pairs with an insert of 30 bp or less
+      were removed, and a read whose mate failed the MAPQ cutoff was
+      kept)
 
 - Count matrix: featureCounts v2.1.1 counts fragments over the merged
   peak atlas. Two checks must pass before the run continues (the
@@ -62,6 +67,20 @@ sample's mitochondrial fraction is in `atacSeq/metrics/*___MITO.txt`.
 	- extend reads to library size in the 3’ direction for ChIP, no read extension for ATAC
 	- compute density for bigwig formation
 		- normalizing to 10 million mapped reads
+
+- Peak calling: MACS2 on the Tn5-shifted reads with the ENCODE ATAC-seq
+  settings (`--nomodel --shift -75 --extsize 150 --keep-dup all
+  --call-summits -p 0.01`). Each sample's directory in `atacSeq/macs`
+  has MACS2's own files, unchanged (`*_peaks.narrowPeak`,
+  `*_summits.bed`, `*_peaks.xls`), and two files made from them by
+  ENCODE's steps: the 300,000 peaks with the smallest p-values, clipped
+  to the contig ends, without the peaks that overlap the ENCODE
+  blacklist of the genome (`lib/genomes/<TAG>.blacklist.bed`):
+  `*_peaks.blacklistFiltered.narrowPeak` (sorted by p-value, score
+  capped at 1000) and `*_summits.blacklistFiltered.bed`. The atlas and
+  the counts are built from the `blacklistFiltered` peaks, and the
+  blacklist is subtracted from the merged atlas too, so no count comes
+  from a blacklisted region.
 
 
 ## Differential analysis

@@ -9,6 +9,38 @@ issues were renumbered on 2026-10-10 (old to new: #8 to #1, #9 to #2,
 #9, #28 to #10, #29 to #11, #30 to #12, #31 to #13), so a number below
 refers to the old list unless it says otherwise.
 
+## Closed — fixed on `fix/blacklist`
+
+Never numbered here: finding C-03 of `ENCODE_PIPE_CONCORDANCE.md`.
+
+**No blacklist filtering of peaks** (`pre-port`) — No peak set was
+filtered against a blacklist. `callPeaks_ATACSeq.sh` now writes
+`*_peaks.blacklistFiltered.narrowPeak` beside MACS2's own (unchanged)
+files: the peaks not overlapping ENCODE's blacklist
+(`lib/genomes/<TAG>.blacklist.bed`, built by
+`lib/genomes/getBlacklists.sh`), score capped at 1000, as
+`encode_lib_blacklist_filter.py` does. The atlas is built from those
+only, and `mergePeaksToSAF.sh` subtracts the blacklist from it, since
+a merge can otherwise bridge a blacklisted region; `pipe.sh` checks
+the file exists. A first version wrote the filtered peaks under
+MACS2's own file name and lost MACS2's output; never overwrite a
+primary tool's files. Tested in test33 (hg38) and test34 (b37) against
+test27, test28, test31 and test32
+(`docs/SLURM_PORT.md`, "Validation"; `docs/GENOMES.md`, "Blacklist").
+
+## Closed — fixed on `fix/macs2-encode`
+
+Never numbered here: tracked in `BUGFIXES_v2.md` (deleted once fixed)
+and the external ENCODE concordance review of 2026-10-12 (C-01, C-02).
+
+**MACS2 `--shift 75` and the default `--keep-dup 1`** (`pre-port`) —
+`callPeaks_ATACSeq.sh` copied its settings from the Kundaje lab pipeline
+but passed `+75` where it passes `-75`, and left out `--keep-dup all`.
+Now `--shift -75 --extsize 150 --keep-dup all`, as in ENCODE's
+`encode_task_macs2_atac.py`. Shift direction checked on a two-read
+input; tested in test27 (hg38) and test28 (b37) against test26 and
+test25 (`docs/SLURM_PORT.md`, "Validation"; `CHANGELOG.md`, v2.0.0).
+
 ## Closed — fixed on `fix/diff-stats`
 
 Numbers here are from the list as renumbered on 2026-10-10.
