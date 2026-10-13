@@ -15,6 +15,20 @@ refers to the old list unless it says otherwise. Entries from
 
 ## Closed — fixed on `rel/2.0.0`
 
+**#1 of `00.FIXME.md`, no full-size run of v2.0.0 with the 5' clip
+filter** (`risk`) — Proj_18143 (15 hg38 samples, MAPQ 10) was run as
+`Proj_18143/ATACseq/v2.x-pre5` on tag `v2.x-pre5` (2026-10-13,
+control job 19429072) and checked against v2.x-pre4. Every criterion
+held: `COMPLETED`; Checks A and B pass, Check A 1.0000; 0.68-1.37% of
+the postProcess reads removed per sample and 0 reads left with a 5'
+clip or `|TLEN| <= 30` in all 15 BAMs; `MIN_INSERT_SIZE` 31 and the
+nucleosome peaks in every `___INS.txt`; the only cut sites with 100 or
+more tags lie in the blacklisted `chr1:628903-635104`, and the named
+hotspots and their atlas rows are gone from ED1-1's top 20 counts;
+TSS enrichment within -0.02 to +0.08 of pre4. No POST job came near
+the 1:59 limit (the longest 1:18:32), so `RATE_POST` stays 6. Recorded
+in `docs/SLURM_PORT.md`, "Insert-size and 5' clip filters".
+
 **#25 of `00.FIXME.md`, documentation out of step with the code**
 (C-22) — `NOTES.md` has a dated note that MACS2 runs on the shifted
 BED (`-f BED`), not the BAM. `README.md` says the input BAMs must

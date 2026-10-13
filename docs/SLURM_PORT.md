@@ -472,6 +472,9 @@ on a reverse read) is removed, and `fixmate -r` then removes its mate.
 | test49, the 11 hg38 BAMs with `-q 20` (`fix/5p-clip`, control job 19421943), against test47 | `COMPLETED`; Checks A and B pass, Check A 1.0000. Every postProcess BAM equals test47's without the pairs that have a read with a 5' clip (`compare5p.sh`); 0.74-1.03% of the reads removed; 0 orphans, 0 reads with a 5' clip, 0 with `\|TLEN\| <= 30`. Filtered peaks 1,043-1,812 fewer per sample (149,071-264,945); `FRAC_MITO` down by at most 0.0005. Atlas 898,502 (901,283) |
 | test50, the 4 b37 BAMs, MAPQ 10 (control job 19421944), against test48 | `COMPLETED`; Checks A and B pass, Check A 1.0000. Same BAM comparison holds; 0.75-1.09% of the reads removed; 0 orphans, 0 reads with a 5' clip. Filtered peaks 11-15 more for the 3 capped samples, 2,130 fewer for MCF7-LYFUL-2. Atlas 725,137 (726,727) |
 | POST run time with `KEEP_5P` | 28-43 s (hg38) and 48-62 s (b37), against 26-42 s and 43-54 s in test47 and test48 |
+| Proj_18143 v2.x-pre4, full size, 15 hg38 samples, MAPQ 10 (`fix/insert-filter`, control job 19401174), against v2.x-pre3 | `COMPLETED`; Checks A and B pass, Check A 1.0000. `MIN_INSERT_SIZE` 31 in every `___INS.txt` (pre3: 2), medians 123-176 bp (pre3: 24-165). postProcess reads 0.3-1.6% fewer in the BD6 and ED6 samples, 21-33% in BD1-2, BRAF and EV, 45-55% in BD1-1, BD1-3, ED1-1 and ED1-2. Filtered peaks 7-24% more in nine samples and ED1-1 doubled (141,868 to 299,408, the cap); TSS enrichment up 0.8-4.3 in those ten, within 0.06 in the five others. Atlas 652,442 (469,585) |
+| Proj_18143 v2.x-pre5, full size, same BAMs (`fix/5p-clip`, tag `v2.x-pre5`, control job 19429072), against v2.x-pre4 | `COMPLETED`; Checks A and B pass, Check A 1.0000. 0 reads with a 5' clip or `\|TLEN\| <= 30` in all 15 postProcess BAMs; 0.68-1.37% of the reads removed; `MIN_INSERT_SIZE` 31, medians within 1 bp of pre4; `FRAC_MITO` within 0.0007. Cut sites with 100 or more tags: ED1-1 14 and BD1-2 33 (pre4 92 and 101), all in the blacklisted `chr1:628903-635104`; the pre4 artifact rows (`chr3:167846595`, `chr5:128173804`, `chr18:69789710`, ...) are gone from ED1-1's top 20 counts. TSS enrichment -0.02 to +0.08. Filtered peaks 1,400-2,000 fewer per sample except the four at the cap; atlas 649,531 (652,442) |
+| POST run time, full size | pre5: the slowest jobs ran at 8-8.6 min/GB against `RATE_POST=6` (ED6-1, 9.8 GB, 1:18:32 in `SHORT`; ED6-2 1:13:13; BD6-2 1:12:04), the same as pre4 (ED6-1 77 min), so `KEEP_5P` added nothing measurable; BD1-2 (9.8 GB) took 0:30:07, so size predicts the time poorly. No job came near 1:59; `RATE_POST` unchanged |
 
 ### MACS2 `--shift -75 --keep-dup all` (v2.0.0)
 
@@ -490,8 +493,9 @@ earlier run are in parentheses.
 
 The downsampled BAMs have 0.3 to 0.9 million reads after filtering, so
 their 150,000 to 370,000 peaks at `-p 0.01` are mostly weak; the TSS
-figures are the least reliable of these comparisons. The full-size
-Proj_18143 run is the test that remains.
+figures are the least reliable of these comparisons. Full-size
+Proj_18143 runs with these settings followed (v2.x-pre3 to pre5,
+"Insert-size and 5' clip filters").
 
 ### Blacklist filter (v2.0.0)
 
@@ -561,7 +565,8 @@ every cell of the count matrix.
   `~/Code/BIC/Delivery`; not a scheduler change and not touched. It is
   `00.FIXME.md` #2.
 - The `RATE_*` values come from one project on one genome, and
-  `RATE_POST` was measured before POST name-sorted every BAM. Check
-  the `runClass` lines in the control log against `sacct` Elapsed on
-  new projects, and raise a rate if a job gets close to its walltime
-  (`00.FIXME.md` #1).
+  `RATE_POST` was measured before POST name-sorted every BAM. On the
+  full-size v2.x-pre5 run the slowest POST job took 1:18:32 in `SHORT`
+  (about 8.6 min/GB against `RATE_POST=6`). Check the `runClass` lines
+  in the control log against `sacct` Elapsed on new projects, and
+  raise a rate if a job gets close to its walltime.
