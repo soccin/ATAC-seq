@@ -114,9 +114,9 @@ for the largest sample), so its time depends on shared filesystem load
 as much as on the node.
 
 CPU requests are larger than the use. TotalCPU/Elapsed: CALLP about 1.2
-of 3 cores, TSSE 1.0 of 2, MergePeaks about 2 of 3 (00.ISSUES.md). Count
-with featureCounts v2.1.1 used 6.7 of its 8 cores on Proj_18143, so
-`-n 8` stays.
+of 3 cores, TSSE 1.0 of 2, MergePeaks about 2 of 3 (`00.FIXME.md`
+#18). Count with featureCounts v2.1.1 used 6.7 of its 8 cores on
+Proj_18143, so `-n 8` stays.
 
 ## Memory
 
@@ -199,10 +199,11 @@ PEMapper port:
 | `#ATAC_EXIT=<rc>` | `bin/runStage.sh` | last line of every stage log; every `bsub` goes through this runner |
 
 `STATUS=COMPLETED` is written only as the last action of `pipe.sh`, after a
-check that every sample has its bigWig, peak file, insert-size metrics and
-TSS enrichment (when the TSSE stage ran; it is skipped for builds without
-files in `R/TSSEnrich/lib/`, such as mm10) and that the atlas, count
-matrix, scale factors and QC PDFs exist. Any earlier exit runs the `EXIT` trap, which writes
+check that every sample has its bigWig, insert-size metrics,
+mitochondrial fraction, TSS enrichment and five peak files (MACS2's
+three and the two `blacklistFiltered` files), and that the atlas, count
+matrix and its `.summary`, count-check report, scale factors and QC PDFs
+exist. Any earlier exit runs the `EXIT` trap, which writes
 `STATUS=FAILED` with the stage and cancels the rest of the run's jobs.
 When the exit came from `bCheck`, the trap also puts the reason in
 `MESSAGE`: `bCheck` leaves the `sacct` rows of the failed jobs in
@@ -357,7 +358,7 @@ as did `bedtools intersect -u -split`, which took about 2.2 times as
 long.
 
 In test18 `MESSAGE` was empty; the Check A lines were only in the Count
-job log (`00.ISSUES.md` #7, fixed on `fix/message`, below).
+job log (#7 of `attic/00.ISSUES.md`, fixed on `fix/message`, below).
 
 ### `MESSAGE` on a failed stage (#7)
 
@@ -405,7 +406,7 @@ Done 2026-10-12. Scripts in
 ### Read filter: orphans out, no insert-size filter (v2.0.0)
 
 Done 2026-10-12 on `fix/read-filter` (C-06 and C-07 of
-`ENCODE_PIPE_CONCORDANCE.md`), against test39 and test40. Script
+`attic/ENCODE_PIPE_CONCORDANCE.md`), against test39 and test40. Script
 `/scratch/core001/bic/soccin/AFTER_ACTION_261011/read_filter/compareRuns.sh`
 compares two runs; per sample it counts the postProcess reads, the
 reads whose name is not there twice (orphans) and the reads with
@@ -463,13 +464,13 @@ test34, leaves MACS2's files as written and adds
 | test37 (hg38, as test35, control job 19260883) and test38 (b37, as test36, 19260884), `encode-2026` at `bb486a4`: adds the five-file deliverables check (`507116c`) and the one-`sort` atlas merge (`533308e`) | `COMPLETED`, 69 and 27 jobs; Checks A and B pass; same checks and results as test33/test34 |
 | Counts in the atlas rows that overlapped the blacklist | test27 0.28% of all counts, 2 of the 10 and 5 of the 100 rows with the most counts; test28 0.29%, 1 and 4; full-size Proj_18143 (v2.x-pre2) 1,376 of 654,370 rows, 0.43% of counts, 3 of the top 10, 7 of the top 100 |
 
-Not run: an mm10 pipeline (`00.ISSUES.md` #14). The mm10 blacklist was
+Not run: an mm10 pipeline (`00.FIXME.md` #4). The mm10 blacklist was
 checked only by `getBlacklists.sh` (md5, contigs in `mm10.genome`).
 
 ### Peak cap (v2.0.0)
 
 Done 2026-10-12 on `fix/peak-cap` (C-04 of
-`ENCODE_PIPE_CONCORDANCE.md`), against test37 and test38. Script
+`attic/ENCODE_PIPE_CONCORDANCE.md`), against test37 and test38. Script
 `/scratch/core001/bic/soccin/AFTER_ACTION_261011/peak_cap/compareWithEncode.sh`
 applies ENCODE's own commands (`encode_task_macs2_atac.py`,
 `bed_clip`, `encode_lib_blacklist_filter.py`) to each sample's MACS2
@@ -487,7 +488,7 @@ name.
 ### 1-based atlas start (v2.0.0)
 
 Done 2026-10-12 on `fix/saf-start` (C-17 of
-`ENCODE_PIPE_CONCORDANCE.md`), against test39 and test40. Script
+`attic/ENCODE_PIPE_CONCORDANCE.md`), against test39 and test40. Script
 `/scratch/core001/bic/soccin/AFTER_ACTION_261011/read_filter/compareRuns.sh`
 compares two runs: BAMs, shifted BEDs, filtered peaks, the atlas and
 every cell of the count matrix.
@@ -504,6 +505,8 @@ every cell of the count matrix.
 - `deliverResults.sh` still points at `/ifs/res/seq/pi/invest` and
   `~/Code/BIC/Delivery`; not a scheduler change and not touched. It is
   `00.FIXME.md` #2.
-- The `RATE_*` values come from one project on one genome. Check the
-  `runClass` lines in the control log against `sacct` Elapsed on new
-  projects, and raise a rate if a job gets close to its walltime.
+- The `RATE_*` values come from one project on one genome, and
+  `RATE_POST` was measured before POST name-sorted every BAM. Check
+  the `runClass` lines in the control log against `sacct` Elapsed on
+  new projects, and raise a rate if a job gets close to its walltime
+  (`00.FIXME.md` #1).
