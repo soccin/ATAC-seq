@@ -7,8 +7,9 @@ The results are delivered in one folder, `atacSeq`, with four parts.
 peak atlas of the project and the raw count matrix over it, which is
 the input to any normalization or differential analysis. `bigwig`
 holds a normalized signal track per sample for a genome browser.
-`metrics` holds the QC metrics and plots. How each file was made is
-described in `methods.md`.
+`metrics` holds the QC metrics and plots. Projects with replicates
+have a fifth part, `diff`, with the differential accessibility
+analysis. How each file was made is described in `methods.md`.
 
 In the names below, `<sample>` is the sample ID of the BAM and `<no>`
 is the project number (for example `18143`). Coordinates are 0-based
@@ -34,15 +35,18 @@ atacSeq
 │       ├── <sample>_postProcess.shifted_peaks.xls
 │       ├── <sample>_postProcess.shifted_peaks.blacklistFiltered.narrowPeak
 │       └── <sample>_postProcess.shifted_summits.blacklistFiltered.bed
-└── metrics
-    ├── Proj_<no>__postInsDistribution.pdf
-    ├── Proj_<no>__ATACSeqQC.pdf
-    ├── <sample>_postProcess___INS.txt
-    ├── <sample>_postProcess___INS.pdf
-    ├── <sample>_postProcess___MITO.txt
-    ├── <sample>_postProcess.tss_enrich.csv
-    ├── <sample>_postProcess.tss_enrich.pdf
-    └── <sample>_postProcess.large_tss_enrich.png
+├── metrics
+│   ├── Proj_<no>__postInsDistribution.pdf
+│   ├── Proj_<no>__ATACSeqQC.pdf
+│   ├── <sample>_postProcess___INS.txt
+│   ├── <sample>_postProcess___INS.pdf
+│   ├── <sample>_postProcess___MITO.txt
+│   ├── <sample>_postProcess.tss_enrich.csv
+│   ├── <sample>_postProcess.tss_enrich.pdf
+│   └── <sample>_postProcess.large_tss_enrich.png
+└── diff                      (projects with replicates only)
+    ├── Proj_<no>__DiffPeaksEdgeR_V4.xlsx
+    └── Proj_<no>__DiffPeaks_V4.pdf
 ```
 
 The filtered BAM files (`<sample>_postProcess.bam`) are not delivered.
@@ -240,8 +244,8 @@ signal at every TSS, sorted by signal, with the mean profile above it.
 ## Differential Accessibility
 
 For projects with replicates, pairwise comparisons between groups are
-delivered as two more files, named with the project number and, when
-one was used, a run tag:
+delivered in the `diff` folder as two files, named with the project
+number and, when one was used, a run tag:
 
 - `Proj_<no>__DiffPeaksEdgeR_V4.xlsx`: one `Summary` sheet with the
   number of significant regions per comparison, then one sheet per
@@ -265,18 +269,10 @@ differential analysis.
 <!--
 DRAFT NOTES (remove before delivery)
 
-- scaleFactorsDESeq2.csv, peaks_raw_fcCounts.checks.txt and
-  sampleManifest.csv are not staged to atacSeq/ (00.FIXME.md #16).
-  If the scale factors are to be delivered, add a section: columns
-  are the BAM path (unnamed first column) and scaleFactor, the
-  reciprocal of the DESeq2 size factor; normalized = raw * scaleFactor.
-- The summits.bed 5th column: MACS2 writes the peak score there
-  (-log10 p with -p); check on a real file before delivery.
-- The diff output names assume no RUNTAG (cc() joins with "_", so an
-  empty tag gives the double underscore); with a tag they are
-  Proj_<no>_<tag>_DiffPeaksEdgeR_V4.xlsx.
-- The narrowPeak "letter suffix" wording for --call-summits: MACS2
-  names multi-summit peaks <prefix>_peak_12a, _12b; verify on output.
-- Where the diff files are delivered (atacSeq/ or beside it) is not
-  fixed; deliverResults.sh is not ported (00.FIXME.md #2).
+- scaleFactorsDESeq2.csv is not staged to atacSeq/ (00.FIXME.md #16).
+  When it is, add a section: columns are the BAM path (unnamed first
+  column) and scaleFactor, the reciprocal of the DESeq2 size factor;
+  normalized = raw * scaleFactor.
+- The diff file names assume no RUNTAG (the double underscore); with a
+  tag they are Proj_<no>_<tag>_DiffPeaksEdgeR_V4.xlsx (00.FIXME.md #16).
 -->

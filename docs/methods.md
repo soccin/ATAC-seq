@@ -124,17 +124,28 @@ bp, as in the ENCODE pipeline, and plotted for all samples, to show
 the nucleosome-free and nucleosomal fragment populations. Its smallest
 insert is 31 bp, because of the insert filter above. The
 mitochondrial fraction is the number of reads on the mitochondrial
-contig divided by all reads of the filtered BAM. TSS enrichment was
-computed with an R port of ENCODE's `encode_task_tss_enrich.py`: the
-coverage of the shifted reads in a window of 2 kb on each side of
-every unique protein-coding TSS (ENCODE's TSS sets: GENCODE v24 for
-hg38, v19 for b37, vM7 for mm10), averaged over TSSs in 400 bins and
-divided by the mean coverage of the outer 100 bp on each side; the
-score is the maximum of this profile. ENCODE's reading of the score is
-given with the output. The fraction of fragments in the atlas and a
-principal component analysis of the samples (edgeR TMM-normalized
-log2 CPM over the atlas, after filterByExpr) were plotted from the
-count matrix.
+contig divided by all reads of the filtered BAM, so it is computed
+after duplicate removal; ENCODE computes its fraction on all
+alignments before filtering, and because mitochondrial reads are
+highly duplicated the fraction here is the lower of the two. TSS
+enrichment was computed with an R port of ENCODE's
+`encode_task_tss_enrich.py`: the coverage of the shifted reads in a
+window of 2 kb on each side of every unique protein-coding TSS,
+averaged over TSSs in 400 bins and divided by the mean coverage of the
+outer 100 bp on each side; the score is the maximum of this profile.
+The TSS sets are the GENCODE v24 (hg38), v19 (b37) and vM7 (mm10)
+sets of the ENCODE pipeline; ENCODE's cutoffs for the score, given
+with the output, were set on these annotations and are a guide. The
+fraction of fragments in peaks is the number of fragments
+featureCounts assigned to the atlas divided by all fragments of the
+filtered BAM, taken from the featureCounts summary. It measures the
+same thing as ENCODE's FRiP, signal against background, but is a
+different quantity: the regions are the merged atlas of all samples
+rather than the sample's own peaks, and the denominator includes
+mitochondrial fragments, so it is not comparable to ENCODE's FRiP
+cutoffs. It and a principal component analysis of the samples (edgeR
+TMM-normalized log2 CPM over the atlas, after filterByExpr) were
+plotted from the count matrix.
 
 **Differential accessibility.** When the design has replicates,
 pairwise comparisons between groups were tested with edgeR (Robinson
@@ -169,23 +180,8 @@ region of 5 kb on each side.
 <!--
 DRAFT NOTES (remove before delivery)
 
-- The Picard, bedtools and wigToBigWig versions are the ones on IRIS
-  on 2026-09/10 (docs/SLURM_PORT.md, PEMapper VERSIONS.md). The
-  pipeline does not yet record them per run (00.FIXME.md #24). The
-  wigToBigWig build is assumed to be v369 like bedClip; check.
-- DESeq2, edgeR and ChIPseeker versions are not recorded; add them
-  from sessionInfo() of the run, or drop the row.
-- The "fraction of fragments in the atlas" is not ENCODE's FRiP
-  (00.FIXME.md #6); worded accordingly.
-- The mitochondrial fraction is after filtering, unlike ENCODE's
-  (00.FIXME.md #7); worded accordingly.
-- The 5' soft-clip filter and the 30 bp insert filter are not in the
-  v2.0.0 tag this document links to; they are in devs (v2.x-pre4 has
-  the insert filter; the 5' clip filter is in FIX_5pCLIP.md, not yet
-  merged). Update the version and the link when they are released.
-- The TSS sets are ENCODE's v1 GENCODE files, not the v3 files the
-  current ENCODE pipeline uses (00.FIXME.md #23); the annotation
-  versions are given so the thresholds can be read as a guide.
+- Tool versions to confirm on the cluster, and the DESeq2, edgeR and
+  ChIPseeker versions to add: see docs/NEED_VERSION.md.
 -->
 
 ## References
