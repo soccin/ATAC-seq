@@ -63,6 +63,20 @@ any v1.x run may be wrong for one or more samples.
   and `chrM`, built by `lib/genomes/getBlacklists.sh`
   (`docs/GENOMES.md`). `pipe.sh` stops if the genome's blacklist is
   missing.
+- **Each sample keeps at most its 300,000 strongest peaks**, as in the
+  ENCODE ATAC-seq pipeline (`encode_task_macs2_atac.py`). Before the
+  blacklist filter, `callPeaks_ATACSeq.sh` now sorts MACS2's peaks by
+  `-log10 p`, keeps the top 300,000, clamps negative coordinates to 0
+  and clips peak ends to the contig ends (`bin/bedClip -truncate`,
+  the UCSC v369 build ENCODE uses). The blacklist filter is applied
+  to that set, so `*_peaks.blacklistFiltered.narrowPeak` and its
+  summits now hold at most 300,000 peaks, sorted by p-value. MACS2's
+  own files are unchanged, and the peaks keep MACS2's names (ENCODE
+  renames them `Peak_N`). On the full-size Proj_18143 run (old MACS2
+  settings) 9 of 15 samples had more than 300,000 peaks, up to
+  396,453. On the downsampled tests, no hg38 sample reached the cap;
+  3 of 4 b37 samples did, and the b37 atlas went from 758,830 to
+  727,125 peaks.
 - The `.summary` file has the 2.x status rows: `Unassigned_Read_Type` and
   `Unassigned_Singleton` are new, `Unassigned_Nonjunction` is now
   `Unassigned_NonSplit`, and the row order changed. The R reports keep

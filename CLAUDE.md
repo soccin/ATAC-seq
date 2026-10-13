@@ -108,12 +108,15 @@ paths `/ifs/res/seq/pi/invest` and `~/Code/BIC/Delivery`. Deliver the
    settings, `--nomodel --shift -75 --extsize 150 --keep-dup all
    --call-summits -p 0.01` (until v2.0.0 `--shift 75` and the default
    `--keep-dup 1`). MACS2's files in `callpeaks/<PREFIX>/` are left as
-   written; the peaks not overlapping `lib/genomes/<TAG>.blacklist.bed`
-   (scores capped at 1000, as ENCODE does) and their summits are
-   written beside them as `*_peaks.blacklistFiltered.narrowPeak` and
-   `*_summits.blacklistFiltered.bed`. Never overwrite or replace a
-   primary tool's output; write derived files under a new, readable
-   name
+   written. Then ENCODE's steps, in its order: sort by `-log10 p`, keep
+   the top 300,000, clamp negative coordinates, clip to the contig ends
+   (`bin/bedClip -truncate`), drop the peaks overlapping
+   `lib/genomes/<TAG>.blacklist.bed` and cap the score at 1000. The
+   result and its summits are written beside MACS2's files as
+   `*_peaks.blacklistFiltered.narrowPeak` and
+   `*_summits.blacklistFiltered.bed`; peaks keep MACS2's names (ENCODE
+   renames them `Peak_N`). Never overwrite or replace a primary tool's
+   output; write derived files under a new, readable name
 4. `mergePeaksToSAF.sh GENOME callpeaks` — merge all
    `*_peaks.blacklistFiltered.narrowPeak` (never MACS2's
    `*_peaks.narrowPeak`) within 500bp into `macsPeaksMerged.saf` (the
@@ -267,9 +270,14 @@ tool with its own temp-dir option gets `$TMPDIR` or a scratch dir, never
 its default. R is the 4.5.1
 on PATH; `tss_enrich.R` needs `optparse`.
 
-`bin/featureCounts`, `bin/wigToBigWig`, and `bin/bedGraphToBigWig` are
-vendored Linux x86-64 binaries — they will not run on macOS, so anything
-invoking them can only be tested on the cluster. `bin/featureCounts` is
+`bin/featureCounts`, `bin/wigToBigWig`, `bin/bedGraphToBigWig` and
+`bin/bedClip` are vendored Linux x86-64 binaries — they will not run on
+macOS, so anything invoking them can only be tested on the cluster.
+`bin/bedClip` is the
+UCSC v369 build that ENCODE installs
+(<https://hgdownload.soe.ucsc.edu/admin/exe/linux.x86_64.v369/bedClip>,
+md5 `7b4d41d51a340f8641e6786383136c63`); the current UCSC build needs
+glibc 2.34 and IRIS has 2.28. `bin/featureCounts` is
 subread v2.1.1, statically linked, md5
 `0eff90d8e30311160dbddda542f17383`, from
 `subread-2.1.1-Linux-x86_64.tar.gz` (md5

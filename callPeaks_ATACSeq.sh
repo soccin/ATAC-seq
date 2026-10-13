@@ -126,13 +126,32 @@ if [ "$MACS_ERROR" != "0" ]; then
 fi
 
 #
-# Blacklist filter, as ENCODE's encode_lib_blacklist_filter.py does for
-# every peak set: drop each peak that overlaps a blacklisted region and
-# cap the score (column 5) at 1000. MACS2's own files are left as they
-# are; the filtered peaks, and the summits of the peaks kept (matched by
-# peak name), are written beside them as *.blacklistFiltered.*. The
-# atlas, and so the counts, use only the blacklistFiltered peaks.
+# ENCODE's steps after MACS2 (encode_task_macs2_atac.py), then its
+# blacklist filter (encode_lib_blacklist_filter.py, run on that result
+# by encode_task_post_call_peak_atac.py):
 #
+#   1. sort by -log10 p (column 8), highest first
+#   2. clamp a negative start or end to 0; a missing summit (column 10
+#      -1) becomes the peak center
+#   3. keep the top 300,000 peaks
+#   4. clip to the contig ends: UCSC bedClip -truncate, the v369 build
+#      ENCODE installs (scripts/install_conda_env.sh)
+#   5. drop each peak that overlaps a blacklisted region and cap the
+#      score (column 5) at 1000
+#
+# ENCODE also renames the peaks Peak_1, Peak_2, ...; here they keep
+# MACS2's names, so each still matches its summit and its .xls row. In
+# step 2 ENCODE writes the peak center as a contig position; column 10
+# is an offset from the start, so it is written as one here. MACS2 with
+# --call-summits does not write -1, so neither form has been used.
+#
+# MACS2's own files are left as they are. The result, and the summits
+# of the peaks kept (matched by peak name), are written beside them as
+# *.blacklistFiltered.*. The atlas, and so the counts, use only the
+# blacklistFiltered peaks.
+#
+
+MAX_PEAKS=300000
 
 RAW_PEAKS=$ODIR/${PREFIX}_peaks.narrowPeak
 RAW_SUMMITS=$ODIR/${PREFIX}_summits.bed
@@ -147,7 +166,41 @@ for F in $RAW_PEAKS $RAW_SUMMITS; do
     fi
 done
 
-bedtools intersect -nonamecheck -v -a $RAW_PEAKS -b $BLACKLIST \
+LC_ALL=C sort -k8,8gr -T "$TMPDIR" $RAW_PEAKS \
+  | awk 'BEGIN {OFS = "\t"}
+         {
+             if ($2 < 0) $2 = 0
+             if ($3 < 0) $3 = 0
+             if ($10 == -1) $10 = int(($3 - $2 + 1) / 2)
+             print
+         }' \
+  > $TDIR/sorted.narrowPeak \
+  || { echo "FATAL ERROR: sort of $RAW_PEAKS failed"; rm -rf $TDIR; exit 1; }
+
+#
+# head on its own: in a pipe, sort and awk would be stopped by SIGPIPE
+# when head exits, and pipefail would report that as a failure.
+#
+head -n $MAX_PEAKS $TDIR/sorted.narrowPeak > $TDIR/top.narrowPeak \
+  || { echo "FATAL ERROR: cap of $RAW_PEAKS failed"; rm -rf $TDIR; exit 1; }
+
+$SDIR/bin/bedClip $TDIR/top.narrowPeak $GENOME_FILE $TDIR/clipped.narrowPeak \
+    -truncate -verbose=2 \
+  || { echo "FATAL ERROR: bedClip of $RAW_PEAKS failed"; rm -rf $TDIR; exit 1; }
+
+#
+# bedClip -truncate turns a peak that lies wholly past the contig end
+# into start > end, and exits 0. MACS2 cannot call one (a peak holds
+# reads on the contig); stop if it ever happens.
+#
+NBAD=$(awk '$2 >= $3' $TDIR/clipped.narrowPeak | wc -l)
+if [ "$NBAD" != "0" ]; then
+    echo "FATAL ERROR: $NBAD peaks of $RAW_PEAKS are past their contig end"
+    rm -rf $TDIR
+    exit 1
+fi
+
+bedtools intersect -nonamecheck -v -a $TDIR/clipped.narrowPeak -b $BLACKLIST \
   | awk 'BEGIN {OFS = "\t"} {if ($5 > 1000) $5 = 1000; print}' \
   > $BL_PEAKS \
   || { echo "FATAL ERROR: blacklist filter of $RAW_PEAKS failed"; rm -rf $TDIR; exit 1; }
@@ -156,8 +209,9 @@ awk 'NR == FNR {keep[$4] = 1; next} $4 in keep' $BL_PEAKS $RAW_SUMMITS \
   > $BL_SUMMITS \
   || { echo "FATAL ERROR: summit filter failed"; rm -rf $TDIR; exit 1; }
 
-echo "blacklist $BLACKLIST: kept $(wc -l <$BL_PEAKS)" \
-     "of $(wc -l <$RAW_PEAKS) peaks"
+echo "peaks of $PREFIX: MACS2 $(wc -l <$RAW_PEAKS)," \
+     "top $(wc -l <$TDIR/top.narrowPeak) (cap $MAX_PEAKS)," \
+     "kept $(wc -l <$BL_PEAKS) after blacklist $BLACKLIST"
 
 rm -rf $TDIR
 
