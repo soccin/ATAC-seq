@@ -105,11 +105,17 @@ echo $TDIR
 
 # f 3 ==> paired, proper pair
 # F 1804 ==> unmapped, mate unmapped, not primary, fails QC, duplicate
-# Also remove reads that have an Insert Size <= 30
 #
-samtools view -h -q $MAPQ -f 3 -F 1804 $IBAM \
-    | awk 'substr($0,1,1)=="@" || sqrt($9*$9)>30' \
-    | samtools view -Sb - >$TDIR/step1.bam \
+# ENCODE's filter (encode_task_filter.py): MAPQ and flags, then
+# samtools fixmate -r on the name-sorted reads, which clears the proper
+# pair flag of a read whose mate was removed, and the flag filter again,
+# which removes it. Until v2.0.0 such orphans were kept, and pairs with
+# |TLEN| <= 30 were removed; ENCODE has no such filter.
+#
+samtools view -u -q $MAPQ -f 3 -F 1804 $IBAM \
+    | samtools sort -n -m 4G -T $TMPDIR/nsort -u - \
+    | samtools fixmate -r - - \
+    | samtools view -b -f 3 -F 1804 -o $TDIR/step1.bam - \
     || { echo "FATAL ERROR: filter step failed"; exit 1; }
 
 picard SortSam I=$TDIR/step1.bam O=$OBAM SO=coordinate MAX_RECORDS_IN_RAM=5000000 \

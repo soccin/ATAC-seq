@@ -13,8 +13,8 @@
 #   -Q MAPQ              the MAPQ of postMapBamProcessing_ATACSeq.sh
 #   --tmpDir "$TMPDIR"   node-local per-job directory (bin/runStage.sh)
 #
-# Defaults that matter: singletons count as fragments (no -B), chimeric
-# pairs count (no -C), multimappers do not.
+# Defaults that matter: singletons count as fragments (no -B; POST
+# leaves none), chimeric pairs count (no -C), multimappers do not.
 #
 # featureCounts v1.6.0, used until v2.0.0, sometimes did not pair the
 # reads of one input file when run with several threads on several BAMs,

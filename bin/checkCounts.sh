@@ -18,8 +18,9 @@
 #   pairs  mapped reads / 2, from samtools idxstats (needs the .bai)
 #
 # and frag / pairs must be within CHECKA_MIN to CHECKA_MAX. A correct
-# count gives 1.000 to 1.004 (the excess is singletons whose mate failed
-# the MAPQ filter). A BAM whose reads were not paired gives 2.0: the
+# count gives 1.000: POST keeps both reads of every pair (until v2.0.0
+# it kept a read whose mate failed the MAPQ filter, and correct counts
+# gave 1.000 to 1.004). A BAM whose reads were not paired gives 2.0: the
 # featureCounts 1.6.0 bug, or 2.x run with -p but without
 # --countReadPairs.
 #

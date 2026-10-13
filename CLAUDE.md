@@ -98,7 +98,10 @@ paths `/ifs/res/seq/pi/invest` and `~/Code/BIC/Delivery`. Deliver the
 ## Pipeline stages (pipe.sh)
 
 1. `postMapBamProcessing_ATACSeq.sh` — MAPQ + flag filter (`-f 3 -F 1804`),
-   drop inserts <=30bp, Picard SortSam + CollectInsertSizeMetrics, then
+   then ENCODE's `samtools fixmate -r` on the name-sorted reads and the
+   flag filter again, which removes a read whose mate failed (until
+   v2.0.0 such orphans were kept, and inserts <=30bp were dropped,
+   which ENCODE does not do), Picard SortSam + CollectInsertSizeMetrics, then
    bamToBed with the Tn5 shift (+4 on `+`, -5 on `-`), keeping only the
    contigs of `lib/genomes/<TAG>.genome` → `*.shifted.bed.gz`; also the
    mitochondrial fraction → `*___MITO.txt`
@@ -195,7 +198,8 @@ and can be run by hand from an analysis directory to audit a run.
 - **Check A (pairing)**, in the Count job: each sample's fragment total
   (the sum of every `.summary` row, not rows picked by name) divided by
   mapped reads / 2 (`samtools idxstats`, so Count waits for Index) must
-  be within 0.95 to 1.05. Correct runs give 1.000 to 1.005; an unpaired
+  be within 0.95 to 1.05. Correct runs give 1.000 (1.000 to 1.005
+  until v2.0.0, when POST kept orphan reads); an unpaired
   BAM, or featureCounts 2.x with `-p` but without `--countReadPairs`,
   gives 2.0.
 - **Check B (independent count)**: `bin/assignedCheck.sh` counts the
