@@ -113,6 +113,35 @@ and I/O bound (TotalCPU close to Elapsed; it read 120 GB and wrote 102 GB
 for the largest sample), so its time depends on shared filesystem load
 as much as on the node.
 
+The rates were checked on the full-size Proj_18143 v2.x-pre5 run (15
+hg38 samples, input BAMs 6.2 to 10.7 GB, control job 19429072,
+2026-10-13), against the `runClass` lines of its control log. Every
+job `COMPLETED`; none reached `OUT_OF_MEMORY` or `TIMEOUT`. Measured
+rates for BW, CALLP and TSSE are from the inputs of 0.8 GB or more;
+on smaller ones the fixed start-up time dominates.
+
+| Stage | Largest estimate | Elapsed (max) | Measured min/GB | `RATE_*` | MaxRSS (max) / cap |
+| --- | --- | --- | --- | --- | --- |
+| POST | 64 min (`LONG`) | 1:18:32 (ED6-1, `SHORT`) | 1.3 to 8.7 | 6 | 32.0G / 32G |
+| BW | 36 min | 0:30:38 | 20.6 to 25.5 | 30 | 15.5G / 24G |
+| CALLP | 12 min | 0:08:55 | 7.2 to 7.6 | 10 | 7.9G / 18G |
+| TSSE | 18 min | 0:14:38 | 2.2 to 3.1 | 3.5 | 3.2G / 32G |
+| Count | 3 min | 0:01:47 | 0.05 | 0.1 | 14.0G / 24G |
+| CountCheck | 8 min | 0:05:52 | 0.83 to 1.13 | 1.5 | 8.0G / 12G |
+| Index | | 0:01:25 | | always `SHORT` | 4.0G / 4G |
+| MergePeaks | | 0:00:38 | | always `SHORT` | 1.1G / 24G |
+| DESEQ | | 0:00:15 | | always `SHORT` | 1.1G / 24G |
+| control job | | 2:13:11 | | `#SBATCH`, 3 days | 1.3G / 16G |
+
+Only POST ran slower than its estimate: five samples (BD6-1 to BD6-3,
+ED6-1, ED6-2) ran at 8.0 to 8.7 min/GB, the others at 1.3 to 3.2, so
+input size predicts its time poorly. The margin covers it: `runClass`
+sends a POST job to `SHORT` only for an input of at most 10 GB, which
+at 8.7 min/GB takes 87 min against the 1:59 limit. Every other stage ran within its estimate. The
+MaxRSS values include the file cache (next section): POST at its cap
+in 9 of 15 jobs and Index in 4 of 15, as on v2.x-pre2, and all
+completed.
+
 CPU requests are larger than the use. TotalCPU/Elapsed: CALLP about 1.2
 of 3 cores, TSSE 1.0 of 2, MergePeaks about 2 of 3 (`00.FIXME.md`
 #18). Count with featureCounts v2.1.1 used 6.7 of its 8 cores on
