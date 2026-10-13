@@ -40,8 +40,9 @@ four parts. <code>macs</code> holds the peaks called for each sample.
 raw count matrix over it, which is the input to any normalization or
 differential analysis. <code>bigwig</code> holds a normalized signal
 track per sample for a genome browser. <code>metrics</code> holds the QC
-metrics and plots. How each file was made is described in
-<code>methods.md</code>.</p>
+metrics and plots. Projects with replicates have a fifth part,
+<code>diff</code>, with the differential accessibility analysis. How
+each file was made is described in <code>methods.md</code>.</p>
 <p>In the names below, <code>&lt;sample&gt;</code> is the sample ID of
 the BAM and <code>&lt;no&gt;</code> is the project number (for example
 <code>18143</code>). Coordinates are 0-based with an exclusive end (BED
@@ -63,15 +64,18 @@ mitochondrial, unplaced and other contigs are left out.</p>
 │       ├── &lt;sample&gt;_postProcess.shifted_peaks.xls
 │       ├── &lt;sample&gt;_postProcess.shifted_peaks.blacklistFiltered.narrowPeak
 │       └── &lt;sample&gt;_postProcess.shifted_summits.blacklistFiltered.bed
-└── metrics
-    ├── Proj_&lt;no&gt;__postInsDistribution.pdf
-    ├── Proj_&lt;no&gt;__ATACSeqQC.pdf
-    ├── &lt;sample&gt;_postProcess___INS.txt
-    ├── &lt;sample&gt;_postProcess___INS.pdf
-    ├── &lt;sample&gt;_postProcess___MITO.txt
-    ├── &lt;sample&gt;_postProcess.tss_enrich.csv
-    ├── &lt;sample&gt;_postProcess.tss_enrich.pdf
-    └── &lt;sample&gt;_postProcess.large_tss_enrich.png</code></pre>
+├── metrics
+│   ├── Proj_&lt;no&gt;__postInsDistribution.pdf
+│   ├── Proj_&lt;no&gt;__ATACSeqQC.pdf
+│   ├── &lt;sample&gt;_postProcess___INS.txt
+│   ├── &lt;sample&gt;_postProcess___INS.pdf
+│   ├── &lt;sample&gt;_postProcess___MITO.txt
+│   ├── &lt;sample&gt;_postProcess.tss_enrich.csv
+│   ├── &lt;sample&gt;_postProcess.tss_enrich.pdf
+│   └── &lt;sample&gt;_postProcess.large_tss_enrich.png
+└── diff                      (projects with replicates only)
+    ├── Proj_&lt;no&gt;__DiffPeaksEdgeR_V4.xlsx
+    └── Proj_&lt;no&gt;__DiffPeaks_V4.pdf</code></pre>
 <p>The filtered BAM files (<code>&lt;sample&gt;_postProcess.bam</code>)
 are not delivered. If you need them, please contact us.</p>
 <h2 id="peaks-macs">Peaks (<code>macs</code>)</h2>
@@ -340,8 +344,8 @@ of the signal at every TSS, sorted by signal, with the mean profile
 above it.</p>
 <h2 id="differential-accessibility">Differential Accessibility</h2>
 <p>For projects with replicates, pairwise comparisons between groups are
-delivered as two more files, named with the project number and, when one
-was used, a run tag:</p>
+delivered in the <code>diff</code> folder as two files, named with the
+project number and, when one was used, a run tag:</p>
 <ul>
 <li><code>Proj_&lt;no&gt;__DiffPeaksEdgeR_V4.xlsx</code>: one
 <code>Summary</code> sheet with the number of significant regions per
@@ -367,20 +371,12 @@ the differential analysis.</p>
 <!--
 DRAFT NOTES (remove before delivery)
 
-- scaleFactorsDESeq2.csv, peaks_raw_fcCounts.checks.txt and
-  sampleManifest.csv are not staged to atacSeq/ (00.FIXME.md #16).
-  If the scale factors are to be delivered, add a section: columns
-  are the BAM path (unnamed first column) and scaleFactor, the
-  reciprocal of the DESeq2 size factor; normalized = raw * scaleFactor.
-- The summits.bed 5th column: MACS2 writes the peak score there
-  (-log10 p with -p); check on a real file before delivery.
-- The diff output names assume no RUNTAG (cc() joins with "_", so an
-  empty tag gives the double underscore); with a tag they are
-  Proj_<no>_<tag>_DiffPeaksEdgeR_V4.xlsx.
-- The narrowPeak "letter suffix" wording for --call-summits: MACS2
-  names multi-summit peaks <prefix>_peak_12a, _12b; verify on output.
-- Where the diff files are delivered (atacSeq/ or beside it) is not
-  fixed; deliverResults.sh is not ported (00.FIXME.md #2).
+- scaleFactorsDESeq2.csv is not staged to atacSeq/ (00.FIXME.md #16).
+  When it is, add a section: columns are the BAM path (unnamed first
+  column) and scaleFactor, the reciprocal of the DESeq2 size factor;
+  normalized = raw * scaleFactor.
+- The diff file names assume no RUNTAG (the double underscore); with a
+  tag they are Proj_<no>_<tag>_DiffPeaksEdgeR_V4.xlsx (00.FIXME.md #16).
 -->
 </body>
 </html>
