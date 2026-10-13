@@ -34,8 +34,15 @@ if [ -z "$(find $MACS_OUTDIR -name "$PATTERN")" ]; then
     exit 1
 fi
 
-find $MACS_OUTDIR -name "$PATTERN" \
-    | xargs sort -S 16g -T "$TMPDIR" -k1,1V -k2,2n \
+#
+# bedtools merge needs the peaks of all samples sorted as one stream.
+# One sort reads every file, its names given on stdin (--files0-from),
+# not as arguments: xargs would split a long file list into several
+# sorts, each sorted on its own, and merge would stop at the first
+# out-of-order peak.
+#
+find $MACS_OUTDIR -name "$PATTERN" -print0 \
+    | sort -S 16g -T "$TMPDIR" -k1,1V -k2,2n --files0-from=- \
     | bedtools merge -i - -d 500 \
     | bedtools subtract -nonamecheck -a - -b $BLACKLIST \
     | awk '{print "Peak_"++s,$0,"+"}' | tr ' ' '\t'

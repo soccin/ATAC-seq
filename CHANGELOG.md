@@ -188,6 +188,12 @@ any v1.x run may be wrong for one or more samples.
   (measured 0.79 to 1.02).
 - `docs/SLURM_PORT.md` has a new "Memory" section with what each stage
   really allocates, measured without file cache.
+- `mergePeaksToSAF.sh` sorts every sample's peaks in one `sort`, which
+  reads the file names from `find -print0` (`--files0-from`). It used
+  `find | xargs sort`: past about 128 KB of file names (roughly 1,000
+  samples) xargs ran several sorts, `bedtools merge` stopped at the
+  first out-of-order peak, and the run failed; a space in a sample
+  name split the file name and failed the run too.
 
 ### Not tested
 
