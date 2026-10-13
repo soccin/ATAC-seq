@@ -18,7 +18,8 @@
 #     atacSeq/docs and the differential analysis files of the project
 #     (Proj_<no>_*_DiffPeaksEdgeR_V4.xlsx, Proj_<no>_*_DiffPeaks_V4.pdf),
 #     if any, in atacSeq/diff;
-#   - writes the delivery email to deliveryEmail_<no>_r_NNN_<yymmdd>.txt;
+#   - writes the delivery email to deliveryEmail_<no>_r_NNN_<yymmdd>.txt,
+#     with the release of VERSION.md of this checkout;
 #   - registers the run with the permissions database.
 #
 #   -d, --default   deliver to DROOT/<pi>/<invest>/Proj_<no>, taken
@@ -174,10 +175,9 @@ getKey() {
 
 GENOME=$(getKey GENOME)
 MAPQ=$(getKey MAPQ)
-RUN_VERSION=$(getKey VERSION)
-for key in GENOME MAPQ RUN_VERSION; do
+for key in GENOME MAPQ; do
     if [[ -z "${!key}" ]]; then
-        fatal "no ${key#RUN_}= in $STATUSF"
+        fatal "no $key= in $STATUSF"
     fi
 done
 
@@ -187,28 +187,12 @@ fi
 PROJNO=${PROJ#Proj_}
 
 #
-# The email names the release the run was made with: VERSION is
-# git describe --long, TAG-N-gSHA. Anything but a vX.Y.Z tag with N=0
-# needs the version and the doc links in the email fixed by hand.
+# The email and its doc links name the release of VERSION.md of this
+# checkout, whose docs are delivered; it changes only when a release
+# is made, never with git.
 #
-if [[ "$RUN_VERSION" =~ ^(.+)-([0-9]+)-g[0-9a-f]+$ ]]; then
-    VERSION=${BASH_REMATCH[1]}
-    NAHEAD=${BASH_REMATCH[2]}
-else
-    VERSION=$RUN_VERSION
-    NAHEAD=""
-fi
-if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ || "$NAHEAD" != "0" ]]; then
-    warn "run version $RUN_VERSION is not a release; fix the version and the doc links in the email"
-fi
-
-#
-# pipe.sh writes VERSION with the same git describe flags.
-#
-if ! SDIR_VERSION=$(git -C "$SDIR" describe --always --long); then
-    warn "cannot get the version of $SDIR; the docs delivered may not match run $RUN_VERSION"
-elif [[ "$SDIR_VERSION" != "$RUN_VERSION" ]]; then
-    warn "the docs delivered are from $SDIR_VERSION ($SDIR), the run is $RUN_VERSION"
+if ! VERSION=$("$SDIR/bin/getRelease.sh"); then
+    fatal "no release in $SDIR/VERSION.md"
 fi
 
 DOCS=("$SDIR/docs/output.pdf" "$SDIR/docs/methods.pdf")
@@ -277,7 +261,7 @@ DEST=$ODIR/$CURRDIR
 echo "PROJECT=$PROJNO"
 echo "GENOME=$GENOME"
 echo "MAPQ=$MAPQ"
-echo "VERSION=$VERSION ($RUN_VERSION)"
+echo "VERSION=$VERSION"
 echo "ODIR=$ODIR"
 echo "CURRDIR=$CURRDIR"
 if [[ -e "$DEST" ]]; then
