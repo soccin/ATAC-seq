@@ -100,8 +100,12 @@ paths `/ifs/res/seq/pi/invest` and `~/Code/BIC/Delivery`. Deliver the
 1. `postMapBamProcessing_ATACSeq.sh` — MAPQ + flag filter (`-f 3 -F 1804`),
    then ENCODE's `samtools fixmate -r` on the name-sorted reads and the
    flag filter again, which removes a read whose mate failed (until
-   v2.0.0 such orphans were kept, and inserts <=30bp were dropped,
-   which ENCODE does not do), Picard SortSam + CollectInsertSizeMetrics, then
+   v2.0.0 such orphans were kept), with pairs of insert <=30bp dropped
+   in the same step. ENCODE has no insert filter; keep this one: in
+   Proj_18143 such fragments were up to 55% of a sample's and 98% of
+   them lay in peaks (`docs/SLURM_PORT.md`, "Insert-size filter").
+   Then Picard SortSam + CollectInsertSizeMetrics (`W=1000`, as ENCODE;
+   without it picard cuts the histogram at median + 10 x MAD), then
    bamToBed with the Tn5 shift (+4 on `+`, -5 on `-`), keeping only the
    contigs of `lib/genomes/<TAG>.genome` → `*.shifted.bed.gz`; also the
    mitochondrial fraction → `*___MITO.txt`

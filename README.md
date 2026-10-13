@@ -50,10 +50,12 @@ sample's mitochondrial fraction is in `atacSeq/metrics/*___MITO.txt`.
       upstream, by the mapper), secondary and QC-fail reads removed
     - MAPQ 10+ (`-q MAPQ`; the count matrix uses the same cutoff)
     - A read whose mate was removed is removed too (`samtools fixmate
-      -r`, as in the ENCODE ATAC-seq pipeline); there is no filter on
-      insert size (before v2.0.0 pairs with an insert of 30 bp or less
-      were removed, and a read whose mate failed the MAPQ cutoff was
-      kept)
+      -r`, as in the ENCODE ATAC-seq pipeline; before v2.0.0 a read
+      whose mate failed the MAPQ cutoff was kept)
+    - Pairs with an insert of 30 bp or less removed. ENCODE has no such
+      filter; in some libraries these fragments are half of all
+      fragments and almost all lie in peaks, so they would dominate the
+      counts
 
 - Count matrix: featureCounts v2.1.1 counts fragments over the merged
   peak atlas. Two checks must pass before the run continues (the

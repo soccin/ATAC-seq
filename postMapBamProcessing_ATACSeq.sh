@@ -109,13 +109,20 @@ echo $TDIR
 # ENCODE's filter (encode_task_filter.py): MAPQ and flags, then
 # samtools fixmate -r on the name-sorted reads, which clears the proper
 # pair flag of a read whose mate was removed, and the flag filter again,
-# which removes it. Until v2.0.0 such orphans were kept, and pairs with
-# |TLEN| <= 30 were removed; ENCODE has no such filter.
+# which removes it. Until v2.0.0 such orphans were kept.
+#
+# Then a filter ENCODE does not have, in this pipeline since 2022:
+# pairs with an insert of 30 bp or less (|TLEN| <= 30) are removed.
+# fixmate gives both reads of a pair the same |TLEN|, so both go. In
+# Proj_18143, 19-30 bp inserts (both reads run into the adapter) were
+# up to 55% of a sample's fragments and 98% of them lay in peaks; kept,
+# they made up 38-75% of the counts of ten of its 15 samples.
 #
 samtools view -u -q $MAPQ -f 3 -F 1804 $IBAM \
     | samtools sort -n -m 4G -T $TMPDIR/nsort -u - \
     | samtools fixmate -r - - \
-    | samtools view -b -f 3 -F 1804 -o $TDIR/step1.bam - \
+    | samtools view -b -f 3 -F 1804 -e 'tlen > 30 || tlen < -30' \
+        -o $TDIR/step1.bam - \
     || { echo "FATAL ERROR: filter step failed"; exit 1; }
 
 picard SortSam I=$TDIR/step1.bam O=$OBAM SO=coordinate MAX_RECORDS_IN_RAM=5000000 \
@@ -125,7 +132,13 @@ picard SortSam I=$TDIR/step1.bam O=$OBAM SO=coordinate MAX_RECORDS_IN_RAM=500000
 # Runs in the background while the BED is built; waited on below so the
 # job does not end, and Slurm does not kill it, before it has finished.
 #
-picard CollectInsertSizeMetrics LEVEL=null LEVEL=SAMPLE I=$OBAM O=${OBAM/.bam/___INS.txt} H=${OBAM/.bam/___INS.pdf} &
+# W=1000 fixes the histogram at 0-1000 bp, as ENCODE's fraglen_stat_pe
+# does and plotINSStats.R plots. Without W, picard cuts the histogram
+# (and the mean and SD) at median + 10 x MAD; in a sample with many
+# short fragments that falls inside the nucleosome peaks.
+#
+picard CollectInsertSizeMetrics LEVEL=null LEVEL=SAMPLE W=1000 \
+    I=$OBAM O=${OBAM/.bam/___INS.txt} H=${OBAM/.bam/___INS.pdf} &
 INS_PID=$!
 
 #
