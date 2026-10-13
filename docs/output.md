@@ -2,14 +2,15 @@
 
 ## Introduction
 
-The results are delivered in one folder, `atacSeq`, with four parts.
-`macs` holds the peaks called for each sample. `atlas` holds the merged
-peak atlas of the project and the raw count matrix over it, which is
-the input to any normalization or differential analysis. `bigwig`
-holds a normalized signal track per sample for a genome browser.
-`metrics` holds the QC metrics and plots. Projects with replicates
-have a fifth part, `diff`, with the differential accessibility
-analysis. How each file was made is described in `methods.md`.
+The results are delivered in one folder, `atacSeq`. `macs` holds the
+peaks called for each sample. `atlas` holds the merged peak atlas of
+the project and the raw count matrix over it, which is the input to
+any normalization or differential analysis. `bigwig` holds a
+normalized signal track per sample for a genome browser. `metrics`
+holds the QC metrics and plots. Projects with replicates have a
+`diff` folder with the differential accessibility analysis. `docs`
+holds this document, `output.pdf`, and the methods document,
+`methods.pdf`, which describes how each file was made.
 
 In the names below, `<sample>` is the sample ID of the BAM and `<no>`
 is the project number (for example `18143`). Coordinates are 0-based
@@ -45,6 +46,9 @@ atacSeq
 │   ├── <sample>_postProcess.tss_enrich.csv
 │   ├── <sample>_postProcess.tss_enrich.pdf
 │   └── <sample>_postProcess.large_tss_enrich.png
+├── docs
+│   ├── output.pdf
+│   └── methods.pdf
 └── diff                      (projects with replicates only)
     ├── Proj_<no>__DiffPeaksEdgeR_V4.xlsx
     └── Proj_<no>__DiffPeaks_V4.pdf
@@ -78,7 +82,7 @@ unchanged:
   header lines record the MACS2 command and settings.
 
 **Filtered peaks.** The same peaks after the ENCODE post-processing
-steps (see `methods.md`): at most 300,000 peaks per sample, the most
+steps (see `methods.pdf`): at most 300,000 peaks per sample, the most
 significant by p-value, clipped to the chromosome ends, with every
 peak that overlaps the ENCODE blacklist removed and the score capped
 at 1000. Peaks keep their MACS2 names, so a peak can be looked up in
@@ -293,3 +297,7 @@ underscore); with a tag `<tag>` they are
 
 Samples whose group starts with `EXC` were excluded from the
 differential analysis.
+
+In our deliveries made before October 2026 the `FDR` column was a
+Holm correction, which is much stricter; the same data now give more
+regions at FDR < 0.05.

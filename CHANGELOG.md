@@ -264,6 +264,24 @@ section, under "Internal".
   If a stage's accounting records never arrive, `MESSAGE` says so, and
   if the check before staging finds stage jobs that are not
   `COMPLETED`, it lists them.
+- **`deliverResults.sh` delivers on IRIS** (`00.FIXME.md` #2), as
+  adagio's `bin/deliver.sh` does: to
+  `/data1/core002/res/bic/results/<pi>/<invest>/Proj_<no>/r_NNN` (`-d`
+  takes the folder from the path of the analysis directory, the run
+  folder is the next `r_NNN`), writing as `svc_core001_bot01`, and
+  with `-n` for a dry run. It stops unless `bin/checkRun.sh` exits 0
+  (it tested only for `macsPeaksMerged.saf`). The client docs
+  `output.pdf` and `methods.pdf` are delivered in the new folder
+  `atacSeq/docs`. Diff files with a RUNTAG, and more than one set of
+  them, are delivered; before, they were missed. The email gives the
+  run's release tag and run folder, which were fixed at `v2.0.0` and
+  `r_001`, and links to the docs on GitHub at that tag. The new
+  `bin/readme2yaml.R` writes `project.yaml` with the build tag
+  (`hg38`) as `genome`, where the old one wrote the README's
+  species (`human`). `extractProjectIDFromPath.py` is removed. It
+  stops if it cannot read the delivery folder, since it could not
+  see the run folders there, and if the database step fails it says
+  that the files were delivered and how to rerun that step.
 
 #### Internal
 
@@ -360,9 +378,9 @@ section, under "Internal".
   reads them; TSS enrichment uses ENCODE's TSS sets), `INFO.md` and
   `requirements_2024-10-27.txt` (a pip freeze that `00.SETUP.sh` does
   not read).
-- The delivery email templates (`tmpldeliveryEmail_*.txt`) describe
-  the v2.0.0 files. `deliverResults.sh`, which assembles them, is
-  still not ported (`00.FIXME.md` #2).
+- The delivery email (`tmpldeliveryEmail_*.txt`) is short: the
+  link, the main v2.0.0 files and links to the output and methods
+  docs, which describe the rest. `README.md` has a "Delivery" section.
 - The usage text of `R/diffAnalysisPairwise.R` said "ChIP-seq" and
   pointed at example files that do not exist; it now names the output
   files, with and without a RUNTAG.
@@ -379,6 +397,10 @@ section, under "Internal".
   lacked both or one of the read filters (`docs/SLURM_PORT.md`,
   "Insert-size and 5' clip filters"). b37 was run on the 4 downsampled
   Proj_18741 BAMs only.
+- `deliverResults.sh` was run only with `-n`, on the v2.x-pre5 run
+  and on a test directory with tagged and untagged diff files; the
+  copy as `svc_core001_bot01` and the permissions database step have
+  not been run.
 
 ## [v1.5.1] — 2026-10-10
 

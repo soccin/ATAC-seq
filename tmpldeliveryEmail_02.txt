@@ -1,26 +1,2 @@
-- diff: differential accessibility of the atlas regions, tested with
-  edgeR for each pair of groups compared.
-
-   - Proj_ATAC_PROJECT_NUM__DiffPeaksEdgeR_V4.xlsx
-
-      - Summary: the number of significant regions per comparison.
-
-      - One sheet per comparison, named <group2>_v_<group1>, with the
-        regions significant at FDR < 0.05 (Benjamini-Hochberg) and
-        the nearest gene of each. A positive logFC means more
-        accessible in group 2.
-
-   - Proj_ATAC_PROJECT_NUM__DiffPeaks_V4.pdf
-
-      - PCA of the samples, with and without labels.
-
-      - For each comparison an MA plot (log fold change against mean
-        log CPM) and a volcano plot.
-
-   Samples in a group whose name starts with EXC were left out of the
-   comparisons.
-
-   In our deliveries made before October 2026 the FDR column was a
-   Holm correction, which is much stricter; the same data give more
-   significant regions at FDR < 0.05 now.
-
+- diff/Proj_{PROJNO}__DiffPeaksEdgeR_V4.xlsx: the differential peaks
+  of each comparison; plots in diff/Proj_{PROJNO}__DiffPeaks_V4.pdf

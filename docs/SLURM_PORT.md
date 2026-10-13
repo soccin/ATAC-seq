@@ -593,9 +593,9 @@ every cell of the count matrix.
 
 ## Not done
 
-- `deliverResults.sh` still points at `/ifs/res/seq/pi/invest` and
-  `~/Code/BIC/Delivery`; not a scheduler change and not touched. It is
-  `00.FIXME.md` #2.
+- `deliverResults.sh` was not part of the port (not a scheduler
+  change); it was rewritten later for the IRIS delivery area
+  (`00.FIXME.md` #2, now in `attic/zzISSUES.md`).
 - The `RATE_*` values come from one project on one genome, and
   `RATE_POST` was measured before POST name-sorted every BAM. On the
   full-size v2.x-pre5 run the slowest POST job took 1:18:32 in `SHORT`
