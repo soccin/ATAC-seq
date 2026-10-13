@@ -1,7 +1,7 @@
 - diff: differential accessibility of the atlas regions, tested with
   edgeR for each pair of groups compared.
 
-   - Proj_ATAC_PROJECT_NUM__DiffPeaksEdgeR_V4.xlsx
+   - Proj_{PROJNO}__DiffPeaksEdgeR_V4.xlsx
 
       - Summary: the number of significant regions per comparison.
 
@@ -10,7 +10,7 @@
         the nearest gene of each. A positive logFC means more
         accessible in group 2.
 
-   - Proj_ATAC_PROJECT_NUM__DiffPeaks_V4.pdf
+   - Proj_{PROJNO}__DiffPeaks_V4.pdf
 
       - PCA of the samples, with and without labels.
 
