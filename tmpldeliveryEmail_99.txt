@@ -1,11 +1,10 @@
-
-All the files and the methods are described in atacSeq/docs
-(output.pdf, methods.pdf) and online:
+- docs: output.pdf describes every file in detail and methods.pdf the methods. Both are also online:
 
    https://github.com/soccin/ATAC-seq/blob/{VERSION}/docs/output.md
+
    https://github.com/soccin/ATAC-seq/blob/{VERSION}/docs/methods.md
 
-If you have any questions, please let us know.
+We are also trying to improve the pipeline. If there are any reports or computations that we can add to help with your analysis, please let us know.
 
 Nicholas Socci
 Bioinformatics Core

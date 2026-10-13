@@ -378,9 +378,10 @@ section, under "Internal".
   reads them; TSS enrichment uses ENCODE's TSS sets), `INFO.md` and
   `requirements_2024-10-27.txt` (a pip freeze that `00.SETUP.sh` does
   not read).
-- The delivery email (`tmpldeliveryEmail_*.txt`) is short: the
-  link, the main v2.0.0 files and links to the output and methods
-  docs, which describe the rest. `README.md` has a "Delivery" section.
+- The delivery email (`tmpldeliveryEmail_*.txt`) lists the v2.0.0
+  files (the blacklist-filtered peaks, the count matrix, the depth
+  table, the mitochondrial fraction, the per-sample TSS enrichment
+  and the docs) and links to the output and methods docs. `README.md` has a "Delivery" section.
 - The usage text of `R/diffAnalysisPairwise.R` said "ChIP-seq" and
   pointed at example files that do not exist; it now names the output
   files, with and without a RUNTAG.
