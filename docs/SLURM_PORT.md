@@ -403,10 +403,12 @@ Done 2026-10-12. Scripts in
 | `R/analyzeATAC.R` on the same matrix, one group per sample (24 groups) | PCA with 24 distinct colors and the variance explained on the axes (PC1 22%, PC2 15%) |
 | test26, the 11 hg38 BAMs with `-q 20` on `fix/diff-stats` (control job 19202406) | `COMPLETED`, 69 of 69 jobs; reports named `ATAC__*.pdf` (no `Proj_` in the path) and accepted by the deliverables check; count matrix, count checks and scale factors identical to test24. `diffAnalysisPairwise.R` rc 0, `GENOME = hg38`, GD1 vs EV 2 peaks at FDR < 0.05, both annotated |
 
-### Read filter: orphans out, no insert-size filter (v2.0.0)
+### Read filter: orphans out (v2.0.0)
 
 Done 2026-10-12 on `fix/read-filter` (C-06 and C-07 of
-`attic/ENCODE_PIPE_CONCORDANCE.md`), against test39 and test40. Script
+`attic/ENCODE_PIPE_CONCORDANCE.md`), against test39 and test40. These
+runs also had the insert-size filter removed (C-07); it was put back
+after the full-size run (next section). Script
 `/scratch/core001/bic/soccin/AFTER_ACTION_261011/read_filter/compareRuns.sh`
 compares two runs; per sample it counts the postProcess reads, the
 reads whose name is not there twice (orphans) and the reads with
@@ -417,6 +419,59 @@ reads whose name is not there twice (orphans) and the reads with
 | test43, the 11 hg38 BAMs with `-q 20` (control job 19283036) | `COMPLETED`, 69 of 69 jobs; Checks A and B pass, Check A exactly 1.0000 for every sample (test39 1.0003-1.0005). 0 orphans (test39 116-305 per sample); 1,126-2,164 reads with `|TLEN| <= 30` kept per sample; postProcess BAMs 0.2-0.4% larger. Filtered peaks 150,408-266,678; 9 samples gained 136-477 and GD1_1 and GD1_2 lost 2,352 and 1,510. Both losses are in MACS2's own output and among peaks with a pileup of 1 (GD1_1 146,348 to 143,782, GD1_2 103,839 to 102,023), which pass `-p 0.01` only just in 100x downsampled data; peaks with a pileup of 2 or more increased slightly. Atlas 902,445 peaks (test39 901,681) |
 | test44, the 4 b37 BAMs, MAPQ 10 (control job 19283038) | `COMPLETED`, 27 of 27 jobs; Checks A and B pass, Check A exactly 1.0000. 0 orphans (test40 302-371); 2,188-5,162 reads with `|TLEN| <= 30` kept; filtered peaks within 7 of test40's for the 3 capped samples, 647 more for the fourth. Atlas 727,558 peaks (test40 727,125) |
 | POST run time with the name sort and `fixmate` | 25-41 s (hg38) and 43-53 s (b37), against 24-34 s and 33-41 s; to be measured on a full-size run |
+
+### Insert-size and 5' clip filters (v2.0.0)
+
+Done 2026-10-13 on `fix/insert-filter` and `fix/5p-clip`. Scripts in
+`/scratch/core001/bic/soccin/REVIEW_18143_v2pre3/` (`shortInPeaks.sh`,
+`shortPairs.sh`, `compareInsFilter.sh`) and
+`/scratch/core001/bic/soccin/FIX_5pCLIP/` (`probe5p.sh`, `overlap.sh`,
+`hotspot.sh`, `clip3.sh`, `compare5p.sh`).
+
+Proj_18143 v2.x-pre3 (full size, 15 hg38 samples, control job
+19297991) was the first run without the insert-size filter:
+
+- Pairs with `|TLEN|` of 19-30 bp were 54.0M of 376.2M fragments
+  (14.4%): 45-55% in BD1-1, BD1-3, ED1-1 and ED1-2, 0.3-1.6% in the
+  BD6 and ED6 samples. 98% of them lay in atlas peaks (about 40% of
+  the longer fragments did), and they made up 38-75% of the counts in
+  peaks of ten samples.
+- They are not short fragments. Each is a 101 bp read of which BWA-MEM
+  aligned a 19-30 bp seed (19 bp is its minimum seed length) and
+  soft-clipped the rest. The reads are a tandem repeat that is not in
+  the reference, the same in every sample. At the largest such peak
+  (ED1-1, `chr4:98390022-98390184`, 9,150 reads) the unit is 37 bp,
+  `GTAAAGAACAAGGATCTTCAGATTCAACTTCAACAAG`, the seed is 19-23 bp
+  (21 bp in 8,672 reads), 8,587 reads are clipped on both sides
+  (`68S21M12S`, `32S21M48S`, ...), and 2,481 have the Nextera adapter
+  after the repeat.
+- Picard without `W` cut the insert histogram at median + 10 x MAD:
+  at 74 bp in ED1-1 and 85 bp in BD1-3.
+
+v2.x-pre4 put the insert filter back (`fix/insert-filter`). The same
+reads also align over 31-40 bp and pass it. In the v2.x-pre2 run
+(insert filter on) ED1-1 had 2,864 reads in
+`chr3:167846660-167846700` (`28S24M1D8M41S`, `43S24M1D8M26S`, ...,
+`|TLEN|` 33), 85 of them with the 5' end aligned; its atlas row had
+the 5th highest ED1-1 count (1,435), and the rows at
+`chr5:128172605`, `chr18:69789582` and `chr17:22521176` the 7th, 9th
+and 11th. MarkDuplicates compares the unclipped 5' position, which
+moves with the clip length, so it does not mark these reads. ENCODE's
+bowtie2, in end-to-end mode, leaves such reads unaligned.
+
+`fix/5p-clip` adds `KEEP_5P` to the first `samtools view` of POST: a
+read whose 5' end is soft-clipped (`^[0-9]+S` on a forward read, `S$`
+on a reverse read) is removed, and `fixmate -r` then removes its mate.
+
+| Test | Result |
+| --- | --- |
+| `KEEP_5P` with samtools 1.20, Proj_18143 ED1-1 input BAM, MAPQ 10 and `-f 3 -F 1804` | 21,778,782 reads, 11,483,748 with a 5' clip, 10,295,034 kept; an awk count of the CIGARs gives the same. In `chr3:167846660-167846700`: 3,279 reads, 275 kept, as awk |
+| The two filters on the v2.x-pre3 postProcess BAMs (no insert filter, no orphans) | ED1-1: 5,943,917 pairs with `\|TLEN\| <= 30`; in 5,290,984 both reads have a 5' clip, in 643,796 one, in 9,137 neither. BD1-2: 4,562,260; 4,102,997; 439,924; 19,339. So `KEEP_5P` removes 99.8% (ED1-1) and 99.6% (BD1-2) of these pairs, the insert filter the rest. Of the reads with `\|TLEN\| > 30`, 0.92% (ED1-1) and 0.51% (BD1-2) have a 5' clip; in ED1-1 41,122 of them at 31-40 bp |
+| 3' clips, which `KEEP_5P` keeps; first 4M reads of v2.x-pre3 ED1-1 | 649,564 of the 1,599,643 kept reads with `\|TLEN\| > 30` have one; 88% of these contain the first 12 bp of the Nextera adapter, which PEMapper does not trim |
+| test47, the 11 hg38 BAMs with `-q 20`, and test48, the 4 b37 BAMs, MAPQ 10 (`fix/insert-filter`, control jobs 19398758 and 19398759), against test45 and test46 | `COMPLETED`; Checks A and B pass, Check A 1.0000. Every postProcess BAM equals test45/46's without the reads with `\|TLEN\| <= 30`; 0 orphans. `HISTOGRAM_WIDTH=1000` in all 15 `___INS.txt`. Filtered peaks a few hundred fewer per sample; atlas 901,283 (902,445) and 726,727 (727,558) |
+| test49, the 11 hg38 BAMs with `-q 20` (`fix/5p-clip`, control job 19421943), against test47 | `COMPLETED`; Checks A and B pass, Check A 1.0000. Every postProcess BAM equals test47's without the pairs that have a read with a 5' clip (`compare5p.sh`); 0.74-1.03% of the reads removed; 0 orphans, 0 reads with a 5' clip, 0 with `\|TLEN\| <= 30`. Filtered peaks 1,043-1,812 fewer per sample (149,071-264,945); `FRAC_MITO` down by at most 0.0005. Atlas 898,502 (901,283) |
+| test50, the 4 b37 BAMs, MAPQ 10 (control job 19421944), against test48 | `COMPLETED`; Checks A and B pass, Check A 1.0000. Same BAM comparison holds; 0.75-1.09% of the reads removed; 0 orphans, 0 reads with a 5' clip. Filtered peaks 11-15 more for the 3 capped samples, 2,130 fewer for MCF7-LYFUL-2. Atlas 725,137 (726,727) |
+| POST run time with `KEEP_5P` | 28-43 s (hg38) and 48-62 s (b37), against 26-42 s and 43-54 s in test47 and test48 |
 
 ### MACS2 `--shift -75 --keep-dup all` (v2.0.0)
 

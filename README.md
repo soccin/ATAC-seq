@@ -59,10 +59,18 @@ sample's mitochondrial fraction is in `atacSeq/metrics/*___MITO.txt`.
       MarkDuplicates; BWA-MEM marks nothing)
     - MAPQ 10+ (`-q MAPQ`; the count matrix uses the same cutoff)
     - A read whose mate was removed is removed too (`samtools fixmate
-      -r`, as in the ENCODE ATAC-seq pipeline); there is no filter on
-      insert size (before v2.0.0 pairs with an insert of 30 bp or less
-      were removed, and a read whose mate failed the MAPQ cutoff was
-      kept)
+      -r`, as in the ENCODE ATAC-seq pipeline; before v2.0.0 a read
+      whose mate failed the MAPQ cutoff was kept)
+    - Reads whose 5' end is soft-clipped removed, with their mates. A
+      Tn5 read starts at the cut site, so its 5' end must align; BWA-MEM
+      aligns a short seed of a read that is not from the reference and
+      clips the rest, and such reads pile up on single bases. ENCODE
+      has no such filter: its end-to-end aligner (bowtie2) leaves these
+      reads unaligned
+    - Pairs with an insert of 30 bp or less removed. ENCODE has no such
+      filter; in some libraries these fragments are half of all
+      fragments and almost all lie in peaks, so they would dominate the
+      counts
 
 - Count matrix: featureCounts v2.1.1 counts fragments over the merged
   peak atlas. Two checks must pass before the run continues (the

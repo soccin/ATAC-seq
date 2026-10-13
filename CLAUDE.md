@@ -97,11 +97,22 @@ paths `/ifs/res/seq/pi/invest` and `~/Code/BIC/Delivery`. Deliver the
 
 ## Pipeline stages (pipe.sh)
 
-1. `postMapBamProcessing_ATACSeq.sh` — MAPQ + flag filter (`-f 3 -F 1804`),
-   then ENCODE's `samtools fixmate -r` on the name-sorted reads and the
-   flag filter again, which removes a read whose mate failed (until
-   v2.0.0 such orphans were kept, and inserts <=30bp were dropped,
-   which ENCODE does not do), Picard SortSam + CollectInsertSizeMetrics, then
+1. `postMapBamProcessing_ATACSeq.sh` — MAPQ + flag filter (`-f 3 -F 1804`)
+   plus `KEEP_5P` (the read's 5' end is not soft-clipped), then
+   ENCODE's `samtools fixmate -r` on the name-sorted reads and the flag
+   filter again, which removes a read whose mate failed (until v2.0.0
+   such orphans were kept), with pairs of insert <=30bp dropped in the
+   same step. `KEEP_5P` must stay on the first view, so that the mate
+   of a dropped read becomes an orphan. ENCODE has neither the 5' nor
+   the insert filter; keep both. BWA-MEM, a local aligner, aligns a
+   19-35 bp seed of a read that is not from the reference and clips the
+   rest; in Proj_18143 such reads were up to 55% of a sample's, piled
+   up on single bases and were mostly in peaks. ENCODE's end-to-end
+   bowtie2 leaves them unaligned; both filters can go only with such an
+   aligner (C-21) (`docs/SLURM_PORT.md`, "Insert-size and 5' clip
+   filters").
+   Then Picard SortSam + CollectInsertSizeMetrics (`W=1000`, as ENCODE;
+   without it picard cuts the histogram at median + 10 x MAD), then
    bamToBed with the Tn5 shift (+4 on `+`, -5 on `-`), keeping only the
    contigs of `lib/genomes/<TAG>.genome` → `*.shifted.bed.gz`; also the
    mitochondrial fraction → `*___MITO.txt`
