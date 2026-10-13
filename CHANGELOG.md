@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [v2.0.0] — 2026-10-12
+## [v2.0.0] — 2026-10-13
 
 Most outputs change; do not mix the results of a v1.x run with those
 of this version. Counts from any v1.x run may be wrong for one or more
@@ -28,50 +28,33 @@ aligner (C-21). The ENCODE review is
 `attic/ENCODE_PIPE_CONCORDANCE.md`; the differences that remain are in
 `00.FIXME.md`.
 
+The sections below give, in order, what changes in the results and
+why (most important first), what changes in how the pipeline is run,
+what is new, what is fixed and what has not been tested. Entries that
+matter only to someone working on the pipeline are at the end of each
+section, under "Internal".
+
 ### Breaking changes
+
+#### Results
 
 - **featureCounts v1.6.0 replaced with v2.1.1** (`-p --countReadPairs`).
   v1.6.0, run with several threads on several BAMs, sometimes did not
-  pair the reads of one BAM and counted every read as a fragment, about
-  doubling that sample's counts, its DESeq2 scale factor and its place in
-  the PCA, with exit 0 and no error. It was found in 5 projects run since
-  2022. On the same tests v2.1.1 failed 0 of 250 times, and for samples
-  that v1.6.0 handled correctly its counts are identical, cell for cell.
-- **POST removes orphan reads, as the ENCODE ATAC-seq pipeline does.**
-  After the MAPQ and flag filter, `postMapBamProcessing_ATACSeq.sh` now
-  runs `samtools fixmate -r` on the name-sorted reads and the flag
-  filter again, which removes a read whose mate failed the MAPQ cutoff;
-  such orphans were kept before. The postProcess BAM, the shifted BED,
-  and so the bigWigs, peaks, atlas and counts change slightly; Check A
-  now gives exactly 1.000. On the downsampled tests each sample lost
-  116-371 orphan reads.
-
-  Two filters that ENCODE does not have remove reads that are not from
-  the reference. BWA-MEM (PEMapper) is a local aligner: it aligns the
-  best 19-35 bp seed of such a read and soft-clips the rest. ENCODE
-  aligns end to end with bowtie2, which leaves these reads unaligned.
-  The mapper is not changed (C-21 of the ENCODE review). In Proj_18143
-  these reads were a tandem repeat, the same in every sample.
-
-  - **New: a read whose 5' end is soft-clipped is removed, and its
-    mate with it.** A Tn5 read starts at the cut site, so its 5' end
-    must align. Such reads pile up by the hundreds on single bases, at
-    the same loci in every sample, and MarkDuplicates cannot remove
-    them because the clip length varies. In ED1-1 of the earlier
-    Proj_18143 run (insert filter on), the 41 bp
-    `chr3:167846660-167846700` held 2,864 reads, 85 of them with the
-    5' end aligned, and its atlas row had the 5th highest count of the
-    sample. The filter removes 0.5-0.9% of the reads with an insert
-    over 30 bp (Proj_18143 BD1-2 and ED1-1), and their mates. A 3'
-    clip is kept: it is mostly the Nextera adapter, which PEMapper
-    does not trim.
-  - The filter that removes pairs with an insert of 30 bp or less
-    stays. It was taken out for ENCODE concordance and put back after
-    the full-size Proj_18143 run: there 19-30 bp fragments were 14% of
-    all fragments and 45-55% in four samples, and 98% of them lay in
-    peaks, so they made up 38-75% of the counts of ten samples. They
-    are the same seeds; the 5' filter removes 99.6-99.8% of them and
-    this filter the rest.
+  pair the reads of one BAM and counted every read as a fragment,
+  about doubling that sample's counts, its DESeq2 scale factor and its
+  place in the PCA, with exit 0 and no error. It was found in 5
+  projects run since 2022. On the same tests v2.1.1 failed 0 of 250
+  times, and for samples that v1.6.0 handled correctly its counts are
+  identical, cell for cell.
+- **The `FDR` of `R/diffAnalysisPairwise.R` is now the false discovery
+  rate** (`p.adjust(method = "fdr")`). Since the first diff script in
+  2022 it was `p.adjust()` with no method, which is Holm's
+  family-wise correction, so the `FDR` column and the FDR < 0.05 cut
+  that picks the significant peaks were Holm. Every earlier
+  `DiffPeaksEdgeR` workbook lists far fewer peaks than an FDR of 0.05
+  gives; nothing in it is a false call at that level. On the Proj_18741
+  count matrix the five comparisons went from 752 to 18,872 significant
+  peaks to 14,032 to 100,697 (3.6 to 33 times as many).
 - **MACS2 now runs with ENCODE's settings**, `--shift -75 --extsize
   150 --keep-dup all`. Since the first version of
   `callPeaks_ATACSeq.sh` it ran with `--shift 75` and no `--keep-dup`:
@@ -89,11 +72,49 @@ aligner (C-21). The ENCODE review is
   Every narrowPeak, the atlas, the count matrix, the scale factors, the
   QC PDF and any differential analysis of an earlier run were made with
   the old settings. BAMs, shifted BEDs, bigWigs, insert sizes, the
-  mitochondrial fraction and TSS enrichment do not use MACS2 and do not
-  change. On the downsampled test sets the fraction of a sample's reads
-  in its own peaks went from 0.70-0.78 to 0.90-0.95 (hg38) and from
-  0.59-0.69 to 0.86-0.89 (b37), with up to 7% (hg38) and 8-17% (b37)
-  fewer peaks (`docs/SLURM_PORT.md`, "Validation").
+  mitochondrial fraction and TSS enrichment do not use MACS2, so this
+  change does not affect them (the read filters below do). On the
+  downsampled test sets the fraction of a sample's reads in its own
+  peaks went from 0.70-0.78 to 0.90-0.95 (hg38) and from 0.59-0.69 to
+  0.86-0.89 (b37), with up to 7% (hg38) and 8-17% (b37) fewer peaks
+  (`docs/SLURM_PORT.md`, "Validation").
+- **POST removes orphan reads, as the ENCODE ATAC-seq pipeline does,
+  and reads whose 5' end is soft-clipped, which ENCODE does not.**
+  The postProcess BAM, the shifted BED, and so the bigWigs, insert
+  sizes, mitochondrial fraction, TSS enrichment, peaks, atlas and
+  counts change. Check A now gives exactly 1.000.
+
+  - Orphan reads are removed. After the MAPQ and flag filter,
+    `postMapBamProcessing_ATACSeq.sh` runs `samtools fixmate -r` on
+    the name-sorted reads and the flag filter again, which removes a
+    read whose mate was removed; such orphans were kept before. On
+    the downsampled tests the old filter left 116-371 orphan reads
+    per sample.
+  - New: a read whose 5' end is soft-clipped is removed, and its mate
+    with it. A Tn5 read starts at the cut site, so its 5' end must
+    align. BWA-MEM (PEMapper) is a local aligner: for a read that is
+    not from the reference it aligns the best 19-35 bp seed and
+    soft-clips the rest. ENCODE aligns end to end with bowtie2, which
+    leaves these reads unaligned; the mapper is not changed (C-21 of
+    the ENCODE review). In Proj_18143 these reads were a tandem
+    repeat. They pile up by the hundreds on single bases, at the same
+    loci in every sample, and MarkDuplicates cannot remove them
+    because the clip length varies. In ED1-1 of an earlier Proj_18143
+    run (v2.x-pre2), the 41 bp `chr3:167846660-167846700` held 2,864
+    reads, 85 of them with the 5' end aligned, and its atlas row had
+    the 5th highest count of the sample. The filter removes 0.5-0.9%
+    of the reads with an insert over 30 bp (Proj_18143 BD1-2 and
+    ED1-1), and their mates; on the full-size Proj_18143 run
+    (v2.x-pre5) it removed 0.68-1.37% of each sample's reads. A 3'
+    clip is kept: it is mostly the Nextera adapter, which PEMapper
+    does not trim.
+  - Unchanged: pairs with an insert of 30 bp or less are removed, as
+    since 2022; ENCODE has no such filter either. On a full-size
+    Proj_18143 test run without it (v2.x-pre3), 19-30 bp fragments
+    were 14% of all fragments and 45-55% in four samples, and 98% of
+    them lay in peaks, so they made up 38-75% of the counts of ten
+    samples. They are the same seeds; the 5' filter removes
+    99.6-99.8% of them and this filter the rest.
 - **Peaks in ENCODE blacklisted regions are left out of the atlas and
   the counts**, as in the ENCODE ATAC-seq pipeline. There was no
   blacklist filter before, so artifact regions (satellite repeats,
@@ -111,14 +132,13 @@ aligner (C-21). The ENCODE review is
   Both are delivered, and the deliverables check requires them and
   MACS2's three files for every sample.
   The atlas is built from the `blacklistFiltered` peaks only.
-  `mergePeaksToSAF.sh GENOME MACS_OUTDIR` (it now takes the genome)
-  also subtracts the blacklist from the merged atlas, because merging
-  within 500 bp can bridge a blacklisted region between two kept
-  peaks; such a peak is split in two. Blacklists: hg38 `ENCFF356LFX`,
-  mm10 `ENCFF547MET`, b37 the hg19 list `ENCFF001TDO` without `chr`
-  and `chrM`, built by `lib/genomes/getBlacklists.sh`
-  (`docs/GENOMES.md`). `pipe.sh` stops if the genome's blacklist is
-  missing.
+  `mergePeaksToSAF.sh` also subtracts the blacklist from the merged
+  atlas, because merging within 500 bp can bridge a blacklisted region
+  between two kept peaks; such a peak is split in two. Blacklists:
+  hg38 `ENCFF356LFX`, mm10 `ENCFF547MET`, b37 the hg19 list
+  `ENCFF001TDO` without `chr` and `chrM`, built by
+  `lib/genomes/getBlacklists.sh` (`docs/GENOMES.md`). `pipe.sh` stops
+  if the genome's blacklist is missing.
 - **Each sample keeps at most its 300,000 strongest peaks**, as in the
   ENCODE ATAC-seq pipeline (`encode_task_macs2_atac.py`). Before the
   blacklist filter, `callPeaks_ATACSeq.sh` now sorts MACS2's peaks by
@@ -133,6 +153,21 @@ aligner (C-21). The ENCODE review is
   396,453. On the downsampled tests, no hg38 sample reached the cap;
   3 of 4 b37 samples did, and the b37 atlas went from 758,830 to
   727,125 peaks.
+- **Mitochondrial reads are left out for every build**, as in the ENCODE
+  ATAC-seq pipeline (`docs/GENOMES.md`). Before, the contig filter kept
+  `MT` for b37 and `chrM` for mm10 but not `chrM` for b38, so peaks,
+  bigWigs (including the 10M-read scaling), the atlas and the counts of
+  **every earlier b37 and mm10 run** included them (5.2% of the reads in
+  one b37 sample checked). Earlier b38 runs are not affected. The
+  postProcess BAM still holds the mitochondrial reads; the shifted BED,
+  and everything made from it, does not.
+- **The PCA in `*__ATACSeqQC.pdf` and `*DiffPeaks_V4.pdf` is the usual
+  PCA of the samples** (log-CPM, each peak centered across samples),
+  with the variance explained on the axes. Before, the peaks were the
+  observations and the plot showed the rotation: its PC1 was the
+  profile that all samples share (81% of the variance on Proj_18143,
+  every sample at -0.24 to -0.29) and carried no information about
+  them, its PC2 was the real PC1, and the real PC2 was not shown.
 - **The atlas `Start` is 1-based**, as SAF requires.
   `mergePeaksToSAF.sh` wrote the 0-based start of `bedtools merge` into
   `macsPeaksMerged.saf`, and featureCounts reads SAF as 1-based, so
@@ -141,47 +176,40 @@ aligner (C-21). The ENCODE review is
   `DiffPeaksEdgeR` workbooks is now 1 higher than before, `End` is
   unchanged, and the peaks given to ChIPseeker for gene annotation are
   one base shorter on the left, as they should be.
-- The `.summary` file has the 2.x status rows: `Unassigned_Read_Type` and
-  `Unassigned_Singleton` are new, `Unassigned_Nonjunction` is now
-  `Unassigned_NonSplit`, and the row order changed. The R reports keep
-  only `Assigned` and are not affected. The featureCounts log says
-  "alignments" where it said "fragments".
+
+#### Running the pipeline
+
 - **GRCh38 is tagged `hg38`, not `b38`** (the name the Broad and UCSC
   use), in `GENOME=` of `00.RUNSTATUS.txt`, file names and every
   argument; `b38` is now an unsupported genome. Genome files are
   `lib/genomes/{b37,hg38,mm10}.genome`; the TSS files are
   `R/TSSEnrich/lib/hg38_tss.bed` and `hg38.chrom.sizes`.
-- **Mitochondrial reads are left out for every build**, as in the ENCODE
-  ATAC-seq pipeline (`docs/GENOMES.md`). Before, the contig filter kept
-  `MT` for b37 and `chrM` for mm10 but not `chrM` for b38, so peaks,
-  bigWigs (including the 10M-read scaling), the atlas and the counts of
-  **every earlier b37 and mm10 run** included them (5.2% of the reads in
-  one b37 sample checked). Earlier b38 runs are not affected. The
-  postProcess BAM still holds every read.
-- **The `FDR` of `R/diffAnalysisPairwise.R` is now the false discovery
-  rate** (`p.adjust(method = "fdr")`). Since the first diff script in
-  2022 it was `p.adjust()` with no method, which is Holm's
-  family-wise correction, so the `FDR` column and the FDR < 0.05 cut
-  that picks the significant peaks were Holm. Every earlier
-  `DiffPeaksEdgeR` workbook lists far fewer peaks than an FDR of 0.05
-  gives; nothing in it is a false call at that level. On the Proj_18741
-  count matrix the five comparisons went from 752 to 18,872 significant
-  peaks to 14,032 to 100,697 (3.6 to 33 times as many).
-- **The PCA in `*__ATACSeqQC.pdf` and `*DiffPeaks_V4.pdf` is the usual
-  PCA of the samples** (log-CPM, each peak centered across samples), with
-  the variance explained on the axes. Before, the peaks were the
-  observations and the plot showed the rotation: its PC1 was the profile
-  that all samples share (81% of the variance on Proj_18143, every sample
-  at -0.24 to -0.29) and carried no information about them, its PC2 was
-  the real PC1, and the real PC2 was not shown.
 - **`R/diffAnalysisPairwise.R` takes no genome argument**:
-  `Rscript R/diffAnalysisPairwise.R MANIFEST COMPARISONS [RUNTAG]`, run
-  from the analysis directory, whose `00.RUNSTATUS.txt` gives the genome.
-  It exits 1 on a usage error or a missing or unknown genome (it exited
-  0). The `chr` prefix is added to peak contigs for b37 only, by rule,
-  not by looking at the first peak.
+  `Rscript R/diffAnalysisPairwise.R MANIFEST COMPARISONS [RUNTAG]`,
+  run from the analysis directory, whose `00.RUNSTATUS.txt` gives the
+  genome. It exits 1 on a usage error or a missing or unknown genome
+  (it exited 0). The `chr` prefix is added to peak contigs for b37
+  only, by rule, not by looking at the first peak.
+- **The R reports need the R packages `pals` and `gridExtra`.**
+  `plotINSStats.R` and `R/analyzeATAC.R` take their group colors from
+  `pals`, and `R/analyzeATAC.R` draws the depth table with
+  `gridExtra`. Both scripts run in the control job, so without these
+  packages the run fails at `STAGE=REPORTS`.
+  `R/diffAnalysisPairwise.R` already needed `pals`.
+
+#### Internal
+
+- `mergePeaksToSAF.sh GENOME MACS_OUTDIR`: it now takes the genome, for
+  the blacklist, and reads only the
+  `*_peaks.blacklistFiltered.narrowPeak` files.
 - `bin/computeTSSEnrich.sh GENOME BAM`: the genome is passed by
   `pipe.sh`, not detected again from the BAM.
+- The `.summary` file has the 2.x status rows: `Unassigned_Read_Type`
+  and `Unassigned_Singleton` are new, `Unassigned_Nonjunction` is now
+  `Unassigned_NonSplit`, and the row order changed. `R/analyzeATAC.R`
+  reads `Assigned` and the sum of all other rows, so it is not
+  affected. The featureCounts log says "alignments" where it said
+  "fragments".
 - `sCer+sMik_IFO1815` and its genome files moved to `attic/`; it was in
   two stage scripts but could never run. `R/TSSEnrich/v1/` (superseded,
   not called) moved to `R/attic/TSSEnrich_v1/`.
@@ -195,27 +223,10 @@ aligner (C-21). The ENCODE review is
     independent count of the fragments over the atlas made with samtools
     alone (one new `CountCheck` job per sample, run beside Count).
 
-  The first failing line goes into `MESSAGE`; every sample's numbers are
-  in the control log and in `peaks_raw_fcCounts.checks.txt`.
+  The first failing line goes into `MESSAGE`; every sample's numbers
+  are in the control log and in `peaks_raw_fcCounts.checks.txt`, which
+  stays in the analysis directory (it is not staged to `atacSeq/`).
   `bin/checkCounts.sh` can be run by hand to audit an earlier run.
-- The Count stage is now `bin/countPeaks.sh`. It waits for the BAM
-  indexes, writes its temp files to the job's `/localscratch` directory
-  (`--tmpDir`), and asks for 8 cores instead of 10.
-- The deliverables check also requires
-  `atacSeq/atlas/peaks_raw_fcCounts.txt.summary` and
-  `peaks_raw_fcCounts.checks.txt`.
-- **`MESSAGE` says why a stage failed.** It was empty when a stage job
-  failed; the reason was only in that job's log. Now, for each failed
-  job (at most 3), it gives the sample, job id, `sacct` state and the
-  first line of the log with `FATAL` (else `error` or `fail`, any case),
-  e.g. `Count failed: all job 18905720 FAILED: FATAL ERROR: Check A
-  failed on peaks_raw_fcCounts.txt.summary`. `checkRun.sh` prints it.
-- **TSS enrichment for mm10.** `R/TSSEnrich/lib/mm10_tss.bed` (ENCODE's
-  GENCODE vM7 file, rebuilt byte for byte by `lib/getMM10.sh` because the
-  ENCODE bucket now returns 404) and `mm10.chrom.sizes`. TSSE now runs
-  for every build and is a required deliverable; the mm10 skip and its
-  warning are gone. A supported genome without its TSS files stops the
-  run before any job is submitted.
 - **Depth in the QC report.** `*__ATACSeqQC.pdf` has two new pages
   and the PCA a new point size, so a sample that is apart because it
   was sequenced less can be told from one that differs in its data:
@@ -229,21 +240,50 @@ aligner (C-21). The ENCODE review is
     sample is thinned at random (binomial, fixed seed) to about the
     smallest sample's depth. In Proj_18143 ED1-1, at 0.28 times the
     median depth, was alone on PC2; thinned, it lies with ED1-2.
+
+  Samples in an `EXC` group are left out of the depth page and the
+  table, as they are of the PCA.
 - **Mitochondrial fraction per sample**: POST writes
   `<SID>_postProcess___MITO.txt` (reads, mitochondrial reads, fraction,
   counted on the postProcess BAM, after the read filter and before the
   contig filter), staged to `atacSeq/metrics` and required for
   `COMPLETED`. ENCODE counts before filtering (`00.FIXME.md` #7).
+- **TSS enrichment for mm10.** `R/TSSEnrich/lib/mm10_tss.bed`
+  (ENCODE's GENCODE vM7 file, rebuilt byte for byte by
+  `R/TSSEnrich/lib/getMM10.sh` because the ENCODE bucket now returns
+  404) and `mm10.chrom.sizes`. TSSE now runs for every build and is a
+  required deliverable; the mm10 skip and its warning are gone. A
+  supported genome without its TSS files stops the run before any job
+  is submitted.
+- **`MESSAGE` says why a stage failed.** It was empty when a stage job
+  failed; the reason was only in that job's log. Now, for each failed
+  job (at most 3), it gives the sample, job id, `sacct` state and the
+  first line of the log with `FATAL` (else `error` or `fail`, any case),
+  e.g. `Count failed: all job 18905720 FAILED: FATAL ERROR: Check A
+  failed on peaks_raw_fcCounts.txt.summary`. `checkRun.sh` prints it.
+  If a stage's accounting records never arrive, `MESSAGE` says so, and
+  if the check before staging finds stage jobs that are not
+  `COMPLETED`, it lists them.
+
+#### Internal
+
 - **One genome table**, `lib/genomes/GENOMES.tsv`, read by the new
   `bin/genomeInfo.sh TAG FIELD` and `R/genomeInfo.R`, replaces the
   `case` statements in the stage scripts, `SUPPORTED_GENOMES` in
   `pipe.sh` and the `if` chain in `diffAnalysisPairwise.R`. An unknown
-  tag stops with the list of supported ones. The same table, genome
-  files and tags as ChIP-seq v1.0.0.
+  tag stops with the list of supported ones. The tags and genome files
+  are those of ChIP-seq v1.0.0; the table's columns differ (`MITO`
+  here, `HOMER` in ChIP-seq).
 - `bin/getGenomeBuildBAM.sh` is now ChIP-seq's copy, and the two must
   stay identical. It names the PEMapper `human_hg38+mm39` hybrid
   (`hg38+mm39`) and the `mm10+b37` mouse hybrid, both unsupported, so
   such a BAM stops with a named error.
+- The Count stage is now `bin/countPeaks.sh`. It waits for the BAM
+  indexes, writes its temp files to the job's `/localscratch` directory
+  (`--tmpDir`), and asks for 8 cores instead of 10.
+- The deliverables check also requires
+  `atacSeq/atlas/peaks_raw_fcCounts.txt.summary` and, in the analysis
+  directory, `peaks_raw_fcCounts.checks.txt`.
 
 ### Fixes
 
@@ -252,12 +292,6 @@ aligner (C-21). The ENCODE review is
   `W=1000`, as ENCODE's does. Without it Picard cut the histogram, and
   the mean and SD, at median + 10 x MAD, which in a sample with many
   short fragments falls inside the nucleosome peaks.
-- A BAM whose header cannot be read (missing file, not a BAM) stops the
-  run before any job with "cannot identify the genome of [BAM]" in
-  `MESSAGE`. Before, `getGenomeBuildBAM.sh` printed the md5 of an empty
-  header as an "unknown" genome.
-- `bin/loadTools.sh` no longer fails under `set -u` when `TMPDIR` is
-  unset (a script with `set -u` run by hand on a login node).
 - `R/diffAnalysisPairwise.R` with a manifest whose `SampleID`s differ
   from the `MapID`s (as the generated manifest does for `s_` names), or
   with an `EXC` group, stopped with "Count matrix validation failed".
@@ -273,9 +307,18 @@ aligner (C-21). The ENCODE review is
   names starting with `_`, and a path with two put both in the name.
 - `plotINSStats.R` and `R/analyzeATAC.R` color up to 34 groups; with
   `scale_color_uchicago()` alone, groups past the ninth were grey.
+- A BAM whose header cannot be read (missing file, not a BAM) stops the
+  run before any job with "cannot identify the genome of [BAM]" in
+  `MESSAGE`. Before, `getGenomeBuildBAM.sh` printed the md5 of an empty
+  header as an "unknown" genome.
+- `R/analyzeATAC.R` with no arguments exits 1 (it exited 0).
+
+#### Internal
+
+- `bin/loadTools.sh` no longer fails under `set -u` when `TMPDIR` is
+  unset (a script with `set -u` run by hand on a login node).
 - `plotINSStats.R` passes its text to `read_tsv()` with `I()`, as readr
   2.2.0 requires for literal data (it warned).
-- `R/analyzeATAC.R` with no arguments exits 1 (it exited 0).
 - CountCheck's memory cap is 12G. Its process memory is 4.0G, set by
   `sort -S 4G`, but sacct MaxRSS includes file cache and reached 8G on
   a 46M-fragment sample.
@@ -283,8 +326,6 @@ aligner (C-21). The ENCODE review is
   featureCounts v2.1.1 in a job (0.05 min/GB), so Count runs on the
   short partition for up to 600 GB of BAMs. `RATE_CCHECK` stays 1.5
   (measured 0.79 to 1.02).
-- `docs/SLURM_PORT.md` has a new "Memory" section with what each stage
-  really allocates, measured without file cache.
 - `mergePeaksToSAF.sh` sorts every sample's peaks in one `sort`, which
   reads the file names from `find -print0` (`--files0-from`). It used
   `find | xargs sort`: past about 128 KB of file names (roughly 1,000
@@ -295,15 +336,36 @@ aligner (C-21). The ENCODE review is
 ### Documentation
 
 - `00.FIXME.md` is the one list of open work. It replaces
-  `00.ISSUES.md` and the open findings of the ENCODE review; both are
-  in `attic/`. `attic/zzISSUES.md` holds the closed issues.
+  `00.ISSUES.md` and the open findings of the ENCODE review
+  (`ENCODE_PIPE_CONCORDANCE.md`, new in this version); both are in
+  `attic/`. `attic/zzISSUES.md` holds the closed issues.
+- Add `docs/methods.md` and `docs/output.md`, the methods (with the
+  tool versions) and a description of every delivered file, for
+  clients, rendered to PDF and HTML by `docs/MAKE_DOCS.sh`.
 - Add `docs/GENOMES.md`: genome tags, `GENOMES.tsv`, the genome and
   blacklist files, and what ENCODE does with mitochondrial reads.
-- `NOTES.md` notes that MACS2 runs on the shifted BED, not the BAM.
+- `NOTES.md` has dated notes where the pipeline differs from it: MACS2
+  runs on the shifted BED, not the BAM; featureCounts is v2.1.1 with
+  `--countReadPairs`; the bigWigs start from the shifted BED.
   `README.md` says where duplicates are marked and what the pipeline
   delivers. `R/TSSEnrich/README.md` gives ENCODE's TSS enrichment
   thresholds per genome; the single rule it gave was GRCh38's, with a
   "< 1 failed" cut that ENCODE does not define.
+- `docs/SLURM_PORT.md` has a new "Memory" section with what each stage
+  really allocates, measured without file cache, and the test runs of
+  every change in this version ("Validation").
+- Moved to `attic/`: `docs/UPDATE_TO_B38.md` and
+  `docs/CHECKLIST_B38.md` (the GRCh38 plan, done in v1.1.0),
+  `QC/INFO.md` and R. Koche's two housekeeping gene lists (nothing
+  reads them; TSS enrichment uses ENCODE's TSS sets), `INFO.md` and
+  `requirements_2024-10-27.txt` (a pip freeze that `00.SETUP.sh` does
+  not read).
+- The delivery email templates (`tmpldeliveryEmail_*.txt`) describe
+  the v2.0.0 files. `deliverResults.sh`, which assembles them, is
+  still not ported (`00.FIXME.md` #2).
+- The usage text of `R/diffAnalysisPairwise.R` said "ChIP-seq" and
+  pointed at example files that do not exist; it now names the output
+  files, with and without a RUNTAG.
 
 ### Not tested
 
@@ -311,11 +373,12 @@ aligner (C-21). The ENCODE review is
   table and the file checks); no mm10 run has been made on this version
   (`00.FIXME.md` #4). hg38 and b37 were run (`docs/SLURM_PORT.md`,
   "Validation").
-- Full-size runs were made on hg38 only: Proj_18143 (15 samples) on
-  v2.x-pre3 to v2.x-pre5, which carry the MACS2 settings, the
-  blacklist, the peak cap, the read filters and the 1-based atlas
-  (`docs/SLURM_PORT.md`, "Insert-size and 5' clip filters"). b37 was
-  run on the 4 downsampled Proj_18741 BAMs only.
+- Full-size runs were made on hg38 only, on Proj_18143 (15 samples).
+  v2.x-pre5 has the code of this version except the depth pages of the
+  QC report, which were tested on its counts; v2.x-pre3 and v2.x-pre4
+  lacked both or one of the read filters (`docs/SLURM_PORT.md`,
+  "Insert-size and 5' clip filters"). b37 was run on the 4 downsampled
+  Proj_18741 BAMs only.
 
 ## [v1.5.1] — 2026-10-10
 
@@ -402,7 +465,8 @@ aligner (C-21). The ENCODE review is
 ### Documentation
 
 - Add `00.ISSUES.md` (open issues, numbered in order of work) and
-  `attic/zzISSUES.md` (closed issues, with the reason).
+  `attic/zzISSUES.md` (closed issues, with the reason). `00.ISSUES.md`
+  moved to `attic/` in v2.0.0; `00.FIXME.md` replaces it.
 - `docs/SLURM_PORT.md`: add the walltime classes with the rates measured
   on the first full-size run, the run-status records and `checkRun.sh`,
   the `/localscratch` temp-file setup, and the 2026-10-10 validation
@@ -415,7 +479,8 @@ aligner (C-21). The ENCODE review is
 
 - `deliverResults.sh` still points at the JUNO paths
   `/ifs/res/seq/pi/invest` and `~/Code/BIC/Delivery`. Deliver by hand
-  (`00.ISSUES.md` #1). The other open issues are in `00.ISSUES.md`.
+  (`00.ISSUES.md` #1, now `00.FIXME.md` #2). The other open issues
+  were in `00.ISSUES.md` (now `attic/00.ISSUES.md`).
 
 ## [v1.5.0] — 2026-10-09
 
@@ -469,7 +534,8 @@ aligner (C-21). The ENCODE review is
 ### Documentation
 
 - Add `R/TSSEnrich/README.md` documenting the TSS enrichment module: where
-  `lib/b38_tss.bed` and `lib/b38.chrom.sizes` actually came from (ENCODE's
+  `lib/b38_tss.bed` and `lib/b38.chrom.sizes` (renamed `hg38_tss.bed`
+  and `hg38.chrom.sizes` in v2.0.0) actually came from (ENCODE's
   ATAQC reference bucket and the GDC GRCh38.d1.vd1 sequence set respectively,
   with verifying md5s dated 2026-08-23), the juno porting/validation history
   behind `tss_enrich.R`, and download recipes for adding hg19, mm9, and mm10
@@ -493,7 +559,9 @@ aligner (C-21). The ENCODE review is
   - Add MD5 checksum for GRCh38 GDC reference to `bin/getGenomeBuildBAM.sh`
     so the genome is auto-detected from the BAM header.
   - Add chromosome sizes files `lib/genomes/human_b38.genome` and
-    `lib/genomes/human_b38.genome.bed` (chr1-chr22, chrX, chrY; chrM excluded).
+    `lib/genomes/human_b38.genome.bed` (chr1-chr22, chrX, chrY; chrM
+    excluded; `lib/genomes/hg38.genome` since v2.0.0, the `.genome.bed`
+    is in `attic/lib/genomes/`).
   - Add `b38` case to `postMapBamProcessing_ATACSeq.sh`,
     `callPeaks_ATACSeq.sh`, and `makeBigWigFromBEDZ.sh`.
 

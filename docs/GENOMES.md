@@ -51,7 +51,8 @@ Per tag there are also:
 
 - `lib/genomes/<TAG>.genome`: the contigs analyzed, autosomes, X and Y,
   with their lengths (b37 24 lines, hg38 24, mm10 21). It is both the
-  region filter (POST, CALLP, BW) and the chromosome sizes (BW). The
+  region filter (POST, CALLP, BW) and the chromosome sizes (BW, and
+  bedClip in CALLP). The
   scripts write the BED form (`contig 0 length`) to a temp file. Never
   give the 2-column file itself to `samtools view -L`: samtools reads
   the second column as a single position, and on a 488,265-read test BAM
@@ -89,7 +90,8 @@ runs dropped them. Confirmed on a b37 run (Proj_18741, MCF7-DMSO-1): its
 shifted BED has 4,082,846 reads on `MT`, 5.2% of the BAM.
 
 Since v2.0.0 every build drops them, as the ENCODE ATAC-seq pipeline
-does. The postProcess BAM still has every read; only the shifted BED,
+does. The postProcess BAM keeps the reads of every contig; only the
+shifted BED,
 and so peaks, bigWigs and the atlas, leave them out. POST writes each
 sample's fraction to `out/<SID>/<SID>_postProcess___MITO.txt`
 (`SAMPLE`, `MITO_CONTIG`, `READS`, `MITO_READS`, `FRAC_MITO`), counted on
@@ -182,7 +184,7 @@ Sources:
 
 ## Testing
 
-hg38 and b37 are tested with full runs on downsampled BAMs (11 GRCh38,
+hg38 and b37 are tested with full runs on downsampled BAMs (11 hg38,
 4 b37; `docs/SLURM_PORT.md`, "Validation"), hg38 also at full size
 (Proj_18143). mm10 is checked only with
 header-only BAMs: detection, the table and the file check in `pipe.sh`
