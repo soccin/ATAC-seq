@@ -4,7 +4,11 @@
 
 1) MACS2 calls on bam files containing both reads, but not setting the ‘bampe’ flag.
 
-(Note, 2026-10-12: the pipeline calls MACS2 on the Tn5-shifted BED of both reads (`-f BED`), not on the BAM, with the ENCODE ATAC-seq settings `--nomodel --shift -75 --extsize 150 --keep-dup all`. See `callPeaks_ATACSeq.sh` and CHANGELOG.md, v2.0.0.)
+(Note, 2026-10-12: the pipeline calls MACS2 on the Tn5-shifted BED of
+both reads (`-f BED`), not on the BAM, with the ENCODE ATAC-seq
+settings `--nomodel --shift -75 --extsize 150 --keep-dup all
+--call-summits -p 0.01`. See `callPeaks_ATACSeq.sh` and CHANGELOG.md,
+v2.0.0.)
 
 2) Merge all peaks (any overlap, or even anything within 500 bp, as we do) and calculating the raw counts matrix
 Note: if using featureCounts and PE reads, set the ‘-p’ flag so fragments are counted instead of individual reads.
@@ -40,7 +44,13 @@ bwout=${sortedbam/%.bam/.sizeFactorNorm.bw}
 
 bamToBed -split -i $sortedbam |  slopBed -i stdin -g  $chromsizes -s -l 0 -r 0 | grep -vi "rand\|Un\|gl"  |  genomeCoverageBed -split -g  $chromsizes -i stdin -bg -scale $scalefactor |  wigToBigWig stdin $chromsizes $bwout
 
-(Note, 2026-10-12: `makeBigWigFromBEDZ.sh` starts from the Tn5-shifted BED that POST writes, not from the BAM, and keeps the contigs of `lib/genomes/<TAG>.genome` (autosomes, X, Y) instead of the `grep`.)
+(Note, 2026-10-12: `makeBigWigFromBEDZ.sh` starts from the Tn5-shifted
+BED that POST writes, not from the BAM, keeps the contigs of
+`lib/genomes/<TAG>.genome` (autosomes, X, Y) instead of the `grep`,
+and uses neither `-split`. The scale factor is 10,000,000 divided by
+the number of reads in that BED. Only the `10mNorm` bigWig is made;
+the script's `sizeFactorNorm` branch is not called by `pipe.sh` and
+reads the wrong argument (`00.FIXME.md` #11).)
 
 ### Or for ChIP, with read extension (-r) accounting for avg frag length: 200 bp (or whatever is empirically determined)
 

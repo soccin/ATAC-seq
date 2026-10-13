@@ -1,6 +1,6 @@
 # ATAC-Seq pipeline
 
-## Version 2.0.0 - 2026-10-12
+## Version 2.0.0 - 2026-10-13
 
 Most outputs differ from those of v1.x; do not mix the two. See
 `CHANGELOG.md` for what changed and why.
@@ -32,7 +32,8 @@ To find out whether the run worked, at any time, from the same directory:
 ```
 
 It prints `ATAC STATUS: OK`, `FAILED` or `RUNNING` with the stage, the
-failed jobs and their logs, and exits 0, 1 or 2. If `sacct` itself fails
+failed jobs and their logs, and exits 0, 1 or 2 (`NONE` and exit 1 if
+the directory holds no run). If `sacct` itself fails
 it prints `UNKNOWN` and exits 3; run it again later. The raw status is in
 `00.RUNSTATUS.txt`.
 
@@ -52,7 +53,8 @@ no mm10 run has been made yet.
 Peaks, bigWigs and the atlas use reads on the autosomes, X and Y only.
 Mitochondrial reads are left out for every build, as in the ENCODE
 ATAC-seq pipeline (before v2.0.0 they were kept for b37 and mm10); each
-sample's mitochondrial fraction is in `atacSeq/metrics/*___MITO.txt`.
+sample's mitochondrial fraction, of the reads that pass the filters
+below, is in `atacSeq/metrics/*___MITO.txt`.
 
 - Post-alignment filtering:
 
@@ -70,10 +72,11 @@ sample's mitochondrial fraction is in `atacSeq/metrics/*___MITO.txt`.
       clips the rest, and such reads pile up on single bases. ENCODE
       has no such filter: its end-to-end aligner (bowtie2) leaves these
       reads unaligned
-    - Pairs with an insert of 30 bp or less removed. ENCODE has no such
-      filter; in some libraries these fragments are half of all
-      fragments and almost all lie in peaks, so they would dominate the
-      counts
+    - Pairs with an insert of 30 bp or less removed. ENCODE has no
+      such filter. They are almost all BWA-MEM seed alignments of the
+      kind the previous filter removes, which takes more than 99% of
+      them first. Without either filter they were half of all
+      fragments in some libraries, and almost all lay in peaks
 
 - Count matrix: featureCounts v2.1.1 counts fragments over the merged
   peak atlas. Two checks must pass before the run continues (the
@@ -124,29 +127,42 @@ The count-check report `peaks_raw_fcCounts.checks.txt`, the DESeq2
 scale factors `scaleFactorsDESeq2.csv` (inverted, `NOTES.md`) and
 `sampleManifest.csv` stay in the analysis directory.
 
+`docs/output.md` describes every delivered file for the client and
+`docs/methods.md` the methods; both are rendered to HTML and PDF by
+`docs/MAKE_DOCS.sh`.
+
 ## Differential analysis
 
-- If there are replicates you can do a differential peak analysis using: `R/diffAnalysisPairwise.R`. Run it from the analysis directory; the genome is read from `00.RUNSTATUS.txt`. Usage:
-```
-Rscript /path/to/ATAC-seq/R/diffAnalysisPairwise.R SampleManifest.csv Comparisons.csv [RUNTAG]
-```
-
-Example inputs:
+With replicates, `R/diffAnalysisPairwise.R` tests pairs of groups
+for differential peaks. Run it from the analysis directory; the
+genome is read from `00.RUNSTATUS.txt`:
 
 ```
-  SampleManifest.csv
-
-        SampleID,Group,MapID
-        aNSC_loxp15_1,aNSC_loxp15,s_aNSC_loxp15_1
-        aNSC_loxp15_2,aNSC_loxp15,s_aNSC_loxp15_2
-        aNSC_p53_1,aNSC_p53,s_aNSC_p53_1
-
-   Comparisons.csv
-
-        aNSC_loxp15,aNSC_p53
-
-   Sign convention X2-X1; e.g., aNSC_p53-aNSC_loxp15
+Rscript /path/to/ATAC-seq/R/diffAnalysisPairwise.R \
+    sampleManifest.csv Comparisons.csv [RUNTAG]
 ```
+
+`sampleManifest.csv` has a header and the columns `MapID`,
+`SampleID` and `Group`. `pipe.sh` writes one if none exists, with
+`SampleID` and `Group` guessed from the SM tag; check and edit it
+first. `Comparisons.csv` has no header; each row is one comparison,
+`Group1,Group2`:
+
+```
+sampleManifest.csv
+
+    MapID,SampleID,Group
+    s_aNSC_loxp15_1,aNSC_loxp15_1,aNSC_loxp15
+    s_aNSC_loxp15_2,aNSC_loxp15_2,aNSC_loxp15
+    s_aNSC_p53_1,aNSC_p53_1,aNSC_p53
+
+Comparisons.csv
+
+    aNSC_loxp15,aNSC_p53
+```
+
+The sign convention is Group2 - Group1: a positive logFC means
+higher in the second group (here aNSC_p53).
 
 Each comparison is an edgeR likelihood ratio test on the samples of its
 two groups. A peak is significant at FDR < 0.05 (`p.adjust(method =
@@ -155,14 +171,24 @@ Holm's correction, which is much stricter. Samples whose `Group` starts
 with `EXC` are left out. Every count matrix column must have a manifest
 row (`MapID` is the BAM's SM tag), and every row a column.
 
-## MACS2, IDR Installation
+The results are `<PROJ>_<RUNTAG>_DiffPeaksEdgeR_V4.xlsx` (a summary
+sheet and, per comparison, the significant peaks with their nearest
+gene) and `<PROJ>_<RUNTAG>_DiffPeaks_V4.pdf` (PCA, MA and volcano
+plots). `<PROJ>` is the last `Proj_*` or `B-<digits>` directory in
+the path of the analysis directory, else `ATAC`.
 
-MACS2 2.2.9.1 and IDR 2.0.3 both build under the python 3.10 on the IRIS
-PATH, so the venv uses whatever `python3` is current.
+## Installing MACS2
 
-In root of ATAC-seq repo
+Once per checkout, from the root of the repository; the script must
+be sourced, not run:
 
-```{base}
+```bash
+cd /path/to/ATAC-seq
 . 00.SETUP.sh
 ```
+
+It builds `venv/` with the `python3` on PATH (3.10 on IRIS) and
+installs MACS2 2.2.9.1 and IDR 2.0.3. The pipeline runs only MACS2;
+IDR is installed but never run (`00.FIXME.md` #29). `pipe.sh` stops
+if `venv/` is missing.
 
