@@ -183,4 +183,4 @@ Sources:
 hg38 and b37 are tested with full runs on downsampled BAMs (11 GRCh38,
 4 b37; `docs/SLURM_PORT.md`, "Validation"). mm10 is checked only with
 header-only BAMs: detection, the table and the file check in `pipe.sh`
-(`00.ISSUES.md` #14).
+(`00.FIXME.md` #4).

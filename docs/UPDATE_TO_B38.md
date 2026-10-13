@@ -5,7 +5,7 @@
 **Historical.** This is the plan written before b38 support shipped in
 v1.1.0, under the tag `b38` (see `CHANGELOG.md`). Line numbers and
 "current" behavior refer to the code at that time. Kept for reference
-only; open work is in `00.ISSUES.md`.
+only; open work is in `00.FIXME.md`.
 
 ## Context
 

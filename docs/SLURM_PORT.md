@@ -503,7 +503,7 @@ every cell of the count matrix.
 
 - `deliverResults.sh` still points at `/ifs/res/seq/pi/invest` and
   `~/Code/BIC/Delivery`; not a scheduler change and not touched. It is
-  `00.ISSUES.md` #1.
+  `00.FIXME.md` #2.
 - The `RATE_*` values come from one project on one genome. Check the
   `runClass` lines in the control log against `sacct` Elapsed on new
   projects, and raise a rate if a job gets close to its walltime.

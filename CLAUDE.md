@@ -93,7 +93,7 @@ stage whose run time grows with its input needs a measured `RATE_*`.
 
 `deliverResults.sh` has not been ported: it still points at the JUNO
 paths `/ifs/res/seq/pi/invest` and `~/Code/BIC/Delivery`. Deliver the
-`atacSeq/` directory by hand until it is updated (`00.ISSUES.md` #1).
+`atacSeq/` directory by hand until it is updated (`00.FIXME.md` #2).
 
 ## Pipeline stages (pipe.sh)
 
@@ -306,5 +306,8 @@ count fragments.
   Historical: the checkboxes were never ticked and the line numbers are
   out of date.
 - `CHANGELOG.md` — kept current; add entries for user-visible changes.
-- `00.ISSUES.md` — open issues only, numbered in order of work;
-  `attic/zzISSUES.md` — the closed ones, with the reason.
+- `00.FIXME.md` — the one list of open work, numbered in order of
+  work and grouped by priority; `attic/zzISSUES.md` — the closed
+  issues, with the reason. `attic/00.ISSUES.md` and
+  `attic/ENCODE_PIPE_CONCORDANCE.md` (the ENCODE review, with what
+  ENCODE does for each C-NN finding) are the two lists it replaced.
