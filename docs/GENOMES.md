@@ -93,8 +93,9 @@ does. The postProcess BAM still has every read; only the shifted BED,
 and so peaks, bigWigs and the atlas, leave them out. POST writes each
 sample's fraction to `out/<SID>/<SID>_postProcess___MITO.txt`
 (`SAMPLE`, `MITO_CONTIG`, `READS`, `MITO_READS`, `FRAC_MITO`), counted on
-the filtered BAM (MAPQ, flags, insert size) before the contig filter. It
-is staged to `atacSeq/metrics` and is a required deliverable.
+the filtered BAM (MAPQ, flags, 5' clip, insert size) before the contig
+filter. It is staged to `atacSeq/metrics` and is a required
+deliverable.
 
 ### What ENCODE does
 

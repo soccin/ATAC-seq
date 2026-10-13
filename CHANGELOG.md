@@ -25,12 +25,32 @@ any v1.x run may be wrong for one or more samples.
   now gives exactly 1.000. On the downsampled tests each sample lost
   116-371 orphan reads.
 
-  The filter that removes pairs with an insert of 30 bp or less stays,
-  although ENCODE has no such filter. It was taken out for ENCODE
-  concordance and put back after the full-size Proj_18143 run: there
-  19-30 bp fragments were 14% of all fragments and 45-55% in four
-  samples, and 98% of them lay in peaks, so they made up 38-75% of the
-  counts of ten samples.
+  Two filters that ENCODE does not have remove reads that are not from
+  the reference. BWA-MEM (PEMapper) is a local aligner: it aligns the
+  best 19-35 bp seed of such a read and soft-clips the rest. ENCODE
+  aligns end to end with bowtie2, which leaves these reads unaligned.
+  The mapper is not changed (C-21 of the ENCODE review). In Proj_18143
+  these reads were a tandem repeat, the same in every sample.
+
+  - **New: a read whose 5' end is soft-clipped is removed, and its
+    mate with it.** A Tn5 read starts at the cut site, so its 5' end
+    must align. Such reads pile up by the hundreds on single bases, at
+    the same loci in every sample, and MarkDuplicates cannot remove
+    them because the clip length varies. In ED1-1 of the earlier
+    Proj_18143 run (insert filter on), the 41 bp
+    `chr3:167846660-167846700` held 2,864 reads, 85 of them with the
+    5' end aligned, and its atlas row had the 5th highest count of the
+    sample. The filter removes 0.5-0.9% of the reads with an insert
+    over 30 bp (Proj_18143 BD1-2 and ED1-1), and their mates. A 3'
+    clip is kept: it is mostly the Nextera adapter, which PEMapper
+    does not trim.
+  - The filter that removes pairs with an insert of 30 bp or less
+    stays. It was taken out for ENCODE concordance and put back after
+    the full-size Proj_18143 run: there 19-30 bp fragments were 14% of
+    all fragments and 45-55% in four samples, and 98% of them lay in
+    peaks, so they made up 38-75% of the counts of ten samples. They
+    are the same seeds; the 5' filter removes 99.6-99.8% of them and
+    this filter the rest.
 - **MACS2 now runs with ENCODE's settings**, `--shift -75 --extsize
   150 --keep-dup all`. Since the first version of
   `callPeaks_ATACSeq.sh` it ran with `--shift 75` and no `--keep-dup`:
