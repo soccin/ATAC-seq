@@ -686,7 +686,7 @@ mv macsPeaksMerged* atacSeq/atlas
 cp peaks_raw_fcCounts.txt* atacSeq/atlas/
 mv *_postProcess.shifted.10mNorm.bw atacSeq/bigwig
 cp -val callpeaks/* atacSeq/macs
-cp *__postInsDistribution.pdf *__ATACSeqQC.pdf atacSeq/metrics
+cp *__postInsDistribution.pdf *__ATACSeqQC.pdf *__ATACSeqDepth.csv atacSeq/metrics
 
 cp -val out/*/*___INS.* out/*/*___MITO.txt atacSeq/metrics
 cp -val out/*/*enrich* atacSeq/metrics
@@ -712,7 +712,8 @@ checkFile atacSeq/atlas/peaks_raw_fcCounts.txt.summary
 checkFile peaks_raw_fcCounts.checks.txt
 checkFile scaleFactorsDESeq2.csv
 
-for PATTERN in "atacSeq/metrics/*__postInsDistribution.pdf" "atacSeq/metrics/*__ATACSeqQC.pdf"; do
+for PATTERN in "atacSeq/metrics/*__postInsDistribution.pdf" "atacSeq/metrics/*__ATACSeqQC.pdf" \
+               "atacSeq/metrics/*__ATACSeqDepth.csv"; do
     if ! compgen -G "$PATTERN" >/dev/null; then
         MISSING="$MISSING $PATTERN"
     fi

@@ -38,6 +38,7 @@ atacSeq
 ├── metrics
 │   ├── Proj_<no>__postInsDistribution.pdf
 │   ├── Proj_<no>__ATACSeqQC.pdf
+│   ├── Proj_<no>__ATACSeqDepth.csv
 │   ├── <sample>_postProcess___INS.txt
 │   ├── <sample>_postProcess___INS.pdf
 │   ├── <sample>_postProcess___MITO.txt
@@ -158,7 +159,7 @@ of shifted reads.
 
 ### QC report (`Proj_<no>__ATACSeqQC.pdf`)
 
-Four pages built from the count matrix, with samples colored by
+Six pages built from the count matrix, with samples colored by
 group:
 
 1. The percentage of each sample's fragments that fall in the atlas
@@ -168,11 +169,31 @@ group:
    higher than ENCODE's per-sample FRiP and should not be read
    against ENCODE's FRiP standard.
 2. The same as counts, in millions of fragments.
-3. A principal component analysis of the samples on the normalized
-   log2 counts over the atlas, with sample labels. Replicates of a
-   group should lie together; samples that separate from their group
-   on PC1 or PC2 are worth a look.
-4. The same PCA without labels.
+3. Sequencing depth in peaks: each sample's fragments in the atlas,
+   its ratio to the median sample, and the share of the peaks used
+   for the PCA in which it has fewer than 5 fragments. A sample below
+   half the median is marked `LOW DEPTH`. Such a sample has noisy
+   counts and may separate from all others on a principal component
+   of its own, whatever its biology.
+4. A principal component analysis of the samples on the normalized
+   log2 counts over the atlas, with sample labels. The size of a
+   point is the sample's fragments in peaks. Replicates of a group
+   should lie together; samples that separate from their group on PC1
+   or PC2 are worth a look.
+5. The same PCA without labels.
+6. A depth check of the PCA: beside the PCA of page 4, the same PCA
+   after every sample is reduced, by drawing its fragments at random,
+   to about the depth of the smallest. A sample that is apart from its
+   group on the left but not on the right is apart because of its
+   depth; a sample apart on both differs from its group in its data.
+   The reduced counts are used for this page only.
+
+### Depth table (`Proj_<no>__ATACSeqDepth.csv`)
+
+The numbers of page 3, one row per sample: `FragmentsInPeaks`,
+`RatioToMedian`, `FracKeptPeaksLT5` (the share of the peaks used for
+the PCA with fewer than 5 fragments) and `LowDepth` (`TRUE` below half
+the median).
 
 ### Insert-size distributions (`Proj_<no>__postInsDistribution.pdf`)
 

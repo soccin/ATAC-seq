@@ -29,6 +29,20 @@ TSS enrichment within -0.02 to +0.08 of pre4. No POST job came near
 the 1:59 limit (the longest 1:18:32), so `RATE_POST` stays 6. Recorded
 in `docs/SLURM_PORT.md`, "Insert-size and 5' clip filters".
 
+**`MUST_BE_DONE_FIRST.md`, the v2.0.0 pre-release review** — A line
+by line review of the code commits of 2026-10-12 (`678c04a`,
+`5b92c57`, `b391277`, `424d252`, `1f21b5b`, `6eef929`, `5bd921d`,
+`507116c`, `3bbbcb3`, `533308e`, `e75a8b7`, `e50dec6`, `c8d17d7`),
+against ENCODE and against each other, found no bug that affects the
+atlas or the bigWigs. The two code commits of 2026-10-13, `2d469cf`
+(insert filter, Picard `W=1000`) and `6549328` (`KEEP_5P`), were
+reviewed the same way, with the same result. Its two release items
+are done: the full-size run (#1 above; the run times and memory of
+every stage are in `docs/SLURM_PORT.md`, "Walltime classes"), and
+the `docs/GENOMES.md` MITO wording, which became correct again when
+the insert filter came back. Its two non-blocking notes are
+`00.FIXME.md` #30 and #31.
+
 **#25 of `00.FIXME.md`, documentation out of step with the code**
 (C-22) — `NOTES.md` has a dated note that MACS2 runs on the shifted
 BED (`-f BED`), not the BAM. `README.md` says the input BAMs must
