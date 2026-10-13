@@ -155,7 +155,8 @@ No atlas peak, and so no count, then covers a blacklisted base.
 
 `lib/genomes/getBlacklists.sh` builds the three files and checks the
 md5 of each download against the ENCODE portal and that every contig is
-in `<TAG>.genome`:
+in `<TAG>.genome`. It replaces the committed files only if every check
+passes for all three; on any failure they are left as they were:
 
 | Tag | ENCODE file | Regions | Notes |
 | --- | --- | --- | --- |
