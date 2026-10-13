@@ -496,6 +496,8 @@ every cell of the count matrix.
 | --- | --- |
 | test41, the 11 hg38 BAMs with `-q 20` (control job 19282732) | `COMPLETED`, 69 of 69 jobs; Checks A and B pass. BAMs, shifted BEDs and filtered peaks identical to test39's; atlas equal to test39's with every start plus 1 (901,681 peaks); 55 of 9,918,491 count cells differ, each by -1: a fragment that overlapped only the base left of a peak |
 | test42, the 4 b37 BAMs, MAPQ 10 (control job 19282733) | `COMPLETED`, 27 of 27 jobs; Checks A and B pass. Same as test40 but for the atlas starts (727,125 peaks, each start plus 1); 112 of 2,908,500 count cells differ, each by -1 |
+| test45, the 11 hg38 BAMs with `-q 20`, on `encode-2026` at `ba329b6` with this fix and the read filter (control job 19287472) | `COMPLETED`, 69 of 69 jobs; Checks A and B pass, Check A 1.0000. BAMs, shifted BEDs and filtered peaks identical to test43's; atlas equal to test43's with every start plus 1 (902,445 peaks); 55 of 9,926,895 count cells differ, each by -1 |
+| test46, the 4 b37 BAMs, MAPQ 10, same code (control job 19287473) | `COMPLETED`, 27 of 27 jobs; Checks A and B pass, Check A 1.0000. Identical to test44 but for the atlas starts (727,558 peaks, each start plus 1); 109 of 2,910,232 count cells differ, each by -1 |
 
 ## Not done
 
