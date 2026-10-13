@@ -2,7 +2,7 @@ args <- commandArgs(trailing = TRUE)
 if (len(args) < 2) {
   cat("
 ================================================================================
-  Pairwise Differential ChIP-seq Peak Analysis using edgeR
+  Pairwise Differential ATAC-seq Peak Analysis using edgeR
 ================================================================================
 
 USAGE:
@@ -20,9 +20,12 @@ REQUIRED ARGUMENTS:
 OPTIONAL ARGUMENTS:
   RUNTAG        Tag to append to output filenames (default: none)
 
-OUTPUT FILES:
-  - DiffPeaksEdgeR_V4.xlsx : Excel file with differential peaks
-  - DiffPeaks_V4.pdf       : PDF with PCA and MA/volcano plots
+OUTPUT FILES (in the current directory):
+  - <PROJ>__DiffPeaksEdgeR_V4.xlsx : Excel file with differential peaks
+  - <PROJ>__DiffPeaks_V4.pdf       : PDF with PCA and MA/volcano plots
+  With a RUNTAG: <PROJ>_<RUNTAG>_DiffPeaksEdgeR_V4.xlsx, and so on.
+  <PROJ> is the last directory of the current path named Proj_* or
+  B-<digits>, else ATAC.
 
 --------------------------------------------------------------------------------
 MANIFEST FILE FORMAT (with header):
@@ -35,7 +38,8 @@ MANIFEST FILE FORMAT (with header):
     876-ko,876-ko,ko
     978-ko,978-ko,ko
 
-  See example: R/sampleManifest.csv
+  pipe.sh writes sampleManifest.csv in the analysis directory; edit
+  its SampleID and Group columns before running this script.
 
 --------------------------------------------------------------------------------
 COMPARISONS FILE FORMAT (NO header):
@@ -50,12 +54,10 @@ COMPARISONS FILE FORMAT (NO header):
   Positive logFC means higher in Group2 (ko)
   Negative logFC means higher in Group1 (wt)
 
-  See example: R/comparisions.csv
-
 --------------------------------------------------------------------------------
 EXAMPLE USAGE:
-  Rscript diffAnalysisPairwise.R R/sampleManifest.csv R/comparisions.csv
-  Rscript diffAnalysisPairwise.R manifest.csv comps.csv run1
+  Rscript diffAnalysisPairwise.R sampleManifest.csv Comparisons.csv
+  Rscript diffAnalysisPairwise.R sampleManifest.csv Comparisons.csv run1
 
 ================================================================================
 

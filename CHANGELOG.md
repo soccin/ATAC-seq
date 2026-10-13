@@ -363,6 +363,9 @@ section, under "Internal".
 - The delivery email templates (`tmpldeliveryEmail_*.txt`) describe
   the v2.0.0 files. `deliverResults.sh`, which assembles them, is
   still not ported (`00.FIXME.md` #2).
+- The usage text of `R/diffAnalysisPairwise.R` said "ChIP-seq" and
+  pointed at example files that do not exist; it now names the output
+  files, with and without a RUNTAG.
 
 ### Not tested
 
