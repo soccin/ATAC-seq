@@ -297,3 +297,7 @@ underscore); with a tag `<tag>` they are
 
 Samples whose group starts with `EXC` were excluded from the
 differential analysis.
+
+In our deliveries made before October 2026 the `FDR` column was a
+Holm correction, which is much stricter; the same data now give more
+regions at FDR < 0.05.
