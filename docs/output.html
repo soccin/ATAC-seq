@@ -31,15 +31,16 @@
 <h1 id="bic-atac-seq-pipeline-v2.0.0">BIC ATAC-seq Pipeline
 (v2.0.0)</h1>
 <h2 id="introduction">Introduction</h2>
-<p>The results are delivered in one folder, <code>atacSeq</code>, with
-four parts. <code>macs</code> holds the peaks called for each sample.
+<p>The results are delivered in one folder, <code>atacSeq</code>.
+<code>macs</code> holds the peaks called for each sample.
 <code>atlas</code> holds the merged peak atlas of the project and the
 raw count matrix over it, which is the input to any normalization or
 differential analysis. <code>bigwig</code> holds a normalized signal
 track per sample for a genome browser. <code>metrics</code> holds the QC
-metrics and plots. Projects with replicates have a fifth part,
-<code>diff</code>, with the differential accessibility analysis. How
-each file was made is described in <code>methods.md</code>.</p>
+metrics and plots. Projects with replicates have a <code>diff</code>
+folder with the differential accessibility analysis. <code>docs</code>
+holds this document and the methods document as PDF files. How each file
+was made is described in <code>methods.md</code>.</p>
 <p>In the names below, <code>&lt;sample&gt;</code> is the sample ID of
 the BAM and <code>&lt;no&gt;</code> is the project number (for example
 <code>18143</code>). Coordinates are 0-based with an exclusive end (BED
@@ -71,6 +72,9 @@ mitochondrial, unplaced and other contigs are left out.</p>
 │   ├── &lt;sample&gt;_postProcess.tss_enrich.csv
 │   ├── &lt;sample&gt;_postProcess.tss_enrich.pdf
 │   └── &lt;sample&gt;_postProcess.large_tss_enrich.png
+├── docs
+│   ├── output.pdf
+│   └── methods.pdf
 └── diff                      (projects with replicates only)
     ├── Proj_&lt;no&gt;__DiffPeaksEdgeR_V4.xlsx
     └── Proj_&lt;no&gt;__DiffPeaks_V4.pdf</code></pre>

@@ -2,14 +2,14 @@
 
 ## Introduction
 
-The results are delivered in one folder, `atacSeq`, with four parts.
-`macs` holds the peaks called for each sample. `atlas` holds the merged
+The results are delivered in one folder, `atacSeq`. `macs` holds the peaks called for each sample. `atlas` holds the merged
 peak atlas of the project and the raw count matrix over it, which is
 the input to any normalization or differential analysis. `bigwig`
 holds a normalized signal track per sample for a genome browser.
 `metrics` holds the QC metrics and plots. Projects with replicates
-have a fifth part, `diff`, with the differential accessibility
-analysis. How each file was made is described in `methods.md`.
+have a `diff` folder with the differential accessibility analysis.
+`docs` holds this document and the methods document as PDF
+files. How each file was made is described in `methods.md`.
 
 In the names below, `<sample>` is the sample ID of the BAM and `<no>`
 is the project number (for example `18143`). Coordinates are 0-based
@@ -45,6 +45,9 @@ atacSeq
 │   ├── <sample>_postProcess.tss_enrich.csv
 │   ├── <sample>_postProcess.tss_enrich.pdf
 │   └── <sample>_postProcess.large_tss_enrich.png
+├── docs
+│   ├── output.pdf
+│   └── methods.pdf
 └── diff                      (projects with replicates only)
     ├── Proj_<no>__DiffPeaksEdgeR_V4.xlsx
     └── Proj_<no>__DiffPeaks_V4.pdf
