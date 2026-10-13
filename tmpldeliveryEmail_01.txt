@@ -1,86 +1,13 @@
 Subject: Results for Project {PROJNO} ATACseq ready
 
-The output of the ATAC-seq pipeline ({VERSION}) is now ready. You can
-access it at:
+The results of the ATAC-seq pipeline ({VERSION}) are ready at:
 
    https://bicdelivery.mskcc.org/project/{PROJNO}/atacseq/{RUNDIR}
 
-The outputs and the methods are documented online:
+The main files, in the folder atacSeq:
 
-   https://github.com/soccin/ATAC-seq/blob/{VERSION}/docs/output.md
-   https://github.com/soccin/ATAC-seq/blob/{VERSION}/docs/methods.md
-
-PDF copies are in the folder atacSeq/docs.
-
-Read filtering, the Tn5 shift and peak calling follow the ENCODE
-ATAC-seq pipeline, with four differences: reads are kept at a mapping
-quality of {MAPQ} or more; duplicates are marked when the reads are
-mapped, before the filter; reads whose 5' end is soft-clipped are
-removed, with their mates; and pairs with an insert of 30 bp or less
-are removed. The last two remove short partial alignments of reads
-that are not from the reference genome. Mitochondrial reads and
-contigs other than the autosomes, X and Y are left out of the peaks,
-the atlas and the signal tracks.
-
-The results are in the folder atacSeq, which has these subfolders:
-
-- macs: the peaks of each sample, one folder per sample.
-
-   - *_peaks.narrowPeak, *_summits.bed, *_peaks.xls: MACS2's output,
-     as MACS2 wrote it.
-
-   - *_peaks.blacklistFiltered.narrowPeak and
-     *_summits.blacklistFiltered.bed: the same peaks after ENCODE's
-     steps: at most the 300,000 most significant, clipped to the
-     chromosome ends, without the peaks that overlap the ENCODE
-     blacklist. Use these for any analysis of a sample's peaks.
-
-- atlas: the merged peak atlas and the counts over it.
-
-   - macsPeaksMerged.saf: the blacklist-filtered peaks of all samples,
-     merged within 500 bp, in SAF format (1-based coordinates).
-
-   - peaks_raw_fcCounts.txt: the raw number of fragments of each
-     sample in each atlas region. Use it for any normalization or
-     differential analysis.
-
-   - peaks_raw_fcCounts.txt.summary: for each sample, the fragments
-     in the atlas (Assigned) and outside it.
-
-- bigwig: one coverage track per sample, scaled to 10 million reads,
-  for IGV or the UCSC Genome Browser.
-
-- metrics: QC metrics and plots.
-
-   - Proj_{PROJNO}__ATACSeqQC.pdf: the fraction and number of
-     each sample's fragments in the atlas (computed on the atlas of
-     all samples, so not ENCODE's FRiP); each sample's depth in peaks,
-     with a sample below half the median marked LOW DEPTH; a PCA of
-     the samples, with point size by depth; and the same PCA after
-     every sample is thinned at random to the depth of the smallest.
-     A sample apart from its group in the first PCA but not in the
-     second is apart because of its depth.
-
-   - Proj_{PROJNO}__ATACSeqDepth.csv: the depth numbers of
-     the QC report, one row per sample.
-
-   - Proj_{PROJNO}__postInsDistribution.pdf: the fragment
-     length distribution of each sample, 31 to 1000 bp. A good
-     library shows a nucleosome-free peak below about 100 bp and
-     nucleosome peaks at about 200 and 400 bp.
-
-   - <sample>_postProcess___INS.txt and ___INS.pdf: Picard's insert
-     size metrics and histogram for each sample.
-
-   - <sample>_postProcess___MITO.txt: the fraction of each sample's
-     reads on the mitochondrial genome, counted after duplicates are
-     removed, so lower than the fraction ENCODE reports.
-
-   - <sample>_postProcess.tss_enrich.csv: the ENCODE TSS enrichment
-     score (column tss_enrich), with two plots, tss_enrich.pdf and
-     large_tss_enrich.png. ENCODE's guide depends on the genome:
-     hg38 acceptable 5 to 7, ideal above 7; b37 acceptable 6 to 10,
-     ideal above 10; mm10 acceptable 10 to 15, ideal above 15.
-
-- docs: output.pdf and methods.pdf, the two documents linked above.
-
+- atlas/peaks_raw_fcCounts.txt: the raw counts of each sample in each
+  region of the merged peak atlas
+- macs: the peaks of each sample
+- bigwig: a signal track per sample, for a genome browser
+- metrics/Proj_{PROJNO}__ATACSeqQC.pdf: the QC report

@@ -274,10 +274,10 @@ section, under "Internal".
   `output.pdf` and `methods.pdf` are delivered in the new folder
   `atacSeq/docs`. Diff files with a RUNTAG, and more than one set of
   them, are delivered; before, they were missed. The email gives the
-  run's release tag, run folder and MAPQ, which were fixed at
-  `v2.0.0`, `r_001` and 10, and links to the docs on GitHub at that
-  tag. The new `bin/readme2yaml.R` writes `project.yaml` with the
-  build tag (`hg38`) as `genome`, where the old one wrote the README's
+  run's release tag and run folder, which were fixed at `v2.0.0` and
+  `r_001`, and links to the docs on GitHub at that tag. The new
+  `bin/readme2yaml.R` writes `project.yaml` with the build tag
+  (`hg38`) as `genome`, where the old one wrote the README's
   species (`human`). `extractProjectIDFromPath.py` is removed. It
   stops if it cannot read the delivery folder, since it could not
   see the run folders there, and if the database step fails it says
@@ -378,8 +378,9 @@ section, under "Internal".
   reads them; TSS enrichment uses ENCODE's TSS sets), `INFO.md` and
   `requirements_2024-10-27.txt` (a pip freeze that `00.SETUP.sh` does
   not read).
-- The delivery email templates (`tmpldeliveryEmail_*.txt`) describe
-  the v2.0.0 files. `README.md` has a "Delivery" section.
+- The delivery email (`tmpldeliveryEmail_*.txt`) is short: the
+  link, the main v2.0.0 files and links to the output and methods
+  docs, which describe the rest. `README.md` has a "Delivery" section.
 - The usage text of `R/diffAnalysisPairwise.R` said "ChIP-seq" and
   pointed at example files that do not exist; it now names the output
   files, with and without a RUNTAG.

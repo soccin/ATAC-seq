@@ -331,7 +331,6 @@ fillTemplate() {
     sed -e "s/{PROJNO}/$(sedValue "$PROJNO")/g" \
         -e "s/{RUNDIR}/$(sedValue "$CURRDIR")/g" \
         -e "s/{VERSION}/$(sedValue "$VERSION")/g" \
-        -e "s/{MAPQ}/$(sedValue "$MAPQ")/g" \
         "$SDIR/$1"
 }
 

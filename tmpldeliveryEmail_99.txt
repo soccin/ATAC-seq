@@ -1,4 +1,10 @@
 
+All the files and the methods are described in atacSeq/docs
+(output.pdf, methods.pdf) and online:
+
+   https://github.com/soccin/ATAC-seq/blob/{VERSION}/docs/output.md
+   https://github.com/soccin/ATAC-seq/blob/{VERSION}/docs/methods.md
+
 If you have any questions, please let us know.
 
 Nicholas Socci

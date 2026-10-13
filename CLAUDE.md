@@ -101,8 +101,11 @@ svc_core001_bot01`), `-d` derives the folder from the
 `.../Users/<Pi>/<Invest>/Proj_<no>` path, the run folder is the next
 `r_NNN`, and `-n` prints those writes and the permissions-database
 call instead of running them. `GENOME`, `MAPQ` and `VERSION` come from
-`00.RUNSTATUS.txt`; the email templates take `{PROJNO}`, `{RUNDIR}`,
-`{VERSION}` and `{MAPQ}`. `bin/readme2yaml.R` writes `project.yaml`
+`00.RUNSTATUS.txt`; the email templates take `{PROJNO}`, `{RUNDIR}`
+and `{VERSION}`. Keep the email short: the link, one line for each
+main file and the doc links. How a file is made belongs in
+`docs/output.md` and `docs/methods.md`, not in the email.
+`bin/readme2yaml.R` writes `project.yaml`
 with the delivery folder as `root` and the build tag as `genome`.
 `VERSION` is `git describe --long`, which sees only annotated tags:
 tag releases with `git tag -a`.
