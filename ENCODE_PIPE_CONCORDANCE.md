@@ -12,7 +12,8 @@ are open and their text is brought up to date with the fixed code.
 
 Triaged 2026-10-12: C-05 is "Design (Koche)", C-09 and C-21 are
 "Deferred (mapper)", and C-08 is "Not applicable"; each finding gives
-the reason in its first line.
+the reason in its first line. C-04, C-06, C-07 and C-17 are raised to
+High because they change the atlas or the bigWigs.
 
 The review covers every stage from the input BAM to the delivered
 `atacSeq/` directory: `pipe.sh`, `postMapBamProcessing_ATACSeq.sh`,
@@ -47,7 +48,8 @@ Conventions used in this document:
   downsampled 100x at MAPQ 20; the b37 runs (test25, test28, test34,
   test36, test38) use 4 b37 BAMs downsampled 100x at MAPQ 10.
 - Findings C-01 to C-22 are numbered in stage order, not by severity.
-  High means the finding changes peaks or counts materially; Medium
+  High means the finding changes peaks, the atlas, the bigWigs or the
+  counts, by any amount; Medium
   means it changes a delivered number or hides a QC failure; Low means
   a small or documented difference. "Design" marks a deliberate choice
   of this pipeline; "Design (Koche)" one that comes from R. Koche's
@@ -78,17 +80,17 @@ being worked on are at the end:
 
 | ID | Finding | Severity |
 | --- | --- | --- |
-| C-04 | No peak capping, p-value sorting or coordinate clipping after MACS2 | Medium |
+| C-04 | No peak capping, p-value sorting or coordinate clipping after MACS2 | High |
+| C-06 | Orphan reads (mate failed MAPQ) kept; ENCODE removes them with `fixmate -r` | High |
+| C-07 | Extra filter: fragments with insert size <= 30 bp dropped | High |
+| C-17 | SAF atlas coordinates are off by one (BED start used as 1-based start) | High |
 | C-10 | `frac_mito` is computed after filtering; ENCODE computes it on the raw BAM | Medium |
 | C-11 | "Fraction reads in peaks" is not ENCODE FRiP (atlas instead of own peaks; mito reads in the denominator) | Medium |
 | C-16 | Most ENCODE QC metrics are absent (library complexity, fragment-length QC pass/fail, annotation enrichment, number of peaks, JSD, GC bias, reproducibility) | Medium |
-| C-06 | Orphan reads (mate failed MAPQ) kept; ENCODE removes them with `fixmate -r` | Low |
-| C-07 | Extra filter: fragments with insert size <= 30 bp dropped | Low |
 | C-12 | Signal track is a 10M-read-scaled read coverage, not MACS2 fold-enrichment and p-value tracks | Low (design) |
 | C-13 | No pooled, pseudoreplicate, overlap or IDR peak sets; the merged atlas replaces them | Low (design) |
 | C-14 | TSS enrichment: older ENCODE TSS annotation; 1 bp minus-strand offset for odd read lengths; 0.85% residual difference to the Python original | Low |
 | C-15 | Fragment-length QC: histogram only; no NFR fraction, NFR/mono-nucleosome ratio or peak-presence checks | Low |
-| C-17 | SAF atlas coordinates are off by one (BED start used as 1-based start) | Low |
 | C-18 | Atlas merges peaks within 500 bp; ENCODE never merges | Low (design) |
 | C-19 | Tn5 shift lacks ENCODE's guard against start >= end | Very low |
 | C-20 | Tool versions differ (MACS2 2.2.9.1 vs 2.2.4, samtools 1.20 vs 1.9, bedtools unknown vs 2.29.0) | Low |
@@ -262,7 +264,7 @@ body of its `.xls` (its `#` header differs only in the per-job temp
 path of the input file); the hg38 atlas has 901,681 peaks
 (903,877 before) and the b37 atlas 758,830 (760,751).
 
-### C-04 No capping, sorting or clipping after MACS2 (Medium)
+### C-04 No capping, sorting or clipping after MACS2 (High)
 
 ENCODE sorts the narrowPeak by column 8 (`-log10 p`) descending, keeps
 the top `cap_num_peak` (300,000 in `atac.wdl`; `docs/input.md` says
@@ -342,7 +344,7 @@ specified; ENCODE uses 30 whenever it filters on MAPQ at all (ATAC with
 `multimapping = 0`, and the ENCODE ChIP-seq pipeline, which does use
 BWA).
 
-### C-06 Orphan reads are kept (Low)
+### C-06 Orphan reads are kept (High)
 
 ENCODE runs `samtools fixmate -r` after the MAPQ filter and then
 `-f 2` again, so a read whose mate was removed is removed too. This
@@ -352,19 +354,23 @@ documents the effect: Check A ratios of 1.000 to 1.004 are expected,
 the excess being singletons whose mate failed the MAPQ filter. The
 full-size Proj_18143 run gave 1.0004 to 1.0008 (`docs/SLURM_PORT.md`),
 that is under 0.1% of fragments. featureCounts counts them as
-fragments; the tagAlign has one line for them instead of two.
+fragments; the tagAlign has one line for them instead of two. Those
+lines are in the shifted BED, so they enter the peaks, the atlas and
+the bigWigs (the coverage and the read count of the 10M scale).
 
 Fix (optional): `samtools sort -n | samtools fixmate -r | samtools
 view -f 2` between the MAPQ filter and SortSam. Check A's expected
 ratio then becomes exactly 1.000.
 
-### C-07 Insert size <= 30 bp filter (Low)
+### C-07 Insert size <= 30 bp filter (High)
 
 `postMapBamProcessing_ATACSeq.sh:111` drops pairs with `|TLEN| <= 30`.
 ENCODE has no such filter. Fragments that short are adapter dimers or
 artifacts and are rare among BWA proper pairs, so the effect is small,
 but it is an undocumented deviation and it slightly truncates the left
-edge of the insert-size histogram that ENCODE reports in full.
+edge of the insert-size histogram that ENCODE reports in full. The
+filter runs before the shifted BED is written, so it changes the
+peaks, the atlas and the bigWigs.
 
 Fix: document it in `README.md`, or remove it for concordance.
 
@@ -662,7 +668,7 @@ Enabled by default in `atac.wdl` and absent here:
 Off by default in ENCODE and also absent: cross-correlation (`xcor`,
 needs phantompeakqualtools), preseq.
 
-### C-17 SAF coordinates are off by one (Low)
+### C-17 SAF coordinates are off by one (High)
 
 `mergePeaksToSAF.sh:44-48` writes the `bedtools merge` and `bedtools
 subtract` output (BED, 0-based half-open start) straight into SAF
@@ -794,14 +800,14 @@ on: C-05 (Design, Koche), C-08 (Not applicable), C-09 and C-21
 (Deferred, mapper). The rest:
 
 1. C-04 capping and clamping in `callPeaks_ATACSeq.sh`.
-2. Duplicate rate and NRF/PBC1/PBC2 (C-16, with C-09's method); C-10
+2. C-17 SAF off-by-one (three files, one Check B rerun).
+3. C-06, C-07: decide and document the read filter; a change here
+   invalidates comparisons with earlier runs and should be a separate,
+   named release.
+4. Duplicate rate and NRF/PBC1/PBC2 (C-16, with C-09's method); C-10
    raw-BAM `frac_mito`; C-11 ENCODE FRiP; C-15 fragment-length
    pass/fail. These are new metrics files, not changes to existing
    outputs.
-3. C-17 SAF off-by-one (three files, one Check B rerun).
-4. C-06, C-07: decide and document the read filter; a change here
-   invalidates comparisons with earlier runs and should be a separate,
-   named release.
 5. C-14 integer shift in `tss_enrich.R`; README notes on annotation
    version and mm10 thresholds.
 6. Record tool versions in `00.RUNSTATUS.txt` (C-20).
