@@ -67,12 +67,13 @@ sample's mitochondrial fraction is in `atacSeq/metrics/*___MITO.txt`.
   settings (`--nomodel --shift -75 --extsize 150 --keep-dup all
   --call-summits -p 0.01`). Each sample's directory in `atacSeq/macs`
   has MACS2's own files, unchanged (`*_peaks.narrowPeak`,
-  `*_summits.bed`, `*_peaks.xls`), and two files without the peaks
-  that overlap the ENCODE blacklist of the genome
-  (`lib/genomes/<TAG>.blacklist.bed`):
-  `*_peaks.blacklistFiltered.narrowPeak` (score capped at 1000, as
-  ENCODE does) and `*_summits.blacklistFiltered.bed`. The atlas and the
-  counts are built from the `blacklistFiltered` peaks, and the
+  `*_summits.bed`, `*_peaks.xls`), and two files made from them by
+  ENCODE's steps: the 300,000 peaks with the smallest p-values, clipped
+  to the contig ends, without the peaks that overlap the ENCODE
+  blacklist of the genome (`lib/genomes/<TAG>.blacklist.bed`):
+  `*_peaks.blacklistFiltered.narrowPeak` (sorted by p-value, score
+  capped at 1000) and `*_summits.blacklistFiltered.bed`. The atlas and
+  the counts are built from the `blacklistFiltered` peaks, and the
   blacklist is subtracted from the merged atlas too, so no count comes
   from a blacklisted region.
 

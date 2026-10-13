@@ -6,8 +6,8 @@ Review date: 2026-10-12. Checkout reviewed: `v2.x-pre2-11-g58a3322`
 as read on 2026-10-12, plus the ENCODE ATAC-seq data standards page.
 The exact files read are listed under "Sources".
 
-Updated 2026-10-12 at `v2.x-pre2-32-gbb486a4` (branch `encode-2026`):
-C-01, C-02 and C-03 are fixed (section 1, "Status"); the other findings
+Updated 2026-10-12 on branch `fix/peak-cap` (from `encode-2026`):
+C-01 to C-04 are fixed (section 1, "Status"); the other findings
 are open and their text is brought up to date with the fixed code.
 
 The review covers every stage from the input BAM to the delivered
@@ -24,7 +24,7 @@ Conventions used in this document:
 - Paths such as `callPeaks_ATACSeq.sh` or `bin/countPeaks.sh` are
   relative to the root of this repository, the ATAC-seq toolkit
   directory that holds `pipe.sh`. Line numbers (`file:NN`) refer to
-  `v2.x-pre2-32-gbb486a4` and will drift with later commits; the
+  branch `fix/peak-cap` and will drift with later commits; the
   quoted code identifies the line when the number has moved.
 - Paths such as `out/<SID>/`, `callpeaks/`, `atacSeq/` and
   `00.RUNSTATUS.txt` are in the per-project analysis directory from
@@ -39,9 +39,9 @@ Conventions used in this document:
 - Proj_18143 and the `testNN` runs are validation runs recorded in
   `docs/SLURM_PORT.md`: Proj_18143 is a full-size run of 15 hg38
   samples (made before C-01 to C-03 were fixed). The hg38 test runs
-  (test26, test27, test33, test35, test37) use 11 hg38 BAMs
+  (test26, test27, test33, test35, test37, test39) use 11 hg38 BAMs
   downsampled 100x at MAPQ 20; the b37 runs (test25, test28, test34,
-  test36, test38) use 4 b37 BAMs downsampled 100x at MAPQ 10.
+  test36, test38, test40) use 4 b37 BAMs downsampled 100x at MAPQ 10.
 - Findings C-01 to C-22 are numbered in stage order, not by severity.
   High means the finding changes peaks or counts materially; Medium
   means it changes a delivered number or hides a QC failure; Low means
@@ -60,10 +60,10 @@ faithful port of ENCODE's and uses ENCODE's own TSS files.
 
 At the reviewed checkout it was not concordant with ENCODE in the
 peak-calling step itself (C-01, C-02) and filtered no peaks against a
-blacklist (C-03). Those three are fixed (see "Status" below); the MACS2
-call and the blacklist filter now match ENCODE's. ENCODE's steps after
-peak calling (capping, FRiP, QC metrics) are still missing (C-04,
-C-11, C-16), and the atlas, counts, size factors, QC PDF and
+blacklist (C-03). Those three are fixed, and so is C-04, the peak cap
+(see "Status" below); each sample's final peak set is now the one
+ENCODE's commands produce. ENCODE's FRiP and QC metrics are still
+missing (C-11, C-16), and the atlas, counts, size factors, QC PDF and
 differential analysis have no ENCODE counterpart (section 5). The
 table lists every finding:
 
@@ -72,7 +72,7 @@ table lists every finding:
 | C-01 | MACS2 `--shift` has the wrong sign (`+75`; ENCODE `-75`) | High; fixed |
 | C-02 | MACS2 `--keep-dup all` missing (default `1` collapses cut sites) | High; fixed |
 | C-03 | No blacklist filtering of peaks, anywhere | High; fixed |
-| C-04 | No peak capping, p-value sorting or coordinate clipping after MACS2 | Medium |
+| C-04 | No peak capping, p-value sorting or coordinate clipping after MACS2 | Medium; fixed |
 | C-05 | Read filter: MAPQ 10 on BWA output; ENCODE keeps up to 4 multimappers with no MAPQ filter (or `-q 30` when multimapping is off) | Medium |
 | C-09 | Duplicates: Picard MarkDuplicates upstream, removed here by flag, as ENCODE does; but marked on the unfiltered BAM, with no check that the input was marked and no duplicate rate or NRF/PBC1/PBC2 reported | Low-Medium |
 | C-10 | `frac_mito` is computed after filtering; ENCODE computes it on the raw BAM | Medium |
@@ -98,6 +98,7 @@ table lists every finding:
 | --- | --- | --- |
 | C-01, C-02 | `fix/macs2-encode` (`424d252`, `60bdde4`), merged into `encode-2026` as `be43089` | test27 (hg38), test28 (b37) |
 | C-03 | `fix/blacklist` (`1f21b5b` to `3bbbcb3`), merged into `encode-2026` as `330ced3` (first version) and `cdf362b` | test33, test35, test37 (hg38); test34, test36, test38 (b37) |
+| C-04 | `fix/peak-cap` | test39 (hg38), test40 (b37) |
 
 test33 to test36 ran before the last two code commits of
 `fix/blacklist`; test37 and test38 ran on `encode-2026` at `bb486a4`,
@@ -110,7 +111,7 @@ did. `lib/genomes/getBlacklists.sh`
 run gives the committed files; a wrong md5, a wrong file served and a
 failed download each leave them unchanged).
 
-All eight test runs passed every job and both count checks. Each fix is
+All ten test runs passed every job and both count checks. Each fix is
 in `CHANGELOG.md` under Breaking changes. Not yet done: a full-size run
 of Proj_18143 on `encode-2026`. Details are under each finding in
 section 3.
@@ -128,7 +129,7 @@ section 3.
 | `filter` QC | `samstat`, `dup.qc`, `lib_complexity.qc` (NRF, PBC1, PBC2) | None | No (C-09, C-16) |
 | `bam2ta` | `bedtools bamtobed -bedpe -mate1` to two tagAlign lines per pair; `+4/-5` shift | `bedtools bamtobed` per read; identical shift awk | Yes (C-19) |
 | `call_peak` | `macs2 callpeak -f BED --nomodel --shift -75 --extsize 150 -p 0.01 --keep-dup all --call-summits -B --SPMR` | Same without `-B --SPMR` (signal bedGraphs, not used); until C-01 and C-02 were fixed, `--shift +75` and no `--keep-dup all` | Yes (C-12) |
-| `post_call_peak` | sort by `-log10 p`, top 300,000, clip to chromosome, rename `Peak_N`, blacklist filter, `chr[\dXY]+` filter, FRiP, num_peak, peak_region_size, bigBed | Blacklist filter and score cap as ENCODE's, written beside MACS2's files as `*.blacklistFiltered.*`; `chr[\dXY]+` by the contig allowlist; no cap, clip, FRiP or peak count; the filtered peaks of all samples merged within 500 bp into one SAF, blacklist subtracted | Partly (C-04, C-11, C-18) |
+| `post_call_peak` | sort by `-log10 p`, top 300,000, clip to chromosome, rename `Peak_N`, blacklist filter, `chr[\dXY]+` filter, FRiP, num_peak, peak_region_size, bigBed | Sort, top 300,000, clamp, clip (`bedClip`), blacklist filter and score cap as ENCODE's, written beside MACS2's files as `*.blacklistFiltered.*`, peaks not renamed; `chr[\dXY]+` by the contig allowlist; no FRiP or peak count; the filtered peaks of all samples merged within 500 bp into one SAF, blacklist subtracted | Partly (C-11, C-18) |
 | `macs2_signal_track` | `-B --SPMR`, `bdgcmp -m FE` and `-m ppois`, bigWig | `bedtools genomecov -bg -scale 1e7/reads` of the shifted read spans, `wigToBigWig` | No (C-12) |
 | `spr`, `pool_ta`, `overlap`, `idr`, `reproducibility` | Pseudoreplicates, pooled peaks, naive overlap, IDR 0.05, rescue and self-consistency ratios | None; IDR is installed in the venv but never run | No (C-13) |
 | `tss_enrich` | metaseq on the nodup BAM, +/-2 kb, 400 bins, shift `-read_len/2`, Greenleaf normalization | R port with the same algorithm and ENCODE's TSS files | Yes (C-14) |
@@ -228,7 +229,7 @@ Fixed on `fix/blacklist`:
   download's md5 against the ENCODE portal and that every contig is in
   `<TAG>.genome`, and replaces the committed files only if every check
   passes for all three.
-- **Per-sample filter**, `callPeaks_ATACSeq.sh:150-157`: ENCODE's
+- **Per-sample filter**, `callPeaks_ATACSeq.sh:203-210`: ENCODE's
   `intersect -v` and score cap. The `chr[\dXY]+` step is already done
   by the contig allowlist (`lib/genomes/<TAG>.genome`). Unlike the fix
   first proposed here, MACS2's own files are not changed: the filtered
@@ -253,41 +254,59 @@ body of its `.xls` (its `#` header differs only in the per-job temp
 path of the input file); the hg38 atlas has 901,681 peaks
 (903,877 before) and the b37 atlas 758,830 (760,751).
 
-### C-04 No capping, sorting or clipping after MACS2 (Medium)
+### C-04 No capping, sorting or clipping after MACS2 (Medium; fixed)
 
-ENCODE sorts the narrowPeak by column 8 (`-log10 p`) descending, keeps
-the top `cap_num_peak` (300,000 in `atac.wdl`; `docs/input.md` says
-500,000, the WDL value is the one that runs), clamps negative starts
-and ends to 0, replaces a missing summit (`$10==-1`) with the peak
-center, renames peaks `Peak_N`, and clips peaks to the chromosome
-bounds (`bed_clip`).
-
-This pipeline passes every blacklist-filtered peak to
-`mergePeaksToSAF.sh`. With `-p 0.01` on full-size samples that is
-several hundred thousand peaks per sample; the full-size Proj_18143 run
-(15 hg38 samples, before C-01 to C-03 were fixed) gave an atlas of
-654,370 merged peaks. The low-significance tail is mostly noise and
-adds rows that `filterByExpr` has to remove later. A negative start,
-which MACS2 can emit near a contig start now that the shift is `-75`,
-would produce an SAF row with `Start <= 0` and an invalid BED line for
-`assignedCheck.sh`. None occurred in test35 or test36.
-
-Fix: in `callPeaks_ATACSeq.sh`, after the blacklist filter, write a
-third file from the `blacklistFiltered` peaks, under a new, readable
-name (MACS2's files and the `blacklistFiltered` files stay as they
-are), for example:
+ENCODE (`encode_task_macs2_atac.py`, then `bed_clip` in
+`encode_lib_genomic.py`), on MACS2's narrowPeak:
 
 ```bash
-LC_COLLATE=C sort -k8,8gr -T "$TMPDIR" $BL_PEAKS \
-  | awk 'BEGIN{OFS="\t"} {if ($2<0) $2=0; if ($3<0) $3=0; print}' \
-  | head -n 300000 > $ODIR/${PREFIX}_peaks.blacklistFiltered.top300k.narrowPeak
+LC_COLLATE=C sort -k 8gr,8gr peaks.narrowPeak \
+  | awk 'BEGIN{OFS="\t"}{$4="Peak_"NR; if ($2<0) $2=0; if ($3<0) $3=0;
+         if ($10==-1) $10=$2+int(($3-$2+1)/2.0); print $0}' > tmp
+head -n 300000 tmp > tmp2
+bedClip tmp2 chrom.sizes out -truncate -verbose=2
 ```
 
-ENCODE caps before the blacklist filter, so it can keep slightly fewer
-than 300,000 peaks; capping after the filter differs from that by at
-most the number of blacklisted peaks among the top 300,000. Point
-`mergePeaksToSAF.sh` at the capped file and add it to staging and the
-deliverables check.
+`encode_task_post_call_peak_atac.py` then blacklist-filters that
+result (C-03). The cap is `cap_num_peak`, 300,000 in `atac.wdl`
+(`docs/input.md` says 500,000; the WDL value is the one that runs).
+
+The pipeline had no cap, sort or clip: every blacklist-filtered peak
+went into the atlas. With `-p 0.01` on full-size samples that is
+several hundred thousand peaks per sample; the low-significance tail is
+mostly noise and adds atlas rows that `filterByExpr` removes later. On
+the full-size Proj_18143 run (old MACS2 settings) 9 of 15 samples had
+more than 300,000 peaks, up to 396,453.
+
+Fixed on `fix/peak-cap`, `callPeaks_ATACSeq.sh:169-201`: ENCODE's
+steps in ENCODE's order, before the blacklist filter, which now reads
+their result. `bin/bedClip` is the UCSC v369 build ENCODE installs
+(`scripts/install_conda_env.sh`); the current UCSC build needs glibc
+2.34 and IRIS has 2.28. The output keeps its names,
+`*_peaks.blacklistFiltered.narrowPeak` and
+`*_summits.blacklistFiltered.bed`, now at most 300,000 peaks sorted
+by p-value; MACS2's files are unchanged. Two differences from ENCODE,
+neither of which changes a peak, a coordinate or a count:
+
+- Peaks keep MACS2's names; ENCODE renames them `Peak_N`. MACS2's
+  names tie each peak to its summit and its `.xls` row.
+- For a missing summit ENCODE writes the peak center as a contig
+  position, but column 10 is an offset from the start; it is written
+  as an offset here. MACS2 with `--call-summits` does not write `-1`,
+  so neither form was used in any test.
+
+A peak `bedClip -truncate` would turn into start > end (one wholly
+past its contig end, which MACS2 cannot call) stops the job, as does
+any `bedClip` error.
+
+Tests (`docs/SLURM_PORT.md`, "Peak cap"): for every sample of test39
+(hg38) and test40 (b37), the `blacklistFiltered` narrowPeak equals the
+output of ENCODE's commands above plus its blacklist filter, every
+column but the name. No hg38 sample reached the cap, and the hg38
+atlas, counts and scale factors are byte-identical to test37's. Three
+of four b37 samples were capped at 300,000; the b37 atlas went from
+758,830 to 727,125 peaks. `bedClip` found no peak to clip in any
+sample.
 
 ### C-05 Read filter: MAPQ threshold and multimappers (Medium)
 
@@ -489,8 +508,8 @@ useful for comparing samples within a run but is not ENCODE FRiP and
 cannot be judged against 0.3.
 
 Fix: add a FRiP step per sample with the ENCODE command on the shifted
-BED and the sample's own `*_peaks.blacklistFiltered.narrowPeak` (the
-capped file once C-04 is done), written to
+BED and the sample's own `*_peaks.blacklistFiltered.narrowPeak`
+(capped and filtered, as ENCODE's `bfilt` peaks are), written to
 `out/<SID>/` and staged to `atacSeq/metrics`. Relabel the existing
 plot as "fragments in atlas".
 
@@ -518,9 +537,9 @@ compared to ENCODE's signal values. Two details worth knowing:
 
 Fix (optional): since MACS2 already runs, adding `-B --SPMR` and the
 two `bdgcmp` calls plus the vendored `bedGraphToBigWig` would give
-ENCODE-comparable tracks at little cost. If added, use the capped
-MACS2 run of C-04 only for peaks; the signal tracks come from the same
-`callpeak` invocation.
+ENCODE-comparable tracks at little cost. The signal tracks come from
+the same `callpeak` invocation; the peak cap (C-04) applies to the
+peaks only.
 
 ### C-13 No reproducibility analysis (Low, design)
 
@@ -745,6 +764,9 @@ and length to ENCODE's, so peak coordinates are directly comparable.
   (`subsample_reads = 0`). Since C-01 and C-02.
 - Blacklist filter of each sample's peaks with ENCODE's blacklists,
   `intersect -v` and score cap at 1000. Since C-03.
+- Before it, sort by `-log10 p`, top 300,000, clamp and `bedClip
+  -truncate`, in ENCODE's order; the final per-sample peaks equal
+  ENCODE's but for the peak names. Since C-04.
 - TSS enrichment algorithm and the v1 ENCODE TSS files; `chrom.sizes`
   from the BAM header as ENCODE requires.
 - Picard `CollectInsertSizeMetrics` as the fragment-length tool.
@@ -766,23 +788,22 @@ arguments, so the delivered 10M-normalized bigWigs are not affected.
 
 ## 6. Recommended order of work
 
-C-01, C-02 and C-03 are done (section 1, "Status"). The rest:
+C-01 to C-04 are done (section 1, "Status"). The rest:
 
-1. C-04 capping and clamping in `callPeaks_ATACSeq.sh`.
-2. C-09 duplicate-marking check and NRF/PBC1/PBC2; C-10 raw-BAM
+1. C-09 duplicate-marking check and NRF/PBC1/PBC2; C-10 raw-BAM
    `frac_mito`; C-11 ENCODE FRiP; C-15 fragment-length pass/fail.
    These are new metrics files, not changes to existing outputs.
-3. C-17 SAF off-by-one (three files, one Check B rerun).
-4. C-05, C-06, C-07, C-08: decide and document the read filter; a
+2. C-17 SAF off-by-one (three files, one Check B rerun).
+3. C-05, C-06, C-07, C-08: decide and document the read filter; a
    change here invalidates comparisons with earlier runs and should be
    a separate, named release.
-5. C-14 integer shift in `tss_enrich.R`; README notes on annotation
+4. C-14 integer shift in `tss_enrich.R`; README notes on annotation
    version and mm10 thresholds.
-6. Record tool versions in `00.RUNSTATUS.txt` (C-20).
-7. C-22 documentation fixes.
+5. Record tool versions in `00.RUNSTATUS.txt` (C-20).
+6. C-22 documentation fixes.
 
 Add every change that alters peaks or counts to `CHANGELOG.md` under
-Breaking changes, as was done for C-01 to C-03.
+Breaking changes, as was done for C-01 to C-04.
 
 ## 7. Objections considered and rejected
 
@@ -822,7 +843,8 @@ the `atac.wdl` line numbers quoted (144, 192) refer to that revision:
   `enable_jsd`, `enable_gc_bias`, `enable_annot_enrich`,
   `enable_idr` true; `enable_xcor`, `enable_preseq` false)
 - `src/encode_task_filter.py`, `src/encode_lib_genomic.py`
-  (`remove_chrs_from_bam`, `subsample_ta_pe`, `get_read_length`)
+  (`remove_chrs_from_bam`, `subsample_ta_pe`, `get_read_length`,
+  `bed_clip`)
 - `src/assign_multimappers.py`
 - `src/encode_task_bam2ta.py`
 - `src/encode_task_macs2_atac.py`
@@ -838,7 +860,8 @@ the `atac.wdl` line numbers quoted (144, 192) refer to that revision:
 - `src/encode_task_bowtie2.py` (`-k multimapping+1`, `-X2000`),
   `src/encode_task_trim_adapter.py` (`-e 0.1 -m 5`)
 - `scripts/download_genome_data.sh` (blacklist, TSS and chrom.sizes
-  URLs per genome and version), `scripts/requirements.txt`
+  URLs per genome and version), `scripts/requirements.txt`,
+  `scripts/install_conda_env.sh` (UCSC tools v369, `bedClip`)
 - `docs/input.md`
 - <https://www.encodeproject.org/atac-seq/> and
   <https://www.encodeproject.org/data-standards/atac-seq/atac-encode4/>
@@ -848,6 +871,6 @@ the `atac.wdl` line numbers quoted (144, 192) refer to that revision:
 
 Local: `NOTES.md`, `QC/QCNotes.md`, `docs/GENOMES.md` (blacklist
 sources), `docs/SLURM_PORT.md` (validation runs Proj_18143 and
-test25 to test38), `R/TSSEnrich/README.md` (validation of the R port
+test25 to test40), `R/TSSEnrich/README.md` (validation of the R port
 against the ENCODE v2.2.3 container), `bin/checkCounts.sh` (Check A
 and B definitions), `00.ISSUES.md`, `CHANGELOG.md`.

@@ -451,6 +451,24 @@ test34, leaves MACS2's files as written and adds
 Not run: an mm10 pipeline (`00.ISSUES.md` #14). The mm10 blacklist was
 checked only by `getBlacklists.sh` (md5, contigs in `mm10.genome`).
 
+### Peak cap (v2.0.0)
+
+Done 2026-10-12 on `fix/peak-cap` (C-04 of
+`ENCODE_PIPE_CONCORDANCE.md`), against test37 and test38. Script
+`/scratch/core001/bic/soccin/AFTER_ACTION_261011/peak_cap/compareWithEncode.sh`
+applies ENCODE's own commands (`encode_task_macs2_atac.py`,
+`bed_clip`, `encode_lib_blacklist_filter.py`) to each sample's MACS2
+narrowPeak and compares the result with the pipeline's
+`*_peaks.blacklistFiltered.narrowPeak`, every column but the peak
+name.
+
+| Test | Result |
+| --- | --- |
+| test39, the 11 hg38 BAMs with `-q 20` (control job 19268482) | `COMPLETED`, 69 of 69 jobs; Checks A and B pass. No sample over 300,000 peaks (150,451-267,009); every `blacklistFiltered` file equal to ENCODE's commands; MACS2's files and summits equal to test37's; atlas, `.summary` and scale factors byte-identical to test37's |
+| test40, the 4 b37 BAMs, MAPQ 10 (control job 19268483) | `COMPLETED`, 27 of 27 jobs; Checks A and B pass. 3 samples capped at 300,000 (315,877, 366,622, 339,604 from MACS2), 299,207-299,329 kept after the blacklist; every `blacklistFiltered` file equal to ENCODE's commands; MACS2's files equal to test38's. Atlas 727,125 peaks (test38 758,830), 0 on the blacklist |
+| `bedClip` | ran for all 15 samples; no peak needed clipping |
+| The block itself, on crafted files with the cap set to 3 | sort, cap, p-value tie broken by the whole line, clamped start, summit `-1`, end clipped, blacklist, score cap and summits as expected; a peak wholly past its contig end and a contig not in `<TAG>.genome` each stop the job |
+
 ## Not done
 
 - `deliverResults.sh` still points at `/ifs/res/seq/pi/invest` and

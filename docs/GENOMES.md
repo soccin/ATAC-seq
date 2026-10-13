@@ -137,7 +137,9 @@ Sources:
 Since v2.0.0 `callPeaks_ATACSeq.sh` filters each sample's peaks as
 ENCODE's `encode_lib_blacklist_filter.py` does: `bedtools intersect
 -nonamecheck -v` against the blacklist (a peak overlapping it by 1 bp
-or more is dropped), then the score (column 5) capped at 1000. MACS2's
+or more is dropped), then the score (column 5) capped at 1000. As in
+ENCODE, the filter is applied to MACS2's top 300,000 peaks by p-value,
+clipped to the contig ends (see `callPeaks_ATACSeq.sh`). MACS2's
 own files in `callpeaks/<PREFIX>/` are not changed; the result is
 written beside them as `<PREFIX>_peaks.blacklistFiltered.narrowPeak`,
 with the summits of the peaks kept in
