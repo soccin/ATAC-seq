@@ -18,7 +18,7 @@
 #     atacSeq/docs and the differential analysis files of the project
 #     (Proj_<no>_*_DiffPeaksEdgeR_V4.xlsx, Proj_<no>_*_DiffPeaks_V4.pdf),
 #     if any, in atacSeq/diff;
-#   - writes the delivery email to deliveryEmail_<no>_<yymmdd>.txt;
+#   - writes the delivery email to deliveryEmail_<no>_r_NNN_<yymmdd>.txt;
 #   - registers the run with the permissions database.
 #
 #   -d, --default   deliver to DROOT/<pi>/<invest>/Proj_<no>, taken
@@ -65,15 +65,23 @@ warn() {
 #
 CWD=$(pwd -P)
 
+PROJ=""
+IFS=/ read -r -a PARTS <<< "$CWD"
+for p in "${PARTS[@]}"; do
+    if [[ "$p" == Proj_* ]]; then
+        PROJ=$p
+    fi
+done
+
 #
 # Default delivery path from .../Users/Aa/BBB/Proj_nnnnn/...
-# -> aaa/bbb/Proj_nnnnn
+# -> aaa/bbb/Proj_nnnnn; the third component must be the project.
 #
 DPATH=""
-if [[ "$CWD" == *"/Users/"* ]]; then
+if [[ "$CWD" == *"/Users/"* && -n "$PROJ" ]]; then
     rest="${CWD#*/Users/}"
     IFS=/ read -r u1 u2 proj _ <<< "$rest"
-    if [[ -n "$u1" && -n "$u2" && -n "$proj" ]]; then
+    if [[ -n "$u1" && -n "$u2" && "$proj" == "$PROJ" ]]; then
         DPATH="${u1,,}/${u2,,}/$proj"
     fi
 fi
@@ -85,7 +93,7 @@ usage() {
     echo
     echo "    -n, --dry-run   print the delivery and database commands, do not run them"
     echo
-    echo "    default: ${DPATH:+$DROOT/$DPATH}${DPATH:-(none)}"
+    echo "    default: ${DPATH:+$DROOT/}${DPATH:-(none)}"
     echo
 }
 
@@ -129,7 +137,7 @@ fi
 
 if [[ "$USE_DEFAULT" -eq 1 ]]; then
     if [[ -z "$DPATH" ]]; then
-        fatal "no default delivery path for $CWD"
+        fatal "no default delivery path for $CWD (not .../Users/<Pi>/<Invest>/Proj_<no>/...)"
     fi
     ODIR="$DROOT/$DPATH"
 fi
@@ -141,7 +149,7 @@ fi
 
 asbot() {
     if [[ "$DRYRUN" -eq 1 ]]; then
-        echo "DRYRUN: dzdo -u $BOT_USER $*"
+        echo "DRYRUN: dzdo -u $BOT_USER ${*@Q}"
     else
         dzdo -u "$BOT_USER" "$@"
     fi
@@ -173,13 +181,6 @@ for key in GENOME MAPQ RUN_VERSION; do
     fi
 done
 
-PROJ=""
-IFS=/ read -r -a PARTS <<< "$CWD"
-for p in "${PARTS[@]}"; do
-    if [[ "$p" == Proj_* ]]; then
-        PROJ=$p
-    fi
-done
 if [[ -z "$PROJ" ]]; then
     fatal "no Proj_* directory in $CWD; cannot name the project"
 fi
@@ -201,8 +202,12 @@ if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ || "$NAHEAD" != "0" ]]; then
     warn "run version $RUN_VERSION is not a release; fix the version and the doc links in the email"
 fi
 
-SDIR_VERSION=$(git -C "$SDIR" describe --always --long)
-if [[ "$SDIR_VERSION" != "$RUN_VERSION" ]]; then
+#
+# pipe.sh writes VERSION with the same git describe flags.
+#
+if ! SDIR_VERSION=$(git -C "$SDIR" describe --always --long); then
+    warn "cannot get the version of $SDIR; the docs delivered may not match run $RUN_VERSION"
+elif [[ "$SDIR_VERSION" != "$RUN_VERSION" ]]; then
     warn "the docs delivered are from $SDIR_VERSION ($SDIR), the run is $RUN_VERSION"
 fi
 
@@ -240,16 +245,32 @@ if [[ "$ODIR" =~ /(r_[0-9]+)$ ]]; then
     CURRDIR=${BASH_REMATCH[1]}
     ODIR=${ODIR%/*}
 else
-    CURRDIR=r_001
-    last=""
+    CURRDIR=""
+fi
+
+#
+# The deepest existing folder of ODIR must be readable by us; else
+# the run folders in it could exist unseen, and r_001 would be picked
+# or files added to a run folder without the note below.
+#
+seen=$ODIR
+while [[ -n "$seen" && ! -e "$seen" ]]; do
+    seen=${seen%/*}
+done
+seen=${seen:-/}
+if [[ ! -r "$seen" || ! -x "$seen" ]]; then
+    fatal "cannot read $seen, so cannot tell what is in $ODIR"
+fi
+
+if [[ -z "$CURRDIR" ]]; then
+    last=0
     for d in "$ODIR"/r_[0-9]*; do
-        if [[ -d "$d" && "${d##*/}" =~ ^r_[0-9]+$ ]]; then
-            last=${d##*/}
+        n=${d##*/r_}
+        if [[ -d "$d" && "$n" =~ ^[0-9]+$ ]] && ((10#$n > last)); then
+            last=$((10#$n))
         fi
     done
-    if [[ -n "$last" ]]; then
-        CURRDIR=$(printf 'r_%03d' $((10#${last#r_} + 1)))
-    fi
+    CURRDIR=$(printf 'r_%03d' $((last + 1)))
 fi
 DEST=$ODIR/$CURRDIR
 
@@ -271,6 +292,16 @@ echo
 Rscript "$SDIR/bin/readme2yaml.R" "$PROJNO" "$ODIR" "$CURRDIR" "$GENOME"
 echo
 
+#
+# The database takes pi and invest from README.txt; the delivery folder
+# is usually named after the same two users.
+#
+YAML_PI=$(sed -n 's/^pi: //p' project.yaml)
+YAML_INVEST=$(sed -n 's/^invest: //p' project.yaml)
+if [[ "$ODIR" != "$DROOT/$YAML_PI/$YAML_INVEST/$PROJ" ]]; then
+    warn "$ODIR is not $DROOT/<pi>/<invest>/$PROJ for pi=$YAML_PI invest=$YAML_INVEST of README.txt"
+fi
+
 ##
 # Copy
 
@@ -285,13 +316,22 @@ fi
 ##
 # Email
 
-EMAIL=deliveryEmail_${PROJNO}_$(date +%y%m%d).txt
+EMAIL=deliveryEmail_${PROJNO}_${CURRDIR}_$(date +%y%m%d).txt
+
+#
+# A value as the replacement of sed s/// (git tags may contain / and &)
+#
+sedValue() {
+    local v=${1//\\/\\\\}
+    v=${v//\//\\/}
+    printf '%s' "${v//&/\\&}"
+}
 
 fillTemplate() {
-    sed -e "s/{PROJNO}/$PROJNO/g" \
-        -e "s/{RUNDIR}/$CURRDIR/g" \
-        -e "s/{VERSION}/$VERSION/g" \
-        -e "s/{MAPQ}/$MAPQ/g" \
+    sed -e "s/{PROJNO}/$(sedValue "$PROJNO")/g" \
+        -e "s/{RUNDIR}/$(sedValue "$CURRDIR")/g" \
+        -e "s/{VERSION}/$(sedValue "$VERSION")/g" \
+        -e "s/{MAPQ}/$(sedValue "$MAPQ")/g" \
         "$SDIR/$1"
 }
 
@@ -311,24 +351,43 @@ echo
 ##
 # Permissions database
 
-PERMS="$BIC_DELIVERY/authorization_db/init_impact_project_permissions.py -p project.yaml"
+PERMS=("$BIC_DELIVERY/authorization_db/init_impact_project_permissions.py" -p project.yaml)
+
+#
+# Run with set +eu: the module scripts reference unset variables, and
+# a failure here must say what was already done.
+#
+registerRun() {
+    set +eu
+    if [ "$(type -t module)" != "function" ]; then
+        . /etc/profile.d/modules.sh || return 1
+    fi
+    module purge || return 1
+    module load python/3.8.0 || return 1
+    local python38
+    python38=$(which python3.8) || return 1
+    module load py-python-ldap/3.4.2 || return 1
+    "$python38" "${PERMS[@]}"
+}
+
 if [[ "$DRYRUN" -eq 1 ]]; then
     echo "DRYRUN: module load python/3.8.0 py-python-ldap/3.4.2"
-    echo "DRYRUN: python3.8 $PERMS"
+    echo "DRYRUN: python3.8 ${PERMS[*]@Q}"
 else
-    #
-    # The module scripts reference unset variables.
-    #
-    set +u
-    if [ "$(type -t module)" != "function" ]; then
-        . /etc/profile.d/modules.sh
+    rc=0
+    registerRun || rc=$?
+    set -eu
+    if [[ $rc -ne 0 ]]; then
+        echo
+        echo "    FATAL ERROR: the files are delivered to $DEST and the email"
+        echo "    is in $EMAIL, but registering the run with the permissions"
+        echo "    database failed (exit $rc). Fix the cause and run, here:"
+        echo
+        echo "        module load python/3.8.0 py-python-ldap/3.4.2"
+        echo "        python3.8 ${PERMS[*]@Q}"
+        echo
+        exit 1
     fi
-    module purge
-    module load python/3.8.0
-    PYTHON38=$(which python3.8)
-    module load py-python-ldap/3.4.2
-    set -u
-    $PYTHON38 $PERMS
 fi
 
 echo

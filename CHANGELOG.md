@@ -278,7 +278,10 @@ section, under "Internal".
   `v2.0.0`, `r_001` and 10, and links to the docs on GitHub at that
   tag. The new `bin/readme2yaml.R` writes `project.yaml` with the
   build tag (`hg38`) as `genome`, where the old one wrote the README's
-  species (`human`). `extractProjectIDFromPath.py` is removed.
+  species (`human`). `extractProjectIDFromPath.py` is removed. It
+  stops if it cannot read the delivery folder, since it could not
+  see the run folders there, and if the database step fails it says
+  that the files were delivered and how to rerun that step.
 
 #### Internal
 

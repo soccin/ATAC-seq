@@ -191,7 +191,7 @@ after the differential analysis if there is one:
 taken from the path `.../Users/<Pi>/<Invest>/Proj_<no>/...`; any other
 delivery folder can be given instead. The run folder is the next
 `r_NNN` there, unless the path ends in one. The script stops unless
-the run `COMPLETED`, then:
+the run `COMPLETED` and you can read the delivery folder, then:
 
 - writes `project.yaml` (`bin/readme2yaml.R`) from the run's
   `GENOME` and the PI and investigator emails of the first
@@ -202,15 +202,20 @@ the run `COMPLETED`, then:
   `atacSeq/docs`, and the project's `*_DiffPeaksEdgeR_V4.xlsx` and
   `*_DiffPeaks_V4.pdf` (any RUNTAG) to `atacSeq/diff`;
 - writes the email, from `tmpldeliveryEmail_*.txt`, to
-  `deliveryEmail_<no>_<yymmdd>.txt`;
+  `deliveryEmail_<no>_r_NNN_<yymmdd>.txt`;
 - registers the run with the bicdelivery permissions database
-  (`~/Code/BIC/Delivery/Version2j`).
+  (`~/Code/BIC/Delivery/Version2j`). If this fails, the files are
+  already delivered; the script prints the command to rerun this
+  step alone.
 
 The email gives the release tag of the run (`VERSION` in
 `00.RUNSTATUS.txt` without its `-N-gSHA`) and links to the docs at
 that tag. A run not made on a release tag, docs from a checkout other
 than the run's, or diff files with a RUNTAG (the email names the
 untagged files) give a `WARNING`: edit the email before sending it.
+A delivery folder other than `<pi>/<invest>/Proj_<no>` for the PI and
+investigator of `README.txt`, the users the database is given, also
+gives a `WARNING`.
 `git describe` sees only annotated tags, so tag releases with
 `git tag -a`.
 
