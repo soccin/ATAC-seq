@@ -6,7 +6,7 @@ Review date: 2026-10-12. Checkout reviewed: `v2.x-pre2-11-g58a3322`
 as read on 2026-10-12, plus the ENCODE ATAC-seq data standards page.
 The exact files read are listed under "Sources".
 
-Updated 2026-10-12 at `v2.x-pre2-28-gcdf362b` (branch `encode-2026`):
+Updated 2026-10-12 at `v2.x-pre2-32-gbb486a4` (branch `encode-2026`):
 C-01, C-02 and C-03 are fixed (section 1, "Status"); the other findings
 are open and their text is brought up to date with the fixed code.
 
@@ -24,7 +24,7 @@ Conventions used in this document:
 - Paths such as `callPeaks_ATACSeq.sh` or `bin/countPeaks.sh` are
   relative to the root of this repository, the ATAC-seq toolkit
   directory that holds `pipe.sh`. Line numbers (`file:NN`) refer to
-  `v2.x-pre2-28-gcdf362b` and will drift with later commits; the
+  `v2.x-pre2-32-gbb486a4` and will drift with later commits; the
   quoted code identifies the line when the number has moved.
 - Paths such as `out/<SID>/`, `callpeaks/`, `atacSeq/` and
   `00.RUNSTATUS.txt` are in the per-project analysis directory from
@@ -39,9 +39,9 @@ Conventions used in this document:
 - Proj_18143 and the `testNN` runs are validation runs recorded in
   `docs/SLURM_PORT.md`: Proj_18143 is a full-size run of 15 hg38
   samples (made before C-01 to C-03 were fixed). The hg38 test runs
-  (test26, test27, test33, test35) use 11 hg38 BAMs downsampled 100x
-  at MAPQ 20; the b37 runs (test25, test28, test34, test36) use 4 b37
-  BAMs downsampled 100x at MAPQ 10.
+  (test26, test27, test33, test35, test37) use 11 hg38 BAMs
+  downsampled 100x at MAPQ 20; the b37 runs (test25, test28, test34,
+  test36, test38) use 4 b37 BAMs downsampled 100x at MAPQ 10.
 - Findings C-01 to C-22 are numbered in stage order, not by severity.
   High means the finding changes peaks or counts materially; Medium
   means it changes a delivered number or hides a QC failure; Low means
@@ -97,9 +97,20 @@ table lists every finding:
 | ID | Branch, commits | Tested on |
 | --- | --- | --- |
 | C-01, C-02 | `fix/macs2-encode` (`424d252`, `60bdde4`), merged into `encode-2026` as `be43089` | test27 (hg38), test28 (b37) |
-| C-03 | `fix/blacklist` (`1f21b5b` to `3bbbcb3`), merged into `encode-2026` as `330ced3` (first version) and `cdf362b` | test33, test35 (hg38); test34, test36 (b37) |
+| C-03 | `fix/blacklist` (`1f21b5b` to `3bbbcb3`), merged into `encode-2026` as `330ced3` (first version) and `cdf362b` | test33, test35, test37 (hg38); test34, test36, test38 (b37) |
 
-All six test runs passed every job and both count checks. Each fix is
+test33 to test36 ran before the last two code commits of
+`fix/blacklist`; test37 and test38 ran on `encode-2026` at `bb486a4`,
+which has them both and the one-`sort` fix of `mergePeaksToSAF.sh`
+(`fix/atlas-sort`, `533308e`): the five-file deliverables check in
+`pipe.sh` (`507116c`) passed, and the peak files, atlas, counts and
+scale factors match test27/test28 and test31/test32 as test33/test34
+did. `lib/genomes/getBlacklists.sh`
+(`3bbbcb3`) is not part of a run; it was tested on its own (a normal
+run gives the committed files; a wrong md5, a wrong file served and a
+failed download each leave them unchanged).
+
+All eight test runs passed every job and both count checks. Each fix is
 in `CHANGELOG.md` under Breaking changes. Not yet done: a full-size run
 of Proj_18143 on `encode-2026`. Details are under each finding in
 section 3.
@@ -228,7 +239,7 @@ Fixed on `fix/blacklist`:
   deliverables check (`pipe.sh:721-734`) requires all five files.
 - **Atlas**, `mergePeaksToSAF.sh GENOME MACS_OUTDIR`: merges only the
   `*_peaks.blacklistFiltered.narrowPeak` files, then subtracts the
-  blacklist (`mergePeaksToSAF.sh:37-41`), because merging within
+  blacklist (`mergePeaksToSAF.sh:44-48`), because merging within
   500 bp can bridge a small blacklisted region between two kept peaks
   (5 atlas peaks in the hg38 test, 1 in b37); the subtraction splits
   such a peak in two. No atlas peak, and so no count, covers a
@@ -236,8 +247,10 @@ Fixed on `fix/blacklist`:
 
 Tests (`docs/SLURM_PORT.md`, "Blacklist filter"): per sample 264-475
 hg38 peaks and 652-891 b37 peaks are removed; 0 filtered peaks and 0
-atlas peaks overlap the blacklist; MACS2's files are byte-identical to
-the unfiltered runs (test27, test28); the hg38 atlas has 901,681 peaks
+atlas peaks overlap the blacklist; MACS2's narrowPeak and summits are
+byte-identical to the unfiltered runs (test27, test28), and so is the
+body of its `.xls` (its `#` header differs only in the per-job temp
+path of the input file); the hg38 atlas has 901,681 peaks
 (903,877 before) and the b37 atlas 758,830 (760,751).
 
 ### C-04 No capping, sorting or clipping after MACS2 (Medium)
@@ -550,7 +563,7 @@ Variances:
   acceptable, > 7 ideal; mm10 RefSeq: < 10, 10-15, > 15) are stated
   per annotation. Scores against the v1 files are internally
   consistent with earlier deliveries but are not the numbers the
-  current ENCODE pipeline would report. `R/TSSEnrich/README.md:71-72`
+  current ENCODE pipeline would report. `R/TSSEnrich/README.md:72-73`
   states one rule for every genome, ">= 7 ideal, >= 5 acceptable,
   < 1 failed". The first two are the GRCh38 numbers only; mm10's are
   10 and 15, hg19's 6 and 10; and "< 1 failed" is not an ENCODE cut
@@ -631,7 +644,7 @@ needs phantompeakqualtools), preseq.
 
 ### C-17 SAF coordinates are off by one (Low)
 
-`mergePeaksToSAF.sh:37-41` writes the `bedtools merge` and `bedtools
+`mergePeaksToSAF.sh:44-48` writes the `bedtools merge` and `bedtools
 subtract` output (BED, 0-based half-open start) straight into SAF
 columns 3 and 4. This includes the second half of a merged peak split
 by the blacklist subtraction (C-03), whose start is a blacklist end.
@@ -711,8 +724,8 @@ and length to ENCODE's, so peak coordinates are directly comparable.
   remark, as the featureCounts paragraph of `NOTES.md` already has.
 - `README.md:49-50`: duplicates marked "by the mapper". It is Picard
   MarkDuplicates in PEMapper; see C-09.
-- `R/TSSEnrich/README.md:71-72`: one threshold rule for every genome, and
-  a "< 1 failed" cut that ENCODE does not define; see C-14.
+- `R/TSSEnrich/README.md:72-73`: one threshold rule for every genome,
+  and a "< 1 failed" cut that ENCODE does not define; see C-14.
 
 ## 4. Concordant with ENCODE
 
@@ -835,6 +848,6 @@ the `atac.wdl` line numbers quoted (144, 192) refer to that revision:
 
 Local: `NOTES.md`, `QC/QCNotes.md`, `docs/GENOMES.md` (blacklist
 sources), `docs/SLURM_PORT.md` (validation runs Proj_18143 and
-test25 to test36), `R/TSSEnrich/README.md` (validation of the R port
+test25 to test38), `R/TSSEnrich/README.md` (validation of the R port
 against the ENCODE v2.2.3 container), `bin/checkCounts.sh` (Check A
 and B definitions), `00.ISSUES.md`, `CHANGELOG.md`.
