@@ -224,6 +224,9 @@ colored by group with one line type per replicate.</li>
 <p>A successful ATAC-seq library shows a large nucleosome-free peak
 below about 100 bp and smaller peaks at about 200 bp (one nucleosome)
 and 400 bp (two nucleosomes).</p>
+<p>The histogram covers 0 to 1000 bp. Its smallest insert is 31 bp:
+pairs with an insert of 30 bp or less are removed by the read filter
+(see the methods document).</p>
 <p>The per-sample files behind the plot are
 <code>&lt;sample&gt;_postProcess___INS.txt</code>, the Picard metrics
 file (summary statistics such as the median and mode insert size,
