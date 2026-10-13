@@ -312,6 +312,10 @@ section, under "Internal".
   `MESSAGE`. Before, `getGenomeBuildBAM.sh` printed the md5 of an empty
   header as an "unknown" genome.
 - `R/analyzeATAC.R` with no arguments exits 1 (it exited 0).
+- The version in `00.RUNSTATUS.txt` (and so in `checkRun.sh`) counts
+  lightweight tags: `pipe.sh` runs `git describe --tags`. Without
+  `--tags` it named the last annotated tag, so a run at `v2.x-rc1`
+  recorded `v2.x-pre2-99-g64a7144`.
 
 #### Internal
 
