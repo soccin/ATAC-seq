@@ -6,9 +6,10 @@ Review date: 2026-10-12. Checkout reviewed: `v2.x-pre2-11-g58a3322`
 as read on 2026-10-12, plus the ENCODE ATAC-seq data standards page.
 The exact files read are listed under "Sources".
 
-Updated 2026-10-12 on branch `fix/peak-cap` (from `encode-2026`):
-C-01 to C-04 are fixed (section 1, "Status"); the other findings
-are open and their text is brought up to date with the fixed code.
+Updated 2026-10-12 on branch `encode-2026` at `ba329b6`: C-01 to
+C-04, C-06, C-07 and C-17 are fixed (section 1, "Status"); the other
+findings are open and their text is brought up to date with the fixed
+code.
 
 Triaged 2026-10-12: C-05 is "Design (Koche)", C-09 and C-21 are
 "Deferred (mapper)", and C-08 is "Not applicable"; each finding gives
@@ -29,8 +30,9 @@ Conventions used in this document:
 - Paths such as `callPeaks_ATACSeq.sh` or `bin/countPeaks.sh` are
   relative to the root of this repository, the ATAC-seq toolkit
   directory that holds `pipe.sh`. Line numbers (`file:NN`) refer to
-  branch `fix/peak-cap` and will drift with later commits; the
-  quoted code identifies the line when the number has moved.
+  branch `encode-2026` at `ba329b6` and will drift with later
+  commits; the quoted code identifies the line when the number has
+  moved.
 - Paths such as `out/<SID>/`, `callpeaks/`, `atacSeq/` and
   `00.RUNSTATUS.txt` are in the per-project analysis directory from
   which `pipe.sh` is submitted, not in the repository.
@@ -44,9 +46,10 @@ Conventions used in this document:
 - Proj_18143 and the `testNN` runs are validation runs recorded in
   `docs/SLURM_PORT.md`: Proj_18143 is a full-size run of 15 hg38
   samples (made before C-01 to C-03 were fixed). The hg38 test runs
-  (test26, test27, test33, test35, test37, test39) use 11 hg38 BAMs
-  downsampled 100x at MAPQ 20; the b37 runs (test25, test28, test34,
-  test36, test38, test40) use 4 b37 BAMs downsampled 100x at MAPQ 10.
+  (test26, test27, test33, test35, test37, test39, test41, test43,
+  test45) use 11 hg38 BAMs downsampled 100x at MAPQ 20; the b37 runs
+  (test25, test28, test34, test36, test38, test40, test42, test44,
+  test46) use 4 b37 BAMs downsampled 100x at MAPQ 10.
 - Findings C-01 to C-22 are numbered in stage order, not by severity.
   High means the finding changes peaks, the atlas, the bigWigs or the
   counts, by any amount; Medium
@@ -70,19 +73,19 @@ faithful port of ENCODE's and uses ENCODE's own TSS files.
 
 At the reviewed checkout it was not concordant with ENCODE in the
 peak-calling step itself (C-01, C-02) and filtered no peaks against a
-blacklist (C-03). Those three are fixed, and so is C-04, the peak cap
-(see "Status" below); each sample's final peak set is now the one
-ENCODE's commands produce. ENCODE's FRiP and QC metrics are still
-missing (C-11, C-16), and the atlas, counts, size factors, QC PDF and
-differential analysis have no ENCODE counterpart (section 5). The
-table lists every finding, the open ones first; those fixed or not
-being worked on are at the end:
+blacklist (C-03). Those three are fixed, and so are C-04, the peak
+cap, C-06 and C-07, the read filter, and C-17, the atlas coordinates
+(see "Status" below). The reads are filtered with ENCODE's steps,
+except for the MAPQ cutoff (C-05, R. Koche's) and where duplicates
+are marked (C-09, in the mapper), and each sample's final peak set
+is the one ENCODE's commands produce from those reads. ENCODE's FRiP
+and QC metrics are still missing (C-11, C-16), and the atlas,
+counts, size factors, QC PDF and differential analysis have no
+ENCODE counterpart (section 5). The table lists every finding, the
+open ones first; those fixed or not being worked on are at the end:
 
 | ID | Finding | Severity |
 | --- | --- | --- |
-| C-06 | Orphan reads (mate failed MAPQ) kept; ENCODE removes them with `fixmate -r` | High |
-| C-07 | Extra filter: fragments with insert size <= 30 bp dropped | High |
-| C-17 | SAF atlas coordinates are off by one (BED start used as 1-based start) | High |
 | C-10 | `frac_mito` is computed after filtering; ENCODE computes it on the raw BAM | Medium |
 | C-11 | "Fraction reads in peaks" is not ENCODE FRiP (atlas instead of own peaks; mito reads in the denominator) | Medium |
 | C-16 | Most ENCODE QC metrics are absent (library complexity, fragment-length QC pass/fail, annotation enrichment, number of peaks, JSD, GC bias, reproducibility) | Medium |
@@ -98,6 +101,9 @@ being worked on are at the end:
 | C-02 | MACS2 `--keep-dup all` missing (default `1` collapses cut sites) | High; fixed |
 | C-03 | No blacklist filtering of peaks, anywhere | High; fixed |
 | C-04 | No peak capping, p-value sorting or coordinate clipping after MACS2 | High; fixed |
+| C-06 | Orphan reads (mate failed MAPQ) kept; ENCODE removes them with `fixmate -r` | High; fixed |
+| C-07 | Extra filter: fragments with insert size <= 30 bp dropped | High; fixed |
+| C-17 | SAF atlas coordinates are off by one (BED start used as 1-based start) | High; fixed |
 | C-05 | Read filter: MAPQ 10 on BWA output; ENCODE keeps up to 4 multimappers with no MAPQ filter (or `-q 30` when multimapping is off) | Design (Koche) |
 | C-08 | Supplementary alignments (flag 0x800) pass the filter; a BWA-specific consequence of `-F 1804` | Not applicable |
 | C-09 | Duplicates: Picard MarkDuplicates upstream, removed here by flag, as ENCODE does; but marked on the unfiltered BAM, with no check that the input was marked and no duplicate rate or NRF/PBC1/PBC2 reported | Deferred (mapper) |
@@ -109,7 +115,9 @@ being worked on are at the end:
 | --- | --- | --- |
 | C-01, C-02 | `fix/macs2-encode` (`424d252`, `60bdde4`), merged into `encode-2026` as `be43089` | test27 (hg38), test28 (b37) |
 | C-03 | `fix/blacklist` (`1f21b5b` to `3bbbcb3`), merged into `encode-2026` as `330ced3` (first version) and `cdf362b` | test33, test35, test37 (hg38); test34, test36, test38 (b37) |
-| C-04 | `fix/peak-cap` | test39 (hg38), test40 (b37) |
+| C-04 | `fix/peak-cap` (`e75a8b7`, `b7638c3`), merged into `encode-2026` as `2682bfa` | test39 (hg38), test40 (b37) |
+| C-17 | `fix/saf-start` (`e50dec6`, `a716207`), merged into `encode-2026` as `f3d6ce2` | test41, test45 (hg38); test42, test46 (b37) |
+| C-06, C-07 | `fix/read-filter` (`c8d17d7`, `297e560`), merged into `encode-2026` as `ba329b6` | test43, test45 (hg38); test44, test46 (b37) |
 
 test33 to test36 ran before the last two code commits of
 `fix/blacklist`; test37 and test38 ran on `encode-2026` at `bb486a4`,
@@ -122,10 +130,17 @@ did. `lib/genomes/getBlacklists.sh`
 run gives the committed files; a wrong md5, a wrong file served and a
 failed download each leave them unchanged).
 
-All ten test runs passed every job and both count checks. Each fix is
-in `CHANGELOG.md` under Breaking changes. Not yet done: a full-size run
-of Proj_18143 on `encode-2026`. Details are under each finding in
-section 3.
+test41 to test44 ran on the two branches before they were merged,
+each against test39/test40; test45 and test46 ran on `encode-2026` at
+`ba329b6`, which has both. Their BAMs, shifted BEDs and peaks equal
+test43/test44's, and their atlas equals test43/test44's with every
+start plus 1, as each fix alone predicts.
+
+All sixteen test runs passed every job and both count checks. Each
+fix is in `CHANGELOG.md` under Breaking changes. Not yet done: a
+full-size run of Proj_18143 on `encode-2026`, which also has to
+measure POST's run time with the name sort that C-06 added. Details
+are under each finding in section 3.
 
 ## 2. Stage map
 
@@ -134,7 +149,7 @@ section 3.
 | `trim_adapter` | cutadapt `-e 0.1 -m 5`, adapters given or auto-detected | Not applicable: input is an aligned BAM | n/a (C-21) |
 | `align` | bowtie2 `-k 5 -X2000 --mm` (default `multimapping=4`, passed as `-k multimapping+1`), then `samtools flagstat` on the raw BAM and on the raw BAM without `chrM`; read length from the FASTQ | Upstream BWA-MEM (PEMapper) | No (C-21) |
 | `frac_mito` | A second alignment of the trimmed reads to a mitochondria-only bowtie2 index (`align_mito`); `frac_mito` = reads mapped there / (those + reads mapped to non-mito contigs in the main alignment), all unfiltered | `___MITO.txt`: `chrM` reads / all reads of the filtered BAM | Partly (C-10) |
-| `filter` step 1 | `samtools view -F 524 -f 2`, name sort, `assign_multimappers.py -k 4`, `fixmate -r`, `samtools view -F 1804 -f 2`; or with `multimapping=0`: `-F 1804 -f 2 -q 30`, `fixmate -r`, `-F 1804 -f 2` | `samtools view -q 10 -f 3 -F 1804`, then drop insert size <= 30 | Partly (C-05, C-06, C-07, C-08) |
+| `filter` step 1 | `samtools view -F 524 -f 2`, name sort, `assign_multimappers.py -k 4`, `fixmate -r`, `samtools view -F 1804 -f 2`; or with `multimapping=0`: `-F 1804 -f 2 -q 30`, `fixmate -r`, `-F 1804 -f 2` | `samtools view -q 10 -f 3 -F 1804`, name sort, `fixmate -r`, `samtools view -f 3 -F 1804`; until C-06 and C-07 were fixed, no `fixmate` and pairs with insert size <= 30 dropped | Yes but for the MAPQ cutoff (C-05; C-08 does not arise) |
 | `filter` step 2 | Picard MarkDuplicates on the filtered BAM, then `samtools view -F 1804 -f 2` | Picard MarkDuplicates upstream (PEMapper, marked not removed, on the unfiltered BAM); removed by the same `-F 1804` | Yes, with a caveat (C-09) |
 | `filter` step 3 | Remove `chrM`, `MT` from the nodup BAM (`samtools view -L` with the other contigs) | Keep only autosomes, X, Y in the shifted BED; the BAM keeps everything | Yes at the peak level (C-10) |
 | `filter` QC | `samstat`, `dup.qc`, `lib_complexity.qc` (NRF, PBC1, PBC2) | None | No (C-09, C-16) |
@@ -251,7 +266,7 @@ Fixed on `fix/blacklist`:
   deliverables check (`pipe.sh:721-734`) requires all five files.
 - **Atlas**, `mergePeaksToSAF.sh GENOME MACS_OUTDIR`: merges only the
   `*_peaks.blacklistFiltered.narrowPeak` files, then subtracts the
-  blacklist (`mergePeaksToSAF.sh:44-48`), because merging within
+  blacklist (`mergePeaksToSAF.sh:49-53`), because merging within
   500 bp can bridge a small blacklisted region between two kept peaks
   (5 atlas peaks in the hg38 test, 1 in b37); the subtraction splits
   such a peak in two. No atlas peak, and so no count, covers a
@@ -346,9 +361,11 @@ samtools fixmate -r
 samtools view -F 1804 -f 2 -u | samtools sort
 ```
 
-This pipeline (`postMapBamProcessing_ATACSeq.sh:110`) applies
-`-q 10 -f 3 -F 1804` once, per read, on BWA-MEM output. The default
-MAPQ is 10 (`pipe.sh`); the recent test runs used 10 and 20.
+This pipeline (`postMapBamProcessing_ATACSeq.sh:115-119`) applies
+`-q 10 -f 3 -F 1804` per read on BWA-MEM output, then, since C-06,
+ENCODE's name sort, `fixmate -r` and flag filter, so a pair is kept
+only if both reads pass MAPQ. The default MAPQ is 10 (`pipe.sh`); the
+recent test runs used 10 and 20.
 
 The two cannot be made identical: bowtie2 and BWA score MAPQ
 differently, and BWA reports no alternative alignments to count.
@@ -363,35 +380,49 @@ specified; ENCODE uses 30 whenever it filters on MAPQ at all (ATAC with
 `multimapping = 0`, and the ENCODE ChIP-seq pipeline, which does use
 BWA).
 
-### C-06 Orphan reads are kept (High)
+### C-06 Orphan reads were kept (High; fixed)
 
 ENCODE runs `samtools fixmate -r` after the MAPQ filter and then
 `-f 2` again, so a read whose mate was removed is removed too. This
-pipeline filters each read on its own, so a read whose mate fell below
-MAPQ stays, with the proper-pair flag still set. `bin/checkCounts.sh`
-documents the effect: Check A ratios of 1.000 to 1.004 are expected,
-the excess being singletons whose mate failed the MAPQ filter. The
-full-size Proj_18143 run gave 1.0004 to 1.0008 (`docs/SLURM_PORT.md`),
-that is under 0.1% of fragments. featureCounts counts them as
-fragments; the tagAlign has one line for them instead of two. Those
-lines are in the shifted BED, so they enter the peaks, the atlas and
-the bigWigs (the coverage and the read count of the 10M scale).
+pipeline filtered each read on its own, so a read whose mate fell
+below MAPQ stayed, with the proper-pair flag still set. Check A
+showed the effect: ratios of 1.000 to 1.004 were expected, the excess
+being singletons whose mate failed the MAPQ filter; the full-size
+Proj_18143 run gave 1.0004 to 1.0008 (`docs/SLURM_PORT.md`), under
+0.1% of fragments. featureCounts counted them as fragments, and they
+were in the shifted BED, so in the peaks, the atlas and the bigWigs
+(the coverage and the read count of the 10M scale).
 
-Fix (optional): `samtools sort -n | samtools fixmate -r | samtools
-view -f 2` between the MAPQ filter and SortSam. Check A's expected
-ratio then becomes exactly 1.000.
+Fixed on `fix/read-filter` (`c8d17d7`),
+`postMapBamProcessing_ATACSeq.sh:115-119`: after the MAPQ and flag
+filter, `samtools sort -n` (temp files in `$TMPDIR`), `samtools
+fixmate -r` and `samtools view -f 3 -F 1804` again, then SortSam as
+before. The name sort makes POST slower; its run time at full size
+is still to be measured.
 
-### C-07 Insert size <= 30 bp filter (High)
+Tests (`docs/SLURM_PORT.md`, "Read filter"): in test43 (hg38) and
+test44 (b37) no read is left without its mate (test39 and test40 had
+116-371 per sample) and Check A is exactly 1.0000 for every sample.
 
-`postMapBamProcessing_ATACSeq.sh:111` drops pairs with `|TLEN| <= 30`.
+### C-07 Insert size <= 30 bp filter (High; fixed)
+
+`postMapBamProcessing_ATACSeq.sh` dropped pairs with `|TLEN| <= 30`.
 ENCODE has no such filter. Fragments that short are adapter dimers or
-artifacts and are rare among BWA proper pairs, so the effect is small,
-but it is an undocumented deviation and it slightly truncates the left
-edge of the insert-size histogram that ENCODE reports in full. The
-filter runs before the shifted BED is written, so it changes the
-peaks, the atlas and the bigWigs.
+artifacts and are rare among BWA proper pairs, but the filter was an
+undocumented deviation, truncated the left edge of the insert-size
+histogram that ENCODE reports in full, and ran before the shifted BED
+was written, so it changed the peaks, the atlas and the bigWigs.
 
-Fix: document it in `README.md`, or remove it for concordance.
+Fixed on `fix/read-filter` (`c8d17d7`): the filter is removed, for
+concordance. In test43 and test44, 1,126-5,162 reads per sample with
+`|TLEN| <= 30` are kept.
+
+Effect of C-06 and C-07 together, against test39/test40: the
+postProcess BAMs are 0.2-0.5% larger; the filtered peaks per sample
+changed by -2,352 to +647 (the two largest losses, in GD1_1 and
+GD1_2, are MACS2 peaks of a single fragment, which pass `-p 0.01` only
+just in 100x downsampled data); the hg38 atlas went from 901,681 to
+902,445 peaks and the b37 atlas from 727,125 to 727,558.
 
 ### C-08 Supplementary alignments pass the filter (Not applicable)
 
@@ -424,7 +455,7 @@ by Picard MarkDuplicates (`REMOVE_DUPLICATES=FALSE`, flag 0x400 set).
 This is what ENCODE does too: `mark_dup_picard` runs MarkDuplicates
 with `REMOVE_DUPLICATES=FALSE` and `rm_dup_pe` then drops the flagged
 reads with `samtools view -F 1804 -f 2`, which is this pipeline's
-filter at `postMapBamProcessing_ATACSeq.sh:110`. The tool, the
+filter at `postMapBamProcessing_ATACSeq.sh:115-119`. The tool, the
 pairing-aware duplicate definition and the removal are concordant.
 
 The one difference in the marking: ENCODE marks duplicates on the BAM
@@ -489,7 +520,7 @@ Differences:
   mitochondrial index and `Rn` the reads mapped to non-mitochondrial
   contigs in the main alignment, before any MAPQ, proper-pair or
   duplicate filter. This pipeline's `___MITO.txt` counts reads of the
-  filtered BAM (`postMapBamProcessing_ATACSeq.sh:140`). Mitochondrial
+  filtered BAM (`postMapBamProcessing_ATACSeq.sh:146`). Mitochondrial
   reads are heavily duplicated, so the pipeline's fraction is lower
   than ENCODE's for the same library and the two are not comparable.
 - ENCODE removes `chrM` from the nodup BAM itself, so the BAM-based
@@ -656,10 +687,10 @@ pass/fail lines. The portal standard requires a visible NFR and a
 mononucleosome peak (147-294 bp).
 
 This pipeline runs Picard on the full filtered BAM (no `STOP_AFTER`,
-`chrM` included, fragments <= 30 bp removed) and plots the
-distributions (`plotINSStats.R`). No fraction or pass/fail is
-computed, so a sample without nucleosomal periodicity is only visible
-to someone reading the PDF.
+`chrM` included; fragments <= 30 bp were removed until C-07 was
+fixed) and plots the distributions (`plotINSStats.R`). No fraction
+or pass/fail is computed, so a sample without nucleosomal periodicity
+is only visible to someone reading the PDF.
 
 Fix: compute the NFR fraction, the NFR/mono ratio and the three peak
 checks from the `___INS.txt` histogram in `plotINSStats.R` (or a small
@@ -687,27 +718,31 @@ Enabled by default in `atac.wdl` and absent here:
 Off by default in ENCODE and also absent: cross-correlation (`xcor`,
 needs phantompeakqualtools), preseq.
 
-### C-17 SAF coordinates are off by one (High)
+### C-17 SAF coordinates were off by one (High; fixed)
 
-`mergePeaksToSAF.sh:44-48` writes the `bedtools merge` and `bedtools
+`mergePeaksToSAF.sh` wrote the `bedtools merge` and `bedtools
 subtract` output (BED, 0-based half-open start) straight into SAF
-columns 3 and 4. This includes the second half of a merged peak split
-by the blacklist subtraction (C-03), whose start is a blacklist end.
-featureCounts reads SAF `Start` as 1-based inclusive, so every atlas
-peak is tested as one base wider on the left than the merged region.
-`assignedCheck.sh` compensates (`s = $3 - 1`) so Check B tests the
-same off-by-one interval, and `R/diffAnalysisPairwise.R` writes
-`Start` back out as a BED start, which is coordinate-correct only
-because the stored value is in fact 0-based. The effect on counts is
-negligible; the inconsistency matters if anyone treats
-`peaks_raw_fcCounts.txt` Start as 1-based, which featureCounts
-documentation says it is.
+columns 3 and 4. featureCounts reads SAF `Start` as 1-based
+inclusive, so every atlas peak was counted one base wider on the left
+than the merged region. `assignedCheck.sh` converts the SAF to BED
+with `s = $3 - 1`, so Check B tested the same wrong interval and
+still agreed.
 
-Fix: `awk '{print "Peak_"++s, $1, $2+1, $3, "+"}'` as the last step of
-`mergePeaksToSAF.sh`, then `s = $3 - 1` in `assignedCheck.sh` is
-already right, and `diffAnalysisPairwise.R` must subtract 1 when it
-builds the BED for ChIPseeker. Change the three together and rerun
-Check B.
+Fixed on `fix/saf-start` (`e50dec6`), `mergePeaksToSAF.sh:49-53`: the
+last step writes `$2 + 1` as the SAF start. `assignedCheck.sh`
+already treats the SAF as 1-based and is unchanged. Unlike the fix
+first proposed here, `R/diffAnalysisPairwise.R` is unchanged too: it
+passes `Start` to ChIPseeker's `peakDF2GRanges`, which builds
+`IRanges(start, end)` and so reads it as 1-based. With the old SAF the
+annotated peaks were one base too wide on the left; now they are
+right. The `Start` of `macsPeaksMerged.saf`, `peaks_raw_fcCounts.txt`
+and the `DiffPeaksEdgeR` workbooks is 1 higher than before.
+
+Tests (`docs/SLURM_PORT.md`, "1-based atlas start"): in test41 (hg38)
+and test42 (b37) the BAMs, shifted BEDs and peaks equal test39/test40's,
+the atlas equals theirs with every start plus 1, and 55 of 9,918,491
+(hg38) and 112 of 2,908,500 (b37) count cells are 1 lower: fragments
+that overlapped only the extra base. Check B passes.
 
 ### C-18 Atlas merging within 500 bp (Low, design)
 
@@ -727,7 +762,7 @@ ENCODE's `tn5_shift_ta` adds, after the +4/-5 shift:
 if ($2 >= $3) { if ($6 == "+") {$2 = $3 - 1} else {$3 = $2 + 1} }
 ```
 
-`postMapBamProcessing_ATACSeq.sh:147` lacks it. A read with an aligned
+`postMapBamProcessing_ATACSeq.sh:153` lacks it. A read with an aligned
 span of 5 bp or less would produce an inverted interval. BWA-MEM's
 minimum seed makes this impossible in practice, but the guard costs
 nothing.
@@ -778,7 +813,9 @@ and length to ENCODE's, so peak coordinates are directly comparable.
 ## 4. Concordant with ENCODE
 
 - Flag filter `-F 1804` with proper pairs (`-f 3` is `-f 2` plus the
-  paired bit, which proper pairs imply).
+  paired bit, which proper pairs imply), then name sort, `fixmate -r`
+  and the flag filter again, so no read is kept without its mate; no
+  insert-size filter. Since C-06 and C-07.
 - Duplicates marked with Picard MarkDuplicates (upstream, in PEMapper)
   and removed by the 0x400 bit of `-F 1804`, the same tool and removal
   step as ENCODE's `filter` task.
@@ -808,34 +845,31 @@ matrix and its two checks, the DESeq2 size factors (inverted, per
 pairwise differential analysis have no counterpart in the ENCODE
 pipeline, which stops at peaks, signal tracks and a QC report. They
 were reviewed for internal correctness only; the one coordinate issue
-found is C-17. The count checks (A and B) are sound and have no ENCODE
-equivalent. One further bug outside ENCODE's scope is already tracked
-as `00.ISSUES.md` #5: the three-argument (size-factor) mode of
-`makeBigWigFromBEDZ.sh:39` reads the BED path as the scale factor
-(`scaleFactor=$2`; it should be `$3`). `pipe.sh:573` passes two
-arguments, so the delivered 10M-normalized bigWigs are not affected.
+found, C-17, is fixed. The count checks (A and B) are sound and have
+no ENCODE equivalent. One further bug outside ENCODE's scope is
+already tracked as `00.ISSUES.md` #5: the three-argument
+(size-factor) mode of `makeBigWigFromBEDZ.sh:39` reads the BED path
+as the scale factor (`scaleFactor=$2`; it should be `$3`).
+`pipe.sh:573` passes two arguments, so the delivered 10M-normalized
+bigWigs are not affected.
 
 ## 6. Recommended order of work
 
-C-01 to C-04 are done (section 1, "Status"). Not being worked on:
-C-05 (Design, Koche), C-08 (Not applicable), C-09 and C-21 (Deferred,
-mapper). The rest:
+C-01 to C-04, C-06, C-07 and C-17 are done (section 1, "Status").
+Not being worked on: C-05 (Design, Koche), C-08 (Not applicable),
+C-09 and C-21 (Deferred, mapper). The rest:
 
-1. C-17 SAF off-by-one (three files, one Check B rerun).
-2. C-06, C-07: decide and document the read filter; a change here
-   invalidates comparisons with earlier runs and should be a separate,
-   named release.
-3. Duplicate rate and NRF/PBC1/PBC2 (C-16, with C-09's method); C-10
+1. Duplicate rate and NRF/PBC1/PBC2 (C-16, with C-09's method); C-10
    raw-BAM `frac_mito`; C-11 ENCODE FRiP; C-15 fragment-length
    pass/fail. These are new metrics files, not changes to existing
    outputs.
-4. C-14 integer shift in `tss_enrich.R`; README notes on annotation
+2. C-14 integer shift in `tss_enrich.R`; README notes on annotation
    version and mm10 thresholds.
-5. Record tool versions in `00.RUNSTATUS.txt` (C-20).
-6. C-22 documentation fixes.
+3. Record tool versions in `00.RUNSTATUS.txt` (C-20).
+4. C-22 documentation fixes.
 
 Add every change that alters peaks or counts to `CHANGELOG.md` under
-Breaking changes, as was done for C-01 to C-04.
+Breaking changes, as was done for C-01 to C-04, C-06, C-07 and C-17.
 
 ## 7. Objections considered and rejected
 
@@ -851,8 +885,8 @@ part of the findings above.
 | ENCODE's peak cap is 500,000 by pipeline input, 300,000 by task default | 300,000 is what runs: `atac.wdl` declares `Int cap_num_peak = 300000` and passes it to the task. `docs/input.md` says 500,000 and is out of date | `atac.wdl` line 192; `encode_task_macs2_atac.py` default 300000 |
 | The TSS read length is unreliable because BWA soft-clips often and the unclipped reads may be a minority | The mode over unclipped reads is the sequenced length regardless of how many reads are clipped; an unclipped read's M length equals its sequenced length. It differs from ENCODE's only for mixed-length FASTQs. `peak_pos_bp` is still the right check | `bin/computeTSSEnrich.sh:35-47`; `encode_lib_genomic.py` `get_read_length` (max over 1M FASTQ reads) |
 | Cross-correlation (NSC, RSC) is ENCODE QC the pipeline lacks | It is also absent from a default ENCODE ATAC run: `enable_xcor = false` in `atac.wdl` (v1 of the pipeline ran it). Listed in C-16 as off-by-default | `atac.wdl` line 144 |
-| A minus-strand alignment in the first bases of a contig becomes a negative or empty interval after the Tn5 shift | Position on the contig does not matter. `+4` on a start and `-5` on an end can only invert an interval whose aligned span is 5 bp or less, which BWA-MEM's seed length rules out. The guard is still worth adding (C-19) | `postMapBamProcessing_ATACSeq.sh:147` |
-| Fragments of 30 bp or less are "the short end of the nucleosome-free distribution", so the insert-size filter removes signal | Tn5 cannot produce fragments much under about 38 bp (the dimer footprint), so pairs with TLEN <= 30 are adapter dimers, mis-pairs or alignment artifacts, not accessible-chromatin signal. The filter is still a deviation from ENCODE and should be documented (C-07) | Adey et al. 2010, Genome Biology 11:R119; Buenrostro et al. 2013, Nature Methods 10:1213 |
+| A minus-strand alignment in the first bases of a contig becomes a negative or empty interval after the Tn5 shift | Position on the contig does not matter. `+4` on a start and `-5` on an end can only invert an interval whose aligned span is 5 bp or less, which BWA-MEM's seed length rules out. The guard is still worth adding (C-19) | `postMapBamProcessing_ATACSeq.sh:153` |
+| Fragments of 30 bp or less are "the short end of the nucleosome-free distribution", so the insert-size filter removes signal | Tn5 cannot produce fragments much under about 38 bp (the dimer footprint), so pairs with TLEN <= 30 are adapter dimers, mis-pairs or alignment artifacts, not accessible-chromatin signal. The filter was still a deviation from ENCODE and has been removed for concordance (C-07) | Adey et al. 2010, Genome Biology 11:R119; Buenrostro et al. 2013, Nature Methods 10:1213 |
 | The absence of IDR, pooled and pseudoreplicate peak sets is a High-severity finding | Same facts, different weight. The pipeline's product is a count matrix, and ENCODE's reproducible peak set has no role in it; rated design-level (C-13). It becomes High only if a delivery is described as an ENCODE peak set | |
 
 Check for the first row, run in any analysis directory; every name
@@ -903,6 +937,6 @@ the `atac.wdl` line numbers quoted (144, 192) refer to that revision:
 
 Local: `NOTES.md`, `QC/QCNotes.md`, `docs/GENOMES.md` (blacklist
 sources), `docs/SLURM_PORT.md` (validation runs Proj_18143 and
-test25 to test40), `R/TSSEnrich/README.md` (validation of the R port
+test25 to test46), `R/TSSEnrich/README.md` (validation of the R port
 against the ENCODE v2.2.3 container), `bin/checkCounts.sh` (Check A
 and B definitions), `00.ISSUES.md`, `CHANGELOG.md`.
