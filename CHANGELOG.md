@@ -16,17 +16,21 @@ any v1.x run may be wrong for one or more samples.
   the PCA, with exit 0 and no error. It was found in 5 projects run since
   2022. On the same tests v2.1.1 failed 0 of 250 times, and for samples
   that v1.6.0 handled correctly its counts are identical, cell for cell.
-- **POST filters reads as the ENCODE ATAC-seq pipeline does.** After
-  the MAPQ and flag filter, `postMapBamProcessing_ATACSeq.sh` now runs
-  `samtools fixmate -r` on the name-sorted reads and the flag filter
-  again, which removes a read whose mate failed the MAPQ cutoff; such
-  orphans were kept before. The filter that removed pairs with an
-  insert size of 30 bp or less, which ENCODE does not have, is gone.
-  The postProcess BAM, the shifted BED, and so the insert sizes,
-  bigWigs, peaks, atlas and counts all change slightly; Check A now
-  gives exactly 1.000. On the downsampled tests each sample lost
-  116-371 orphan reads and kept 1,126-5,162 reads of short pairs; the
-  postProcess BAMs grew by 0.2-0.5%.
+- **POST removes orphan reads, as the ENCODE ATAC-seq pipeline does.**
+  After the MAPQ and flag filter, `postMapBamProcessing_ATACSeq.sh` now
+  runs `samtools fixmate -r` on the name-sorted reads and the flag
+  filter again, which removes a read whose mate failed the MAPQ cutoff;
+  such orphans were kept before. The postProcess BAM, the shifted BED,
+  and so the bigWigs, peaks, atlas and counts change slightly; Check A
+  now gives exactly 1.000. On the downsampled tests each sample lost
+  116-371 orphan reads.
+
+  The filter that removes pairs with an insert of 30 bp or less stays,
+  although ENCODE has no such filter. It was taken out for ENCODE
+  concordance and put back after the full-size Proj_18143 run: there
+  19-30 bp fragments were 14% of all fragments and 45-55% in four
+  samples, and 98% of them lay in peaks, so they made up 38-75% of the
+  counts of ten samples.
 - **MACS2 now runs with ENCODE's settings**, `--shift -75 --extsize
   150 --keep-dup all`. Since the first version of
   `callPeaks_ATACSeq.sh` it ran with `--shift 75` and no `--keep-dup`:
@@ -188,6 +192,11 @@ any v1.x run may be wrong for one or more samples.
 
 ### Fixes
 
+- The insert-size histogram (`___INS.txt`, `___INS.pdf` and so
+  `*__postInsDistribution.pdf`) covers 0 to 1000 bp: Picard runs with
+  `W=1000`, as ENCODE's does. Without it Picard cut the histogram, and
+  the mean and SD, at median + 10 x MAD, which in a sample with many
+  short fragments falls inside the nucleosome peaks.
 - A BAM whose header cannot be read (missing file, not a BAM) stops the
   run before any job with "cannot identify the genome of [BAM]" in
   `MESSAGE`. Before, `getGenomeBuildBAM.sh` printed the md5 of an empty
