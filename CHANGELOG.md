@@ -42,12 +42,12 @@ any v1.x run may be wrong for one or more samples.
   the counts**, as in the ENCODE ATAC-seq pipeline. There was no
   blacklist filter before, so artifact regions (satellite repeats,
   centromeres, high-signal regions) were in the atlas and the counts.
-  On the full-size Proj_18143 run they were 1,376 of 654,370 atlas peaks with
-  0.4% of all counts, but 3 of the 10 and 7 of the 100 peaks with the
-  most counts, which weigh on the scale factors, the PCA and the
-  differential analysis. MACS2's own files in `callpeaks/<sample>/`
-  (and `atacSeq/macs/<sample>/`) are unchanged. Beside them,
-  `callPeaks_ATACSeq.sh` writes two new files:
+  On the full-size Proj_18143 run they were 1,376 of 654,370 atlas
+  peaks with 0.4% of all counts, but 3 of the 10 and 7 of the 100
+  peaks with the most counts, which weigh on the scale factors, the PCA
+  and the differential analysis. MACS2's own files in
+  `callpeaks/<sample>/` (and `atacSeq/macs/<sample>/`) are unchanged.
+  Beside them, `callPeaks_ATACSeq.sh` writes two new files:
   `*_peaks.blacklistFiltered.narrowPeak`, MACS2's peaks without every
   peak that overlaps `lib/genomes/<TAG>.blacklist.bed` and with the
   score capped at 1000 (ENCODE's `encode_lib_blacklist_filter.py`),

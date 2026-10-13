@@ -146,13 +146,12 @@ with the summits of the peaks kept in
 already done by the genome file.
 
 The atlas needs one more step, which ENCODE does not have because it
-never merges peaks: `mergePeaksToSAF.sh` merges the
-`blacklistFiltered` peaks (only those) within 500 bp,
-and where a small blacklisted region lies between two kept peaks the
-merged peak covers it (5 atlas peaks in the hg38 test, 1 in b37). It
-subtracts the blacklist from the merged regions (`bedtools subtract`),
-which splits such a peak in two. No atlas peak, and so no count, then
-covers a blacklisted base.
+never merges peaks: `mergePeaksToSAF.sh` merges the `blacklistFiltered`
+peaks (only those) within 500 bp, and where a small blacklisted region
+lies between two kept peaks the merged peak covers it (5 atlas peaks
+in the hg38 test, 1 in b37). It subtracts the blacklist from the
+merged regions (`bedtools subtract`), which splits such a peak in two.
+No atlas peak, and so no count, then covers a blacklisted base.
 
 `lib/genomes/getBlacklists.sh` builds the three files and checks the
 md5 of each download against the ENCODE portal and that every contig is
