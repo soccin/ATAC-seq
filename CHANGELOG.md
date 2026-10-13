@@ -207,6 +207,19 @@ PEMapper, before the filter). The ENCODE review is
   for every build and is a required deliverable; the mm10 skip and its
   warning are gone. A supported genome without its TSS files stops the
   run before any job is submitted.
+- **Depth in the QC report.** `*__ATACSeqQC.pdf` has two new pages
+  and the PCA a new point size, so a sample that is apart because it
+  was sequenced less can be told from one that differs in its data:
+  - Sequencing depth in peaks: each sample's fragments in the atlas,
+    its ratio to the median, and the share of the peaks used for the
+    PCA with fewer than 5 fragments; below half the median it is
+    marked `LOW DEPTH` (also a `WARNING` line in the control log).
+    The same numbers are in the new deliverable `*__ATACSeqDepth.csv`.
+  - The point size on the PCA is the sample's fragments in peaks.
+  - A PCA depth check: the PCA beside the same PCA after every
+    sample is thinned at random (binomial, fixed seed) to about the
+    smallest sample's depth. In Proj_18143 ED1-1, at 0.28 times the
+    median depth, was alone on PC2; thinned, it lies with ED1-2.
 - **Mitochondrial fraction per sample**: POST writes
   `<SID>_postProcess___MITO.txt` (reads, mitochondrial reads, fraction,
   counted on the postProcess BAM, after the read filter and before the

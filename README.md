@@ -103,7 +103,8 @@ sample's mitochondrial fraction is in `atacSeq/metrics/*___MITO.txt`.
 
 - QC: insert-size distribution (Picard), mitochondrial fraction, TSS
   enrichment (the ENCODE algorithm, `R/TSSEnrich/README.md`), and a
-  QC PDF with the PCA of the samples.
+  QC PDF with each sample's depth in peaks and the PCA of the
+  samples, also after thinning every sample to the smallest depth.
 
 ## Output
 
@@ -114,7 +115,7 @@ Delivered in `atacSeq/` in the analysis directory:
 | `atlas/` | `macsPeaksMerged.saf` (the atlas; SAF, 1-based), `peaks_raw_fcCounts.txt` (raw counts) and its `.summary` |
 | `bigwig/` | `<SID>_postProcess.shifted.10mNorm.bw` |
 | `macs/<SID>_postProcess.shifted/` | MACS2's files and the two `blacklistFiltered` files |
-| `metrics/` | per sample `___INS.txt`/`.pdf`, `___MITO.txt`, `tss_enrich.csv`/`.pdf`, `large_tss_enrich.png`; for the run `*__postInsDistribution.pdf` and `*__ATACSeqQC.pdf` |
+| `metrics/` | per sample `___INS.txt`/`.pdf`, `___MITO.txt`, `tss_enrich.csv`/`.pdf`, `large_tss_enrich.png`; for the run `*__postInsDistribution.pdf`, `*__ATACSeqQC.pdf` and `*__ATACSeqDepth.csv` |
 
 The count-check report `peaks_raw_fcCounts.checks.txt`, the DESeq2
 scale factors `scaleFactorsDESeq2.csv` (inverted, `NOTES.md`) and

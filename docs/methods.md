@@ -145,7 +145,10 @@ rather than the sample's own peaks, and the denominator includes
 mitochondrial fragments, so it is not comparable to ENCODE's FRiP
 cutoffs. It and a principal component analysis of the samples (edgeR
 TMM-normalized log2 CPM over the atlas, after filterByExpr) were
-plotted from the count matrix.
+plotted from the count matrix, with each sample's fragments in the
+atlas (its depth). To tell an effect of depth from one of the data,
+the PCA was repeated after the counts of every sample were thinned
+at random (binomial, fixed seed) to about the depth of the smallest.
 
 **Differential accessibility.** When the design has replicates,
 pairwise comparisons between groups were tested with edgeR (Robinson

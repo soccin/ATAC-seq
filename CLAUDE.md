@@ -148,7 +148,9 @@ paths `/ifs/res/seq/pi/invest` and `~/Code/BIC/Delivery`. Deliver the
    R. Koche's convention; see NOTES.md)
 7. `bin/computeTSSEnrich.sh` → `R/TSSEnrich/tss_enrich.R` — ENCODE TSS
    enrichment, for every build
-8. `plotINSStats.R` and `R/analyzeATAC.R` — insert-size and QC/PCA reports
+8. `plotINSStats.R` and `R/analyzeATAC.R` — insert-size and QC/PCA reports;
+   `analyzeATAC.R` also writes the per-sample depth table
+   `*__ATACSeqDepth.csv`, a deliverable
 9. Staging into `atacSeq/{atlas,bigwig,macs,metrics}` for delivery
 
 Differential analysis is a separate manual step (needs replicates), run
@@ -265,6 +267,11 @@ The standalone subread binary is not Bioconductor.
 - A PCA of samples is `prcomp(t(logCPM))` and its scores `$x` (samples
   as observations), never the `$rotation` of `prcomp(logCPM)`; that
   plotted the profile all samples share as PC1 until v2.0.0.
+- To reduce a sample's counts to a lower depth, thin binomially
+  (`rbinom(size=count, prob=target/total)`), never with
+  `edgeR::thinCounts(target.size=)`: it subtracts a multinomial draw
+  made with replacement and clips at 0, so a sample thinned 10-fold
+  gets about 10 times the variance of a real shallow library.
 - `R/attic/` and `attic/` hold superseded versions kept for reference. Do not
   edit them; do not treat them as live code.
 
