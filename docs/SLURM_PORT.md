@@ -469,6 +469,19 @@ name.
 | `bedClip` | ran for all 15 samples; no peak needed clipping |
 | The block itself, on crafted files with the cap set to 3 | sort, cap, p-value tie broken by the whole line, clamped start, summit `-1`, end clipped, blacklist, score cap and summits as expected; a peak wholly past its contig end and a contig not in `<TAG>.genome` each stop the job |
 
+### 1-based atlas start (v2.0.0)
+
+Done 2026-10-12 on `fix/saf-start` (C-17 of
+`ENCODE_PIPE_CONCORDANCE.md`), against test39 and test40. Script
+`/scratch/core001/bic/soccin/AFTER_ACTION_261011/read_filter/compareRuns.sh`
+compares two runs: BAMs, shifted BEDs, filtered peaks, the atlas and
+every cell of the count matrix.
+
+| Test | Result |
+| --- | --- |
+| test41, the 11 hg38 BAMs with `-q 20` (control job 19282732) | `COMPLETED`, 69 of 69 jobs; Checks A and B pass. BAMs, shifted BEDs and filtered peaks identical to test39's; atlas equal to test39's with every start plus 1 (901,681 peaks); 55 of 9,918,491 count cells differ, each by -1: a fragment that overlapped only the base left of a peak |
+| test42, the 4 b37 BAMs, MAPQ 10 (control job 19282733) | `COMPLETED`, 27 of 27 jobs; Checks A and B pass. Same as test40 but for the atlas starts (727,125 peaks, each start plus 1); 112 of 2,908,500 count cells differ, each by -1 |
+
 ## Not done
 
 - `deliverResults.sh` still points at `/ifs/res/seq/pi/invest` and

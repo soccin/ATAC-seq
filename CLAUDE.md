@@ -121,7 +121,9 @@ paths `/ifs/res/seq/pi/invest` and `~/Code/BIC/Delivery`. Deliver the
    `*_peaks.blacklistFiltered.narrowPeak` (never MACS2's
    `*_peaks.narrowPeak`) within 500bp into `macsPeaksMerged.saf` (the
    peak atlas), then subtract the blacklist again, since a merge can
-   bridge a blacklisted region between two kept peaks
+   bridge a blacklisted region between two kept peaks. SAF is 1-based
+   and inclusive: its `Start` is the BED start plus 1 (until v2.0.0 the
+   BED start was written as is)
 5. `bin/countPeaks.sh` → `bin/featureCounts` (v2.1.1) — raw count matrix
    `peaks_raw_fcCounts.txt` over the atlas, `-O -p --countReadPairs`, with
    `-Q` set to the same MAPQ as stage 1, then Check A. Beside it, one

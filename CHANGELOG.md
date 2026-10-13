@@ -77,6 +77,14 @@ any v1.x run may be wrong for one or more samples.
   396,453. On the downsampled tests, no hg38 sample reached the cap;
   3 of 4 b37 samples did, and the b37 atlas went from 758,830 to
   727,125 peaks.
+- **The atlas `Start` is 1-based**, as SAF requires.
+  `mergePeaksToSAF.sh` wrote the 0-based start of `bedtools merge` into
+  `macsPeaksMerged.saf`, and featureCounts reads SAF as 1-based, so
+  each atlas peak was counted one base wider on the left. The `Start`
+  of `macsPeaksMerged.saf`, `peaks_raw_fcCounts.txt` and the
+  `DiffPeaksEdgeR` workbooks is now 1 higher than before, `End` is
+  unchanged, and the peaks given to ChIPseeker for gene annotation are
+  one base shorter on the left, as they should be.
 - The `.summary` file has the 2.x status rows: `Unassigned_Read_Type` and
   `Unassigned_Singleton` are new, `Unassigned_Nonjunction` is now
   `Unassigned_NonSplit`, and the row order changed. The R reports keep
