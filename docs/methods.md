@@ -36,10 +36,22 @@ in the `@PG` header line of each BAM.
 reduced to properly paired reads with mapping quality 10 or more,
 without unmapped reads, reads whose mate is unmapped, secondary
 alignments, reads failing vendor QC or duplicates (`-q 10 -f 3 -F
-1804`). The reads were then name-sorted and passed through `samtools
-fixmate -r`, and the same flag filter was applied again, which removes
-a read whose mate did not pass the first filter. This is the filter of
-the ENCODE ATAC-seq pipeline. There is no filter on insert size. The
+1804`). Two further filters, which the ENCODE pipeline does not have,
+correct for an artifact of BWA-MEM local alignment. A read whose
+sequence is not from the reference, or only partly from it, can still
+be reported as a short alignment of 19 to 35 bp with the rest of the
+read soft-clipped. Such reads carry the same non-reference sequence,
+so they pile up at single positions in a few hundred loci, and in some
+libraries they are half of all read pairs. Bowtie2 in end-to-end mode,
+the ENCODE aligner, cannot produce these alignments, so ENCODE needs
+no such filter. The first filter removes every read whose alignment is
+soft-clipped at its 5' end, the Tn5 insertion site: a forward-strand
+read whose CIGAR string starts with `S` or a reverse-strand read whose
+CIGAR string ends with `S`. The reads were then name-sorted and passed
+through `samtools fixmate -r`, and the flag filter was applied again,
+as in the ENCODE pipeline, which removes a read whose mate did not pass
+the filters above. The second filter was applied at the same step: it
+removes every pair with an insert of 30 bp or less (|TLEN| <= 30). The
 result was coordinate-sorted with Picard SortSam 3.4.0; this filtered
 BAM is the input to every later step.
 
@@ -107,8 +119,10 @@ factor, so that a normalized count is the raw count multiplied by the
 sample's scale factor.
 
 **QC.** The insert-size distribution of the filtered BAM was computed
-with Picard CollectInsertSizeMetrics and plotted for all samples, to
-show the nucleosome-free and nucleosomal fragment populations. The
+with Picard CollectInsertSizeMetrics over a fixed range of 0 to 1000
+bp, as in the ENCODE pipeline, and plotted for all samples, to show
+the nucleosome-free and nucleosomal fragment populations. Its smallest
+insert is 31 bp, because of the insert filter above. The
 mitochondrial fraction is the number of reads on the mitochondrial
 contig divided by all reads of the filtered BAM. TSS enrichment was
 computed with an R port of ENCODE's `encode_task_tss_enrich.py`: the
@@ -165,6 +179,10 @@ DRAFT NOTES (remove before delivery)
   (00.FIXME.md #6); worded accordingly.
 - The mitochondrial fraction is after filtering, unlike ENCODE's
   (00.FIXME.md #7); worded accordingly.
+- The 5' soft-clip filter and the 30 bp insert filter are not in the
+  v2.0.0 tag this document links to; they are in devs (v2.x-pre4 has
+  the insert filter; the 5' clip filter is in FIX_5pCLIP.md, not yet
+  merged). Update the version and the link when they are released.
 - The TSS sets are ENCODE's v1 GENCODE files, not the v3 files the
   current ENCODE pipeline uses (00.FIXME.md #23); the annotation
   versions are given so the thresholds can be read as a guide.
