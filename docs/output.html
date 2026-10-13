@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>ATAC-seq Output</title>
+  <style>
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <link rel="stylesheet" href="https://sindresorhus.com/github-markdown-css/github-markdown.css" />
+  <!--[if lt IE 9]>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv-printshiv.min.js"></script>
+  <![endif]-->
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">ATAC-seq Output</h1>
+</header>
+<h1 id="bic-atac-seq-pipeline-v2.0.0">BIC ATAC-seq Pipeline
+(v2.0.0)</h1>
+<h2 id="introduction">Introduction</h2>
+<p>The results are delivered in one folder, <code>atacSeq</code>, with
+four parts. <code>macs</code> holds the peaks called for each sample.
+<code>atlas</code> holds the merged peak atlas of the project and the
+raw count matrix over it, which is the input to any normalization or
+differential analysis. <code>bigwig</code> holds a normalized signal
+track per sample for a genome browser. <code>metrics</code> holds the QC
+metrics and plots. Projects with replicates have a fifth part,
+<code>diff</code>, with the differential accessibility analysis. How
+each file was made is described in <code>methods.md</code>.</p>
+<p>In the names below, <code>&lt;sample&gt;</code> is the sample ID of
+the BAM and <code>&lt;no&gt;</code> is the project number (for example
+<code>18143</code>). Coordinates are 0-based with an exclusive end (BED
+convention) unless a file says otherwise. Peaks, the atlas and the
+signal tracks cover the autosomes and the X and Y chromosomes only;
+mitochondrial, unplaced and other contigs are left out.</p>
+<h2 id="directory-structure">Directory Structure</h2>
+<pre><code>atacSeq
+├── atlas
+│   ├── macsPeaksMerged.saf
+│   ├── peaks_raw_fcCounts.txt
+│   └── peaks_raw_fcCounts.txt.summary
+├── bigwig
+│   └── &lt;sample&gt;_postProcess.shifted.10mNorm.bw
+├── macs
+│   └── &lt;sample&gt;_postProcess.shifted
+│       ├── &lt;sample&gt;_postProcess.shifted_peaks.narrowPeak
+│       ├── &lt;sample&gt;_postProcess.shifted_summits.bed
+│       ├── &lt;sample&gt;_postProcess.shifted_peaks.xls
+│       ├── &lt;sample&gt;_postProcess.shifted_peaks.blacklistFiltered.narrowPeak
+│       └── &lt;sample&gt;_postProcess.shifted_summits.blacklistFiltered.bed
+├── metrics
+│   ├── Proj_&lt;no&gt;__postInsDistribution.pdf
+│   ├── Proj_&lt;no&gt;__ATACSeqQC.pdf
+│   ├── &lt;sample&gt;_postProcess___INS.txt
+│   ├── &lt;sample&gt;_postProcess___INS.pdf
+│   ├── &lt;sample&gt;_postProcess___MITO.txt
+│   ├── &lt;sample&gt;_postProcess.tss_enrich.csv
+│   ├── &lt;sample&gt;_postProcess.tss_enrich.pdf
+│   └── &lt;sample&gt;_postProcess.large_tss_enrich.png
+└── diff                      (projects with replicates only)
+    ├── Proj_&lt;no&gt;__DiffPeaksEdgeR_V4.xlsx
+    └── Proj_&lt;no&gt;__DiffPeaks_V4.pdf</code></pre>
+<p>The filtered BAM files (<code>&lt;sample&gt;_postProcess.bam</code>)
+are not delivered. If you need them, please contact us.</p>
+<h2 id="peaks-macs">Peaks (<code>macs</code>)</h2>
+<p>One folder per sample with the output of MACS2 and two files derived
+from it. The folder and file names carry the suffix
+<code>_postProcess.shifted</code> because the peaks were called on the
+filtered, Tn5-shifted reads.</p>
+<p><strong>MACS2 output.</strong> These three files are MACS2’s own,
+delivered unchanged:</p>
+<ul>
+<li><code>*_peaks.narrowPeak</code>: every peak MACS2 called at p &lt;
+0.01, in ENCODE narrowPeak format (BED6+4). The columns are chromosome,
+start, end, peak name, score, strand (always <code>.</code>), fold
+enrichment at the summit, -log10 p-value, -log10 q-value, and the
+position of the summit relative to the peak start. A peak with several
+summits appears once per summit, with a letter suffix on its name
+(<code>_peak_12a</code>, <code>_peak_12b</code>).</li>
+<li><code>*_summits.bed</code>: one line per summit, the single base of
+highest signal in each peak, with the peak name and its -log10
+p-value.</li>
+<li><code>*_peaks.xls</code>: the same peaks as a tab-delimited text
+table (not an Excel file) with 1-based coordinates, peak length, summit
+position, pileup, -log10 p-value, fold enrichment and -log10 q-value.
+The header lines record the MACS2 command and settings.</li>
+</ul>
+<p><strong>Filtered peaks.</strong> The same peaks after the ENCODE
+post-processing steps (see <code>methods.md</code>): at most 300,000
+peaks per sample, the most significant by p-value, clipped to the
+chromosome ends, with every peak that overlaps the ENCODE blacklist
+removed and the score capped at 1000. Peaks keep their MACS2 names, so a
+peak can be looked up in the three files above.</p>
+<ul>
+<li><code>*_peaks.blacklistFiltered.narrowPeak</code>: the filtered
+peaks, same columns as <code>*_peaks.narrowPeak</code>, sorted by
+p-value.</li>
+<li><code>*_summits.blacklistFiltered.bed</code>: the summits of the
+filtered peaks.</li>
+</ul>
+<p>Use the <code>blacklistFiltered</code> files for any per-sample peak
+analysis. They are the peaks the atlas was built from. The per-sample
+peak counts in these files are the ones to read against ENCODE’s data
+standards.</p>
+<h2 id="peak-atlas-and-counts-atlas">Peak Atlas and Counts
+(<code>atlas</code>)</h2>
+<h3 id="atlas-macspeaksmerged.saf">Atlas
+(<code>macsPeaksMerged.saf</code>)</h3>
+<p>The peak atlas: the filtered peaks of all samples pooled and merged,
+with peaks within 500 bp of each other joined into one region. The atlas
+is one set of regions shared by every sample, so that the samples can be
+compared region by region. It is in SAF format, as read by
+featureCounts, with no header line and five tab-separated columns:</p>
+<table>
+<thead>
+<tr class="header">
+<th>Column</th>
+<th>Contents</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>GeneID</code></td>
+<td>region name, <code>Peak_1</code>, <code>Peak_2</code>, … in genome
+order</td>
+</tr>
+<tr class="even">
+<td><code>Chr</code></td>
+<td>chromosome</td>
+</tr>
+<tr class="odd">
+<td><code>Start</code></td>
+<td>start, 1-based</td>
+</tr>
+<tr class="even">
+<td><code>End</code></td>
+<td>end, inclusive</td>
+</tr>
+<tr class="odd">
+<td><code>Strand</code></td>
+<td>always <code>+</code></td>
+</tr>
+</tbody>
+</table>
+<p>Note that SAF coordinates are 1-based and inclusive, unlike the BED
+and narrowPeak files. To convert a region to BED, subtract 1 from
+<code>Start</code>.</p>
+<p>Because the atlas pools and merges the peaks of all samples, its
+number of regions grows with the number of samples and is not a
+per-sample peak count.</p>
+<h3 id="raw-counts-peaks_raw_fccounts.txt">Raw counts
+(<code>peaks_raw_fcCounts.txt</code>)</h3>
+<p>The number of fragments of each sample in each atlas region, from
+featureCounts. The first line is a comment with the featureCounts
+command; the second is the header. The columns are the five atlas
+columns (<code>Geneid</code>, <code>Chr</code>, <code>Start</code>,
+<code>End</code>, <code>Strand</code>), the region <code>Length</code>,
+and then one column per sample, named by the path of its filtered BAM
+(<code>out/&lt;sample&gt;/&lt;sample&gt;_postProcess.bam</code>).</p>
+<p>A fragment is a read pair; it is counted once in every region it
+overlaps by at least one base, so a fragment that spans two adjacent
+regions is counted in both. The counts are raw, not normalized. They are
+the input to the DESeq2 scale factors, the QC plots and the differential
+analysis, and are what to use for any analysis that needs counts.</p>
+<h3 id="count-summary-peaks_raw_fccounts.txt.summary">Count summary
+(<code>peaks_raw_fcCounts.txt.summary</code>)</h3>
+<p>For each sample, the number of fragments assigned to the atlas
+(<code>Assigned</code>) and the number not assigned, by reason (the
+<code>Unassigned_*</code> rows; <code>Unassigned_NoFeatures</code> is
+fragments that overlap no atlas region). The sum of the column is the
+number of fragments in the filtered BAM.</p>
+<h2 id="signal-tracks-bigwig">Signal Tracks (<code>bigwig</code>)</h2>
+<p><code>&lt;sample&gt;_postProcess.shifted.10mNorm.bw</code> is the
+coverage of the filtered, Tn5-shifted reads of the sample, scaled to 10
+million reads (<code>10mNorm</code>), in bigWig format. The tracks can
+be loaded directly into IGV or the UCSC Genome Browser. Because every
+sample is scaled to the same number of reads, the tracks can be compared
+by eye across samples. The value at a base is the number of shifted
+reads covering it, multiplied by 10 million and divided by the sample’s
+total number of shifted reads.</p>
+<h2 id="metrics-metrics">Metrics (<code>metrics</code>)</h2>
+<h3 id="qc-report-proj_no__atacseqqc.pdf">QC report
+(<code>Proj_&lt;no&gt;__ATACSeqQC.pdf</code>)</h3>
+<p>Four pages built from the count matrix, with samples colored by
+group:</p>
+<ol type="1">
+<li>The percentage of each sample’s fragments that fall in the atlas
+(<code>InPeaks</code>) against those outside it. This is a
+signal-to-noise measure; a sample with a much lower percentage than the
+others may have failed. It is computed against the pooled atlas, so it
+is higher than ENCODE’s per-sample FRiP and should not be read against
+ENCODE’s FRiP standard.</li>
+<li>The same as counts, in millions of fragments.</li>
+<li>A principal component analysis of the samples on the normalized log2
+counts over the atlas, with sample labels. Replicates of a group should
+lie together; samples that separate from their group on PC1 or PC2 are
+worth a look.</li>
+<li>The same PCA without labels.</li>
+</ol>
+<h3
+id="insert-size-distributions-proj_no__postinsdistribution.pdf">Insert-size
+distributions
+(<code>Proj_&lt;no&gt;__postInsDistribution.pdf</code>)</h3>
+<p>The insert-size (fragment-length) distribution of each sample’s
+filtered reads, from Picard CollectInsertSizeMetrics:</p>
+<ol type="1">
+<li>All samples on one plot, density against insert size (0 to 1000 bp),
+colored by group with one line type per replicate.</li>
+<li>The same on a log scale, which shows the nucleosomal peaks.</li>
+<li>One panel per sample, six per page.</li>
+</ol>
+<p>A successful ATAC-seq library shows a large nucleosome-free peak
+below about 100 bp and smaller peaks at about 200 bp (one nucleosome)
+and 400 bp (two nucleosomes).</p>
+<p>The histogram covers 0 to 1000 bp. Its smallest insert is 31 bp:
+pairs with an insert of 30 bp or less are removed by the read filter
+(see the methods document).</p>
+<p>The per-sample files behind the plot are
+<code>&lt;sample&gt;_postProcess___INS.txt</code>, the Picard metrics
+file (summary statistics such as the median and mode insert size,
+followed by the histogram as <code>insert_size</code> and count
+columns), and <code>&lt;sample&gt;_postProcess___INS.pdf</code>,
+Picard’s own histogram plot.</p>
+<h3
+id="mitochondrial-fraction-sample_postprocess___mito.txt">Mitochondrial
+fraction (<code>&lt;sample&gt;_postProcess___MITO.txt</code>)</h3>
+<p>One line per sample with the columns <code>SAMPLE</code>,
+<code>MITO_CONTIG</code>, <code>READS</code> (all reads of the filtered
+BAM), <code>MITO_READS</code> (those on the mitochondrial contig) and
+<code>FRAC_MITO</code>. Mitochondrial reads are left out of the peaks,
+the atlas and the signal tracks. The fraction is computed after the read
+filter, which removes duplicates, so it is lower than a fraction
+computed on the raw alignments (as ENCODE reports it) and should not be
+read against that standard.</p>
+<h3 id="tss-enrichment-sample_postprocess.tss_enrich.csv">TSS enrichment
+(<code>&lt;sample&gt;_postProcess.tss_enrich.csv</code>)</h3>
+<p>The ENCODE TSS enrichment score, the standard measure of
+signal-to-noise for ATAC-seq: how much higher the signal is at
+transcription start sites than in the flanking regions 2 kb away.
+Columns:</p>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Column</th>
+<th>Contents</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>sample_id</code></td>
+<td>sample</td>
+</tr>
+<tr class="even">
+<td><code>tss_enrich</code></td>
+<td>the TSS enrichment score</td>
+</tr>
+<tr class="odd">
+<td><code>peak_pos_bp</code></td>
+<td>position of the maximum of the profile, relative to the TSS</td>
+</tr>
+<tr class="even">
+<td><code>avg_noise</code></td>
+<td>mean signal in the flanking regions, the denominator of the
+score</td>
+</tr>
+<tr class="odd">
+<td><code>n_tss_used</code>, <code>n_tss_total</code>,
+<code>pct_tss_used</code></td>
+<td>TSSs scored, TSSs in the reference set, and their ratio;
+<code>pct_tss_used</code> should be close to 1</td>
+</tr>
+<tr class="even">
+<td><code>n_mapped_reads</code></td>
+<td>reads of the filtered BAM</td>
+</tr>
+<tr class="odd">
+<td><code>read_len</code></td>
+<td>read length used for the computation</td>
+</tr>
+<tr class="even">
+<td><code>bam_file</code></td>
+<td>the filtered BAM</td>
+</tr>
+</tbody>
+</table>
+<p>ENCODE’s reading of the score depends on the genome and on the TSS
+annotation. The scores here use ENCODE’s GENCODE TSS sets (v24 for hg38,
+v19 for b37, vM7 for mm10); read the cutoffs as a guide:</p>
+<table>
+<thead>
+<tr class="header">
+<th>Genome</th>
+<th>Concerning</th>
+<th>Acceptable</th>
+<th>Ideal</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>hg38</td>
+<td>&lt; 5</td>
+<td>5 to 7</td>
+<td>&gt; 7</td>
+</tr>
+<tr class="even">
+<td>b37</td>
+<td>&lt; 6</td>
+<td>6 to 10</td>
+<td>&gt; 10</td>
+</tr>
+<tr class="odd">
+<td>mm10</td>
+<td>&lt; 10</td>
+<td>10 to 15</td>
+<td>&gt; 15</td>
+</tr>
+</tbody>
+</table>
+<p>Two plots accompany the score:
+<code>&lt;sample&gt;_postProcess.tss_enrich.pdf</code>, the mean signal
+profile across the 4 kb window centered on the TSS, and
+<code>&lt;sample&gt;_postProcess.large_tss_enrich.png</code>, a heatmap
+of the signal at every TSS, sorted by signal, with the mean profile
+above it.</p>
+<h2 id="differential-accessibility">Differential Accessibility</h2>
+<p>For projects with replicates, pairwise comparisons between groups are
+delivered in the <code>diff</code> folder as two files, named with the
+project number and, when one was used, a run tag:</p>
+<ul>
+<li><code>Proj_&lt;no&gt;__DiffPeaksEdgeR_V4.xlsx</code>: one
+<code>Summary</code> sheet with the number of significant regions per
+comparison, then one sheet per comparison, named
+<code>&lt;group2&gt;_v_&lt;group1&gt;</code>, listing the regions
+significant at FDR &lt; 0.05. Columns: <code>PeakNo</code> (the atlas
+region), <code>logFC</code> (log2 fold change, group 2 over group 1:
+positive means more accessible in group 2), <code>logCPM</code> (mean
+log2 counts per million), <code>PValue</code>, <code>FDR</code>
+(Benjamini-Hochberg adjusted p-value), the region’s <code>Chr</code>,
+<code>Start</code>, <code>End</code> (1-based, from the atlas),
+<code>Strand</code> and <code>Length</code>, and the ChIPseeker
+annotation: <code>SYMBOL</code> and <code>GENENAME</code> of the nearest
+gene, <code>annotation</code> (promoter, exon, intron, distal
+intergenic, …) and <code>distanceToTSS</code>.</li>
+<li><code>Proj_&lt;no&gt;__DiffPeaks_V4.pdf</code>: the PCA of the
+samples (with and without labels), then for each comparison an MA plot
+(log fold change against mean log CPM) and a volcano plot (log fold
+change against p-value), with significant regions in red.</li>
+</ul>
+<p>Samples whose group starts with <code>EXC</code> were excluded from
+the differential analysis.</p>
+<!--
+DRAFT NOTES (remove before delivery)
+
+- scaleFactorsDESeq2.csv is not staged to atacSeq/ (00.FIXME.md #16).
+  When it is, add a section: columns are the BAM path (unnamed first
+  column) and scaleFactor, the reciprocal of the DESeq2 size factor;
+  normalized = raw * scaleFactor.
+- The diff file names assume no RUNTAG (the double underscore); with a
+  tag they are Proj_<no>_<tag>_DiffPeaksEdgeR_V4.xlsx (00.FIXME.md #16).
+-->
+</body>
+</html>

@@ -93,9 +93,10 @@ does. The postProcess BAM still has every read; only the shifted BED,
 and so peaks, bigWigs and the atlas, leave them out. POST writes each
 sample's fraction to `out/<SID>/<SID>_postProcess___MITO.txt`
 (`SAMPLE`, `MITO_CONTIG`, `READS`, `MITO_READS`, `FRAC_MITO`), counted on
-the filtered BAM (MAPQ, flags, 5' clip, insert size) before the contig
-filter. It is staged to `atacSeq/metrics` and is a required
-deliverable.
+the postProcess BAM (after the MAPQ, flag, mate, 5' clip and
+insert-size filters) before the contig filter. It is staged to
+`atacSeq/metrics` and is a required deliverable. ENCODE counts before
+any filter, so the two fractions differ (`00.FIXME.md` #7).
 
 ### What ENCODE does
 
@@ -182,6 +183,7 @@ Sources:
 ## Testing
 
 hg38 and b37 are tested with full runs on downsampled BAMs (11 GRCh38,
-4 b37; `docs/SLURM_PORT.md`, "Validation"). mm10 is checked only with
+4 b37; `docs/SLURM_PORT.md`, "Validation"), hg38 also at full size
+(Proj_18143). mm10 is checked only with
 header-only BAMs: detection, the table and the file check in `pipe.sh`
 (`00.FIXME.md` #4).

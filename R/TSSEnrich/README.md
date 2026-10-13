@@ -69,8 +69,24 @@ input with `samtools view -F 1024 -b marked.bam > nodup.bam`.
 +/-2000 bp window (4001 bp), 400 bins by linear interpolation, per-read strand
 shift of `-read_len/2` with C-style truncation, Greenleaf normalization against
 the 10 outermost bins on each side (100 bp), score = max of the normalized
-mean profile. ENCODE thresholds: >= 7 ideal, >= 5 acceptable, < 1 failed
-library.
+mean profile.
+
+### Thresholds
+
+ENCODE's thresholds depend on the genome and the annotation:
+
+| Genome | Concerning | Acceptable | Ideal |
+| --- | --- | --- | --- |
+| hg38 | < 5 | 5-7 | > 7 |
+| b37 (hg19 TSS) | < 6 | 6-10 | > 10 |
+| mm10 | < 10 | 10-15 | > 15 |
+
+The ENCODE portal states them per annotation (RefSeq TSS for GRCh38
+and mm10). The files in `lib/` are ENCODE's v1 GENCODE files (v24,
+v19, vM7; see below), not the v3 files the current ENCODE pipeline
+uses, so read the cut-offs as a guide. Scores are consistent with
+earlier deliveries, but are not the numbers the current ENCODE
+pipeline would report. ENCODE has no "failed" band.
 
 ## Where lib/ came from
 

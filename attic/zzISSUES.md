@@ -1,13 +1,70 @@
 # ATAC-seq — Closed issues
 
-Record of issues removed from `00.ISSUES.md` once addressed. Not a
-tracking document; open issues live only in `00.ISSUES.md`.
+Record of issues removed from the open list once addressed. Not a
+tracking document; open issues live only in `00.FIXME.md`. Until
+2026-10-12 the open list was `00.ISSUES.md` (now
+`attic/00.ISSUES.md`), with the ENCODE review's findings (C-NN) in
+`attic/ENCODE_PIPE_CONCORDANCE.md`.
 
 Each entry keeps the number the issue had when it was closed. The open
 issues were renumbered on 2026-10-10 (old to new: #8 to #1, #9 to #2,
 #11 to #3, #12 to #4, #13 to #5, #15 to #6, #25 to #7, #26 to #8, #27 to
 #9, #28 to #10, #29 to #11, #30 to #12, #31 to #13), so a number below
-refers to the old list unless it says otherwise.
+refers to the old list unless it says otherwise. Entries from
+`00.FIXME.md` say so.
+
+## Closed — fixed on `rel/2.0.0`
+
+**#25 of `00.FIXME.md`, documentation out of step with the code**
+(C-22) — `NOTES.md` has a dated note that MACS2 runs on the shifted
+BED (`-f BED`), not the BAM. `README.md` says the input BAMs must
+have duplicates marked by Picard MarkDuplicates in PEMapper, not by
+the mapper. `R/TSSEnrich/README.md` gives ENCODE's thresholds per
+genome instead of one rule with a "< 1 failed" cut (the README part
+of #23).
+
+## Closed — fixed on `fix/read-filter`
+
+Never numbered here: findings C-06 and C-07 of the ENCODE review.
+
+**Orphan reads kept; pairs with an insert of 30 bp or less dropped**
+(`pre-port`) — POST now name-sorts the filtered reads and runs
+`samtools fixmate -r` and the flag filter again, as ENCODE does, so a
+read whose mate failed the MAPQ cutoff is removed; the `|TLEN| <= 30`
+filter, which ENCODE does not have, is gone. Check A now gives exactly
+1.0000. Tested in test43 (hg38), test44 (b37), test45 and test46
+(`docs/SLURM_PORT.md`, "Validation").
+
+## Closed — fixed on `fix/saf-start`
+
+Never numbered here: finding C-17 of the ENCODE review.
+
+**Atlas `Start` 0-based in a 1-based SAF** (`pre-port`) —
+`mergePeaksToSAF.sh` now writes the BED start plus 1. Tested in test41
+(hg38) and test42 (b37): only the atlas starts and 55 and 112 count
+cells (each -1) changed.
+
+## Closed — fixed on `fix/peak-cap`
+
+Never numbered here: finding C-04 of the ENCODE review.
+
+**No peak cap or contig clipping** — `callPeaks_ATACSeq.sh` now sorts
+MACS2's peaks by p-value, keeps the top 300,000, clamps negative
+starts, clips to the contig ends with `bin/bedClip` (UCSC v369, as
+ENCODE) and then applies the blacklist filter, as
+`encode_task_macs2_atac.py` does. Each filtered file equals ENCODE's
+commands applied to the same MACS2 output, in test39 (hg38) and test40
+(b37).
+
+## Closed — fixed on `fix/atlas-sort`
+
+Never numbered here: found in a review of `fix/blacklist`.
+
+**`find | xargs sort` in `mergePeaksToSAF.sh`** — With enough samples
+xargs ran several sorts and `bedtools merge` failed on the unsorted
+input; a space in a sample name failed the run. Now one `sort
+--files0-from` reads the names from `find -print0`. Tested in test37
+(hg38) and test38 (b37).
 
 ## Closed — fixed on `fix/blacklist`
 

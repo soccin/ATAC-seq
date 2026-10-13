@@ -1,10 +1,17 @@
 # ATAC-Seq pipeline
 
-## Version 1.5.1 - 2026-10-10
+## Version 2.0.0 - 2026-10-12
 
-Single end version which uses both reads from PE-runs. Using methods from R.K. for bigWig generation.
+Most outputs differ from those of v1.x; do not mix the two. See
+`CHANGELOG.md` for what changed and why.
 
-Need to install MACS2 locally in venv. See below.
+Input: paired-end BAMs aligned with PEMapper, duplicates marked. Peak
+calling and bigWigs use each read of a pair as a single read; the
+count matrix counts fragments. BigWigs and the DESeq2 scale factors
+follow R. Koche's methods (`NOTES.md`); read filtering and peak calling
+follow the ENCODE ATAC-seq pipeline. Open work is in `00.FIXME.md`.
+
+MACS2 must be installed in a local venv first. See below.
 
 Runs on IRIS/Slurm. From the analysis directory, with `~/bin/sbatch` on
 PATH (it exports `SBATCH_SCRIPT_DIR`, which `pipe.sh` needs to find its
@@ -46,8 +53,10 @@ sample's mitochondrial fraction is in `atacSeq/metrics/*___MITO.txt`.
 
 - Post-alignment filtering:
 
-    - Proper pairs only; reads marked as duplicates (the marking is done
-      upstream, by the mapper), secondary and QC-fail reads removed
+    - Proper pairs only; reads marked as duplicates, secondary and
+      QC-fail reads removed. The pipeline does not mark duplicates: the
+      input BAMs must already be marked (PEMapper runs Picard
+      MarkDuplicates; BWA-MEM marks nothing)
     - MAPQ 10+ (`-q MAPQ`; the count matrix uses the same cutoff)
     - A read whose mate was removed is removed too (`samtools fixmate
       -r`, as in the ENCODE ATAC-seq pipeline; before v2.0.0 a read
@@ -69,12 +78,10 @@ sample's mitochondrial fraction is in `atacSeq/metrics/*___MITO.txt`.
   count of the fragments in peaks); the results are in
   `peaks_raw_fcCounts.checks.txt`.
 
-- BigWig file generation.
-
-	- convert bam to bed
-	- extend reads to library size in the 3’ direction for ChIP, no read extension for ATAC
-	- compute density for bigwig formation
-		- normalizing to 10 million mapped reads
+- BigWig: coverage of the Tn5-shifted reads, with no read extension,
+  scaled to 10 million reads (R. Koche's method, `NOTES.md`). The
+  scale uses the reads of the shifted BED, so the mitochondrial reads
+  are not in it.
 
 - Peak calling: MACS2 on the Tn5-shifted reads with the ENCODE ATAC-seq
   settings (`--nomodel --shift -75 --extsize 150 --keep-dup all
@@ -90,12 +97,34 @@ sample's mitochondrial fraction is in `atacSeq/metrics/*___MITO.txt`.
   blacklist is subtracted from the merged atlas too, so no count comes
   from a blacklisted region.
 
+- Atlas: the `blacklistFiltered` peaks of all samples merged within
+  500 bp (R. Koche's method; ENCODE does not merge), so ENCODE's
+  peak-count standards apply to each sample's peaks, not to the atlas.
+
+- QC: insert-size distribution (Picard), mitochondrial fraction, TSS
+  enrichment (the ENCODE algorithm, `R/TSSEnrich/README.md`), and a
+  QC PDF with the PCA of the samples.
+
+## Output
+
+Delivered in `atacSeq/` in the analysis directory:
+
+| Directory | Contents |
+| --- | --- |
+| `atlas/` | `macsPeaksMerged.saf` (the atlas; SAF, 1-based), `peaks_raw_fcCounts.txt` (raw counts) and its `.summary` |
+| `bigwig/` | `<SID>_postProcess.shifted.10mNorm.bw` |
+| `macs/<SID>_postProcess.shifted/` | MACS2's files and the two `blacklistFiltered` files |
+| `metrics/` | per sample `___INS.txt`/`.pdf`, `___MITO.txt`, `tss_enrich.csv`/`.pdf`, `large_tss_enrich.png`; for the run `*__postInsDistribution.pdf` and `*__ATACSeqQC.pdf` |
+
+The count-check report `peaks_raw_fcCounts.checks.txt`, the DESeq2
+scale factors `scaleFactorsDESeq2.csv` (inverted, `NOTES.md`) and
+`sampleManifest.csv` stay in the analysis directory.
 
 ## Differential analysis
 
 - If there are replicates you can do a differential peak analysis using: `R/diffAnalysisPairwise.R`. Run it from the analysis directory; the genome is read from `00.RUNSTATUS.txt`. Usage:
 ```
-Rscript R/diffAnalysisPairwise.R SampleManifest.csv Comparisons.csv [RUNTAG]
+Rscript /path/to/ATAC-seq/R/diffAnalysisPairwise.R SampleManifest.csv Comparisons.csv [RUNTAG]
 ```
 
 Example inputs:

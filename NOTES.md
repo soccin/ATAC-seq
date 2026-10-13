@@ -4,6 +4,8 @@
 
 1) MACS2 calls on bam files containing both reads, but not setting the ‘bampe’ flag.
 
+(Note, 2026-10-12: the pipeline calls MACS2 on the Tn5-shifted BED of both reads (`-f BED`), not on the BAM, with the ENCODE ATAC-seq settings `--nomodel --shift -75 --extsize 150 --keep-dup all`. See `callPeaks_ATACSeq.sh` and CHANGELOG.md, v2.0.0.)
+
 2) Merge all peaks (any overlap, or even anything within 500 bp, as we do) and calculating the raw counts matrix
 Note: if using featureCounts and PE reads, set the ‘-p’ flag so fragments are counted instead of individual reads.
 Also, in featureCounts, multi-mapped reads are filtered with the NH tag, which I don’t believe is set by bwa mem, but this shouldn’t be an issue because we’re filtering by MAPQ, etc anyway.
@@ -37,6 +39,8 @@ bwout=${sortedbam/%.bam/.sizeFactorNorm.bw}
 ### ATAC (no read extension)
 
 bamToBed -split -i $sortedbam |  slopBed -i stdin -g  $chromsizes -s -l 0 -r 0 | grep -vi "rand\|Un\|gl"  |  genomeCoverageBed -split -g  $chromsizes -i stdin -bg -scale $scalefactor |  wigToBigWig stdin $chromsizes $bwout
+
+(Note, 2026-10-12: `makeBigWigFromBEDZ.sh` starts from the Tn5-shifted BED that POST writes, not from the BAM, and keeps the contigs of `lib/genomes/<TAG>.genome` (autosomes, X, Y) instead of the `grep`.)
 
 ### Or for ChIP, with read extension (-r) accounting for avg frag length: 200 bp (or whatever is empirically determined)
 

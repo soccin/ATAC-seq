@@ -2,10 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [v2.0.0] — 2026-10-12
 
-To be released as v2.0.0: the counting engine changes, and counts from
-any v1.x run may be wrong for one or more samples.
+Most outputs change; do not mix the results of a v1.x run with those
+of this version. Counts from any v1.x run may be wrong for one or more
+samples (featureCounts v1.6.0), and the `FDR` of every earlier
+differential analysis was Holm's correction. MACS2 now runs with
+ENCODE's settings, and each sample's peaks are capped, clipped and
+blacklist-filtered as ENCODE does, so the peaks, the atlas, the counts
+and every report built on them change. From the read filter to each
+sample's filtered peaks the pipeline now does what the ENCODE ATAC-seq
+pipeline does, with two exceptions: the MAPQ filter (MAPQ 10, R.
+Koche's cutoff; ENCODE by default keeps up to 4 multimappers, or uses
+MAPQ 30 with multimapping off), and where duplicates are marked (by
+PEMapper, before the filter). The ENCODE review is
+`attic/ENCODE_PIPE_CONCORDANCE.md`; the differences that remain are in
+`00.FIXME.md`.
 
 ### Breaking changes
 
@@ -197,8 +209,9 @@ any v1.x run may be wrong for one or more samples.
   run before any job is submitted.
 - **Mitochondrial fraction per sample**: POST writes
   `<SID>_postProcess___MITO.txt` (reads, mitochondrial reads, fraction,
-  counted after the MAPQ/flag filter and before the contig filter),
-  staged to `atacSeq/metrics` and required for `COMPLETED`.
+  counted on the postProcess BAM, after the read filter and before the
+  contig filter), staged to `atacSeq/metrics` and required for
+  `COMPLETED`. ENCODE counts before filtering (`00.FIXME.md` #7).
 - **One genome table**, `lib/genomes/GENOMES.tsv`, read by the new
   `bin/genomeInfo.sh TAG FIELD` and `R/genomeInfo.R`, replaces the
   `case` statements in the stage scripts, `SUPPORTED_GENOMES` in
@@ -257,12 +270,29 @@ any v1.x run may be wrong for one or more samples.
   first out-of-order peak, and the run failed; a space in a sample
   name split the file name and failed the run too.
 
+### Documentation
+
+- `00.FIXME.md` is the one list of open work. It replaces
+  `00.ISSUES.md` and the open findings of the ENCODE review; both are
+  in `attic/`. `attic/zzISSUES.md` holds the closed issues.
+- Add `docs/GENOMES.md`: genome tags, `GENOMES.tsv`, the genome and
+  blacklist files, and what ENCODE does with mitochondrial reads.
+- `NOTES.md` notes that MACS2 runs on the shifted BED, not the BAM.
+  `README.md` says where duplicates are marked and what the pipeline
+  delivers. `R/TSSEnrich/README.md` gives ENCODE's TSS enrichment
+  thresholds per genome; the single rule it gave was GRCh38's, with a
+  "< 1 failed" cut that ENCODE does not define.
+
 ### Not tested
 
 - mm10 was checked only with header-only BAMs (detection, the genome
   table and the file checks); no mm10 run has been made on this version
-  (`00.ISSUES.md` #14). hg38 and b37 were run (`docs/SLURM_PORT.md`,
+  (`00.FIXME.md` #4). hg38 and b37 were run (`docs/SLURM_PORT.md`,
   "Validation").
+- The MACS2 settings, the blacklist, the peak cap, the read filter and
+  the 1-based atlas were tested on downsampled BAMs only. The one
+  full-size run (Proj_18143, hg38) was made before them, on v2.x-pre2
+  (`00.FIXME.md` #1).
 
 ## [v1.5.1] — 2026-10-10
 
