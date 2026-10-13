@@ -165,9 +165,10 @@ group:
 1. The percentage of each sample's fragments that fall in the atlas
    (`InPeaks`) against those outside it. This is a signal-to-noise
    measure; a sample with a much lower percentage than the others may
-   have failed. It is computed against the pooled atlas, so it is
-   higher than ENCODE's per-sample FRiP and should not be read
-   against ENCODE's FRiP standard.
+   have failed. It is computed against the pooled atlas, and its
+   denominator includes mitochondrial fragments, so it is not ENCODE's
+   per-sample FRiP and should not be read against ENCODE's FRiP
+   standard.
 2. The same as counts, in millions of fragments.
 3. Sequencing depth in peaks: each sample's fragments in the atlas,
    its ratio to the median sample, and the share of the peaks used
@@ -190,10 +191,10 @@ group:
 
 ### Depth table (`Proj_<no>__ATACSeqDepth.csv`)
 
-The numbers of page 3, one row per sample: `FragmentsInPeaks`,
-`RatioToMedian`, `FracKeptPeaksLT5` (the share of the peaks used for
-the PCA with fewer than 5 fragments) and `LowDepth` (`TRUE` below half
-the median).
+The numbers of page 3, one row per sample: `SampleID`, `Group`,
+`FragmentsInPeaks`, `RatioToMedian`, `FracKeptPeaksLT5` (the share of
+the peaks used for the PCA with fewer than 5 fragments) and
+`LowDepth` (`TRUE` below half the median).
 
 ### Insert-size distributions (`Proj_<no>__postInsDistribution.pdf`)
 
@@ -221,7 +222,8 @@ histogram plot.
 
 ### Mitochondrial fraction (`<sample>_postProcess___MITO.txt`)
 
-One line per sample with the columns `SAMPLE`, `MITO_CONTIG`, `READS`
+A header line and one line for the sample, with the columns `SAMPLE`,
+`MITO_CONTIG`, `READS`
 (all reads of the filtered BAM), `MITO_READS` (those on the
 mitochondrial contig) and `FRAC_MITO`. Mitochondrial reads are left
 out of the peaks, the atlas and the signal tracks. The fraction is
@@ -284,16 +286,10 @@ number and, when one was used, a run tag:
   change against mean log CPM) and a volcano plot (log fold change
   against p-value), with significant regions in red.
 
+The names above are those without a run tag (hence the double
+underscore); with a tag `<tag>` they are
+`Proj_<no>_<tag>_DiffPeaksEdgeR_V4.xlsx` and
+`Proj_<no>_<tag>_DiffPeaks_V4.pdf`.
+
 Samples whose group starts with `EXC` were excluded from the
 differential analysis.
-
-<!--
-DRAFT NOTES (remove before delivery)
-
-- scaleFactorsDESeq2.csv is not staged to atacSeq/ (00.FIXME.md #16).
-  When it is, add a section: columns are the BAM path (unnamed first
-  column) and scaleFactor, the reciprocal of the DESeq2 size factor;
-  normalized = raw * scaleFactor.
-- The diff file names assume no RUNTAG (the double underscore); with a
-  tag they are Proj_<no>_<tag>_DiffPeaksEdgeR_V4.xlsx (00.FIXME.md #16).
--->
