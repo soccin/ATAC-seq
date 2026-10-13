@@ -1,33 +1,77 @@
 Subject: Results for Project ATAC_PROJECT_NUM ATACseq ready
-The output for the ATACseq pipeline is now ready. You can access it at:
+
+The output of the ATAC-seq pipeline (v2.0.0) is now ready. You can
+access it at:
 
    https://bicdelivery.mskcc.org/project/ATAC_PROJECT_NUM/atacseq/r_001
 
-The ATACseq specific results are in the folder
+Read filtering, the Tn5 shift and peak calling follow the ENCODE
+ATAC-seq pipeline, with four differences: reads are kept at a mapping
+quality of 10 or more; duplicates are marked when the reads are
+mapped, before the filter; reads whose 5' end is soft-clipped are
+removed, with their mates; and pairs with an insert of 30 bp or less
+are removed. The last two remove short partial alignments of reads
+that are not from the reference genome. Mitochondrial reads and
+contigs other than the autosomes, X and Y are left out of the peaks,
+the atlas and the signal tracks.
 
-   atacSeq
+The results are in the folder atacSeq, which has these subfolders:
 
-Where you will find the following subfolders:
+- macs: the peaks of each sample, one folder per sample.
 
-- bigwig: These are the coverage profiles in bigwig format. Can be loaded into IGV to get a figure of the coverage. 
+   - *_peaks.narrowPeak, *_summits.bed, *_peaks.xls: MACS2's output,
+     as MACS2 wrote it.
 
-- macs: the raw output from the MACS peak calling program.
+   - *_peaks.blacklistFiltered.narrowPeak and
+     *_summits.blacklistFiltered.bed: the same peaks after ENCODE's
+     steps: at most the 300,000 most significant, clipped to the
+     chromosome ends, without the peaks that overlap the ENCODE
+     blacklist. Use these for any analysis of a sample's peaks.
 
-- atlas: this contains a bed and txt file that has the merged list of peaks found in all samples
+- atlas: the merged peak atlas and the counts over it.
 
-- metrics: Plots of various QC metrics for the samples.
+   - macsPeaksMerged.saf: the blacklist-filtered peaks of all samples,
+     merged within 500 bp, in SAF format (1-based coordinates).
 
-   - Proj_ATAC_PROJECT_NUM__postInsDistribution.pdf: simple fragment length distribution. There should be some signature of nucleosomal periodicity.
+   - peaks_raw_fcCounts.txt: the raw number of fragments of each
+     sample in each atlas region. Use it for any normalization or
+     differential analysis.
 
-   - Proj_ATAC_PROJECT_NUM__ATACSeqQC.pdf
+   - peaks_raw_fcCounts.txt.summary: for each sample, the fragments
+     in the atlas (Assigned) and outside it.
 
-      - Plots of Signal Portion of Tags (SPoT); which shows both the number and percentage of reads in peaks.
+- bigwig: one coverage track per sample, scaled to 10 million reads,
+  for IGV or the UCSC Genome Browser.
 
-      - PCA from the peak atlas. Can be used to look for potential outliers
+- metrics: QC metrics and plots.
 
-   - tssEnrich: TSS Enrichment scores per sample.
+   - Proj_ATAC_PROJECT_NUM__ATACSeqQC.pdf: the fraction and number of
+     each sample's fragments in the atlas (computed on the atlas of
+     all samples, so not ENCODE's FRiP); each sample's depth in peaks,
+     with a sample below half the median marked LOW DEPTH; a PCA of
+     the samples, with point size by depth; and the same PCA after
+     every sample is thinned at random to the depth of the smallest.
+     A sample apart from its group in the first PCA but not in the
+     second is apart because of its depth.
 
-      - Proj_ATAC_PROJECT_NUM__tssEnrich.csv: per-sample TSS enrichment scores. The tss_enrich column is the key QC metric; values above 6 are generally considered high quality.
+   - Proj_ATAC_PROJECT_NUM__ATACSeqDepth.csv: the depth numbers of
+     the QC report, one row per sample.
 
-      - Per-sample TSS enrichment plots (tss_enrich.pdf) showing read coverage centered on transcription start sites.
+   - Proj_ATAC_PROJECT_NUM__postInsDistribution.pdf: the fragment
+     length distribution of each sample, 31 to 1000 bp. A good
+     library shows a nucleosome-free peak below about 100 bp and
+     nucleosome peaks at about 200 and 400 bp.
+
+   - <sample>_postProcess___INS.txt and ___INS.pdf: Picard's insert
+     size metrics and histogram for each sample.
+
+   - <sample>_postProcess___MITO.txt: the fraction of each sample's
+     reads on the mitochondrial genome, counted after duplicates are
+     removed, so lower than the fraction ENCODE reports.
+
+   - <sample>_postProcess.tss_enrich.csv: the ENCODE TSS enrichment
+     score (column tss_enrich), with two plots, tss_enrich.pdf and
+     large_tss_enrich.png. ENCODE's guide depends on the genome:
+     hg38 acceptable 5 to 7, ideal above 7; b37 acceptable 6 to 10,
+     ideal above 10; mm10 acceptable 10 to 15, ideal above 15.
 
