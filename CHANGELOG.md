@@ -274,14 +274,19 @@ section, under "Internal".
   `output.pdf` and `methods.pdf` are delivered in the new folder
   `atacSeq/docs`. Diff files with a RUNTAG, and more than one set of
   them, are delivered; before, they were missed. The email gives the
-  run's release tag and run folder, which were fixed at `v2.0.0` and
-  `r_001`, and links to the docs on GitHub at that tag. The new
+  release (from `VERSION.md`) and run folder, which were fixed at
+  `v2.0.0` and `r_001`, and links to the docs on GitHub at that tag.
+  The new
   `bin/readme2yaml.R` writes `project.yaml` with the build tag
   (`hg38`) as `genome`, where the old one wrote the README's
   species (`human`). `extractProjectIDFromPath.py` is removed. It
   stops if it cannot read the delivery folder, since it could not
   see the run folders there, and if the database step fails it says
   that the files were delivered and how to rerun that step.
+- **`VERSION.md`** holds the client-facing release (`v2.0.0`), set by
+  hand when a release is made. `pipe.sh` records it as `RELEASE=` in
+  `00.RUNSTATUS.txt` and stops if it is missing (`bin/getRelease.sh`);
+  `VERSION=` stays the `git describe` of the exact code.
 
 #### Internal
 
@@ -378,9 +383,11 @@ section, under "Internal".
   reads them; TSS enrichment uses ENCODE's TSS sets), `INFO.md` and
   `requirements_2024-10-27.txt` (a pip freeze that `00.SETUP.sh` does
   not read).
-- The delivery email (`tmpldeliveryEmail_*.txt`) is short: the
-  link, the main v2.0.0 files and links to the output and methods
-  docs, which describe the rest. `README.md` has a "Delivery" section.
+- The delivery email (`tmpldeliveryEmail_*.txt`) lists the v2.0.0
+  files (the blacklist-filtered peaks, the count matrix, the depth
+  and PCA pages of the QC report, the per-sample TSS enrichment and
+  the docs) and links to the output and methods docs. `README.md`
+  has "Delivery" and "Releases" sections.
 - The usage text of `R/diffAnalysisPairwise.R` said "ChIP-seq" and
   pointed at example files that do not exist; it now names the output
   files, with and without a RUNTAG.
@@ -401,6 +408,9 @@ section, under "Internal".
   and on a test directory with tagged and untagged diff files; the
   copy as `svc_core001_bot01` and the permissions database step have
   not been run.
+- `RELEASE=` in `00.RUNSTATUS.txt` was checked only through the usage
+  text of `pipe.sh` and its stop when `VERSION.md` is missing; no run
+  has been made with it.
 
 ## [v1.5.1] — 2026-10-10
 

@@ -100,15 +100,23 @@ write to the delivery area goes through `asbot` (`dzdo -u
 svc_core001_bot01`), `-d` derives the folder from the
 `.../Users/<Pi>/<Invest>/Proj_<no>` path, the run folder is the next
 `r_NNN`, and `-n` prints those writes and the permissions-database
-call instead of running them. `GENOME`, `MAPQ` and `VERSION` come from
-`00.RUNSTATUS.txt`; the email templates take `{PROJNO}`, `{RUNDIR}`
-and `{VERSION}`. Keep the email short: the link, one line for each
-main file and the doc links. How a file is made belongs in
-`docs/output.md` and `docs/methods.md`, not in the email.
+call instead of running them. `GENOME` and `MAPQ` come from
+`00.RUNSTATUS.txt`, `VERSION` from `VERSION.md` of the checkout
+(`bin/getRelease.sh`); the email templates take `{PROJNO}`, `{RUNDIR}`
+and `{VERSION}`. The email lists each folder and its main files with
+a sentence or two each, at the level of the v1 email; how a file is
+made belongs in `docs/output.md` and `docs/methods.md`, not in the
+email. It names only the files a client looks at first; the rest
+are in `docs/output.md`.
 `bin/readme2yaml.R` writes `project.yaml`
 with the delivery folder as `root` and the build tag as `genome`.
-`VERSION` is `git describe --long`, which sees only annotated tags:
-tag releases with `git tag -a`.
+
+The client-facing version is static: the `- **Version:** vX.Y.Z`
+line of `VERSION.md`, changed by hand only when a release is made,
+with a git tag of the same name. Never derive it from git. `pipe.sh`
+records it as `RELEASE=` in `00.RUNSTATUS.txt` and stops if it is
+missing; `VERSION=` there is `git describe --tags --always --long`,
+the exact code, for internal use.
 
 ## Pipeline stages (pipe.sh)
 

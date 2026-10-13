@@ -208,16 +208,22 @@ the run `COMPLETED` and you can read the delivery folder, then:
   already delivered; the script prints the command to rerun this
   step alone.
 
-The email gives the release tag of the run (`VERSION` in
-`00.RUNSTATUS.txt` without its `-N-gSHA`) and links to the docs at
-that tag. A run not made on a release tag, docs from a checkout other
-than the run's, or diff files with a RUNTAG (the email names the
-untagged files) give a `WARNING`: edit the email before sending it.
-A delivery folder other than `<pi>/<invest>/Proj_<no>` for the PI and
-investigator of `README.txt`, the users the database is given, also
-gives a `WARNING`.
-`git describe` sees only annotated tags, so tag releases with
-`git tag -a`.
+The email gives the release in `VERSION.md` of the checkout the
+script is run from (see "Releases") and links to the docs at that tag.
+Diff files with a RUNTAG (the email names the untagged files) give a
+`WARNING`: edit the email before sending it. A delivery folder other
+than `<pi>/<invest>/Proj_<no>` for the PI and investigator of
+`README.txt`, the users the database is given, also gives a
+`WARNING`.
+
+## Releases
+
+The client-facing version is the release in `VERSION.md`
+(`- **Version:** vX.Y.Z`). It is set by hand when a release is made,
+never derived from git, and a git tag of the same name marks the
+release, so the doc links in the email resolve. `pipe.sh` records it
+as `RELEASE=` in `00.RUNSTATUS.txt`, beside `VERSION=`, the
+`git describe` of the exact code, which is for us, not the client.
 
 ## Installing MACS2
 
