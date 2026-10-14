@@ -41,7 +41,12 @@
 
 set -euo pipefail
 
-SDIR="$( cd "$( dirname "$0" )" && pwd )"
+#
+# The physical path: the docs are copied from here by the service
+# account, which cannot enter a home directory that a symlink in the
+# path given may pass through.
+#
+SDIR="$( cd "$( dirname "$0" )" && pwd -P )"
 
 BOT_USER=svc_core001_bot01
 DROOT=/data1/core002/res/bic/results
