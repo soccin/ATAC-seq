@@ -180,7 +180,11 @@ fold change is group 2 minus group 1 of the comparison: a positive
 value means more accessible in group 2. Significant regions were
 annotated with the nearest gene and genomic feature using ChIPseeker
 (Yu 2015) with the UCSC knownGene annotation of the build and a TSS
-region of 5 kb on each side.
+region of 5 kb on each side. For each comparison, every tested region
+was plotted as an MA plot (log fold change against mean log2 CPM) and
+a volcano plot (log fold change against p-value, on a log scale),
+with the significant regions colored by the group they are more
+accessible in.
 
 ## Tool versions
 
