@@ -286,9 +286,13 @@ number and, when one was used, a run tag:
   the nearest gene, `annotation` (promoter, exon, intron, distal
   intergenic, ...) and `distanceToTSS`.
 - `Proj_<no>__DiffPeaks_V4.pdf`: the PCA of the samples (with and
-  without labels), then for each comparison an MA plot (log fold
+  without labels; the point size is the sample's fragments in peaks,
+  as in the QC report), then for each comparison an MA plot (log fold
   change against mean log CPM) and a volcano plot (log fold change
-  against p-value), with significant regions in red.
+  against p-value, on a log scale). Regions significant at FDR < 0.05
+  are colored by the group they are more accessible in, with the
+  count of each in the legend; the dashed line on the volcano plot is
+  the p-value at which the FDR cut falls.
 
 The names above are those without a run tag (hence the double
 underscore); with a tag `<tag>` they are

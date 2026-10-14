@@ -385,9 +385,13 @@ annotation: <code>SYMBOL</code> and <code>GENENAME</code> of the nearest
 gene, <code>annotation</code> (promoter, exon, intron, distal
 intergenic, …) and <code>distanceToTSS</code>.</li>
 <li><code>Proj_&lt;no&gt;__DiffPeaks_V4.pdf</code>: the PCA of the
-samples (with and without labels), then for each comparison an MA plot
-(log fold change against mean log CPM) and a volcano plot (log fold
-change against p-value), with significant regions in red.</li>
+samples (with and without labels; the point size is the sample’s
+fragments in peaks, as in the QC report), then for each comparison an MA
+plot (log fold change against mean log CPM) and a volcano plot (log fold
+change against p-value, on a log scale). Regions significant at FDR &lt;
+0.05 are colored by the group they are more accessible in, with the
+count of each in the legend; the dashed line on the volcano plot is the
+p-value at which the FDR cut falls.</li>
 </ul>
 <p>The names above are those without a run tag (hence the double
 underscore); with a tag <code>&lt;tag&gt;</code> they are

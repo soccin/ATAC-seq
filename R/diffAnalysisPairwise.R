@@ -81,24 +81,6 @@ map_ids <- function(sample_names) {
   }
 }
 
-#' Create reverse log transformation for ggplot2 volcano plots
-#'
-#' Transforms p-values so smaller values appear higher on the y-axis.
-#'
-#' @param base Numeric base for logarithm (default: e)
-#' @return A transformation object for ggplot2 scales
-reverselog_trans <- function(base = exp(1)) {
-  trans <- function(x) -log(x, base)
-  inv <- function(x) base^(-x)
-  trans_new(
-    paste0("reverselog-", format(base)),
-    trans,
-    inv,
-    log_breaks(base = base),
-    domain = c(1e-100, Inf)
-  )
-}
-
 #' Create PNG file with Cairo graphics device
 #'
 #' @param filename Character path to output file
@@ -245,28 +227,36 @@ pca_result <- prcomp(t(cpm(dge, log = TRUE)), scale = FALSE)
 pca_pct <- round(100 * summary(pca_result)$importance[2, 1:2])
 pca_axes <- labs(x = str_glue("PC1 ({pca_pct[1]}%)"),
                  y = str_glue("PC2 ({pca_pct[2]}%)"))
+
+# Each sample's fragments in peaks, the column sum of the count matrix,
+# sizes its point, as in R/analyzeATAC.R, so a sample apart because of
+# its depth can be seen as such
+depth <- tibble(SampleID = colnames(count_matrix),
+                FragmentsInPeaks = colSums(count_matrix))
+
 pca_data <- pca_result$x |>
   data.frame() |>
   rownames_to_column("SampleID") |>
-  left_join(manifest, by = "SampleID")
+  left_join(manifest, by = "SampleID") |>
+  left_join(depth, by = "SampleID")
 
-# Define color palette for plots
+# 34 group colors; scale_color_uchicago() alone has 9 and draws any
+# further group in grey
 plot_colors <- c(pal_uchicago("default")(9), pals::cols25())
+
+depth_size <- scale_size(name = "Fragments\nin peaks", range = c(1.5, 7),
+                         labels = label_number(suffix = " M", scale = 1e-6))
 
 # PCA plot without labels
 pca_plot <- ggplot(pca_data, aes(PC1, PC2, color = Group, label = SampleID)) +
   theme_light(base_size = 16) +
-  geom_point(size = 4, alpha = 0.6) +
+  geom_point(aes(size = FragmentsInPeaks), alpha = 0.6) +
   scale_color_manual(values = plot_colors) +
+  depth_size +
   pca_axes
 
-# PCA plot with sample labels
-pca_plot_labeled <- ggplot(pca_data,
-                           aes(PC1, PC2, color = Group, label = SampleID)) +
-  theme_light(base_size = 16) +
-  geom_point(size = 2) +
-  scale_color_manual(values = plot_colors) +
-  pca_axes +
+# The same plot with sample labels
+pca_plot_labeled <- pca_plot +
   geom_label_repel(
     color = "black",
     max.overlaps = Inf,
@@ -333,9 +323,7 @@ do_differential_analysis <- function(dge_object, design, contrast,
     rownames_to_column("PeakNo") |>
     tibble() |>
     mutate(FDR = p.adjust(PValue, method = "fdr")) |>
-    arrange(FDR, PValue) |>
-    mutate(PValue.mod = ifelse(PValue < .Machine$double.eps^2,
-                                .Machine$double.eps^2, PValue))
+    arrange(FDR, PValue)
 
   # Apply IHW (Independent Hypothesis Weighting) for multiple testing
   library(IHW)
@@ -344,26 +332,68 @@ do_differential_analysis <- function(dge_object, design, contrast,
                     alpha = 0.25)
   cat("IHW rejections =", rejections(ihw_result), "\n")
 
-  # Create MA plot
+  # MA and volcano plots. Each peak is not significant, higher in
+  # group1 or higher in group2 (FDR < fdr_cut and the sign of logFC);
+  # the legend gives the count of each. The volcano's y is -log10 of
+  # the p-value itself, labeled with the p-value (10^0, 10^-50, ...).
+  # (Until v2.0.0 it was the p-value clipped at
+  # 4.9e-32 on a reversed log scale: in a strong comparison thousands
+  # of peaks lay on that ceiling, and the scale's breaks collapsed
+  # into unreadable labels.) A p-value of 0 (an underflow) is drawn
+  # at the smallest nonzero one; the tables keep it as is.
   max_logfc <- max(abs(results_table$logFC))
+  p_floor <- min(results_table$PValue[results_table$PValue > 0])
+  plot_table <- results_table |>
+    mutate(Status = case_when(FDR >= fdr_cut ~ "ns",
+                              logFC > 0 ~ "up",
+                              TRUE ~ "down"),
+           Status = factor(Status, levels = c("ns", "down", "up")),
+           negLog10P = -log10(pmax(PValue, p_floor))) |>
+    arrange(Status)
+  n_status <- table(plot_table$Status)
+  status_colors <- c(ns = "#bdbdbd", down = "#1f78b4", up = "#e31a1c")
+  status_labels <- c(
+    ns = "Not significant",
+    down = str_glue("Higher in {group1} ({format(n_status[['down']], big.mark = ',')})"),
+    up = str_glue("Higher in {group2} ({format(n_status[['up']], big.mark = ',')})"))
+  status_scale <- list(
+    scale_color_manual(values = status_colors, labels = status_labels,
+                       name = str_glue("FDR < {fdr_cut}"), drop = FALSE),
+    guides(color = guide_legend(override.aes = list(size = 3, alpha = 1))),
+    theme(legend.position = "bottom"))
+  n_peaks <- format(nrow(plot_table), big.mark = ",")
+  logfc_label <- str_glue("log2 fold change ({group2} / {group1})")
 
-  ma_plot <- ggplot(arrange(results_table, desc(PValue)),
-                    aes(logCPM, logFC, color = FDR < fdr_cut)) +
+  ma_plot <- ggplot(plot_table, aes(logCPM, logFC, color = Status)) +
     theme_light(base_size = 16) +
-    rasterize(geom_point()) +
-    scale_color_manual(values = c("#7f7f7f33", "#e31a1c")) +
-    ggtitle(comp_label) +
-    scale_y_continuous(limits = c(-1, 1) * max_logfc)
+    geom_hline(yintercept = 0, color = "grey70") +
+    rasterize(geom_point(size = 1, alpha = 0.5), dpi = 300) +
+    status_scale +
+    scale_y_continuous(limits = c(-1, 1) * max_logfc) +
+    labs(title = comp_label, subtitle = str_glue("{n_peaks} peaks"),
+         x = "mean log2 CPM", y = logfc_label)
 
-  # Create volcano plot (PValue.mod clipped for readability)
-  volcano_plot <- ggplot(arrange(results_table, desc(PValue)),
-                         aes(logFC, PValue.mod, color = FDR < fdr_cut)) +
+  # Dashed line: the largest p-value still significant, where the
+  # FDR cut falls on this comparison
+  p_cut <- if (sum(n_status[c("down", "up")]) > 0) {
+    max(plot_table$PValue[plot_table$Status != "ns"])
+  } else {
+    NA
+  }
+  volcano_plot <- ggplot(plot_table, aes(logFC, negLog10P, color = Status)) +
     theme_light(base_size = 16) +
-    rasterize(geom_point()) +
-    scale_y_continuous(trans = reverselog_trans(10)) +
+    geom_vline(xintercept = 0, color = "grey70") +
+    rasterize(geom_point(size = 1, alpha = 0.5), dpi = 300) +
+    status_scale +
     scale_x_continuous(limits = c(-1, 1) * max_logfc) +
-    scale_color_manual(values = c("#7f7f7f33", "#e31a1c")) +
-    ggtitle(comp_label)
+    scale_y_continuous(labels = \(b) parse(text = str_glue("10^{-b}"))) +
+    labs(title = comp_label,
+         subtitle = str_glue("{n_peaks} peaks; dashed line: FDR = {fdr_cut}"),
+         x = logfc_label, y = "p-value")
+  if (!is.na(p_cut)) {
+    volcano_plot <- volcano_plot +
+      geom_hline(yintercept = -log10(p_cut), linetype = 2, color = "grey40")
+  }
 
   # Filter for significant peaks (exclude mitochondrial)
   sig_results <- results_table |>
