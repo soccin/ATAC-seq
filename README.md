@@ -1,6 +1,6 @@
 # ATAC-Seq pipeline
 
-## Version 2.0.0 - 2026-10-13
+## Version 2.0.0 - 2026-10-14
 
 Most outputs differ from those of v1.x; do not mix the two. See
 `CHANGELOG.md` for what changed and why.
