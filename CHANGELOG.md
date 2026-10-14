@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+No change to any result; the version stays v2.0.0.
+
+### Fixes
+
+- `deliverResults.sh` run through a path that passes through a home
+  directory (e.g. `~/Work/...`, a symlink to `/data1/...`) stopped
+  after copying `atacSeq/`: the service account could not read the
+  client docs, rsync failed with "Permission denied (13)", and the
+  diff files, the email and the database registration were skipped.
+  The script now finds its docs by their physical path. A dry run
+  (`-n`) does not run rsync, so it could not show the error.
+
 ## [v2.0.0] — 2026-10-14
 
 Most outputs change; do not mix the results of a v1.x run with those
