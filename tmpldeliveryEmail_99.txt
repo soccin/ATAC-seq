@@ -1,4 +1,4 @@
-- docs: output.pdf describes every file in detail and methods.pdf the methods. Both are also online:
+- docs: output.pdf describes every file in detail and methods.pdf the methods (also as HTML). Both are also online:
 
    https://github.com/soccin/ATAC-seq/blob/{VERSION}/docs/output.md
 

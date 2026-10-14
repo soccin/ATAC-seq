@@ -129,7 +129,7 @@ scale factors `scaleFactorsDESeq2.csv` (inverted, `NOTES.md`) and
 
 `docs/output.md` describes every delivered file for the client and
 `docs/methods.md` the methods; both are rendered to HTML and PDF by
-`docs/MAKE_DOCS.sh`, and the PDFs are delivered in `atacSeq/docs`.
+`docs/MAKE_DOCS.sh`, and both forms are delivered in `atacSeq/docs`.
 
 ## Differential analysis
 
@@ -198,8 +198,8 @@ the run `COMPLETED` and you can read the delivery folder, then:
   `README.txt` found going up from the analysis directory to
   `Proj_<no>`;
 - copies, as `svc_core001_bot01`, `atacSeq/` to `r_NNN/atacSeq`,
-  `docs/output.pdf` and `docs/methods.pdf` of this checkout to
-  `atacSeq/docs`, and the project's `*_DiffPeaksEdgeR_V5.xlsx` and
+  `docs/output` and `docs/methods` of this checkout (PDF and HTML)
+  to `atacSeq/docs`, and the project's `*_DiffPeaksEdgeR_V5.xlsx` and
   `*_DiffPeaks_V5.pdf` (any RUNTAG) to `atacSeq/diff`;
 - writes the email, from `tmpldeliveryEmail_*.txt`, to
   `deliveryEmail_<no>_r_NNN_<yymmdd>.txt`;

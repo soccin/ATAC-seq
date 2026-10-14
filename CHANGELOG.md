@@ -277,15 +277,15 @@ section, under "Internal".
   folder is the next `r_NNN`), writing as `svc_core001_bot01`, and
   with `-n` for a dry run. It stops unless `bin/checkRun.sh` exits 0
   (it tested only for `macsPeaksMerged.saf`). The client docs
-  `output.pdf` and `methods.pdf` are delivered in the new folder
-  `atacSeq/docs`. Diff files with a RUNTAG, and more than one set of
-  them, are delivered; before, they were missed. The email gives the
-  release (from `VERSION.md`) and run folder, which were fixed at
-  `v2.0.0` and `r_001`, and links to the docs on GitHub at that tag.
-  The new
-  `bin/readme2yaml.R` writes `project.yaml` with the build tag
-  (`hg38`) as `genome`, where the old one wrote the README's
-  species (`human`). `extractProjectIDFromPath.py` is removed. It
+  `output` and `methods`, as PDF and HTML, are delivered in the new
+  folder `atacSeq/docs`. Diff files with a RUNTAG, and more than one
+  set of them, are delivered; before, they were missed. The email
+  gives the release (from `VERSION.md`) and run folder, which were
+  fixed at `v2.0.0` and `r_001`, and links to the docs on GitHub at
+  that tag. The new `bin/readme2yaml.R` writes `project.yaml` with
+  the build tag (`hg38`) as `genome`, where the old one wrote the
+  README's species (`human`). `extractProjectIDFromPath.py` is
+  removed. It
   stops if it cannot read the delivery folder, since it could not
   see the run folders there, and if the database step fails it says
   that the files were delivered and how to rerun that step.

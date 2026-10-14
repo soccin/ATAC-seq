@@ -9,8 +9,9 @@ any normalization or differential analysis. `bigwig` holds a
 normalized signal track per sample for a genome browser. `metrics`
 holds the QC metrics and plots. Projects with replicates have a
 `diff` folder with the differential accessibility analysis. `docs`
-holds this document, `output.pdf`, and the methods document,
-`methods.pdf`, which describes how each file was made.
+holds this document (`output.pdf`, `output.html`) and the methods
+document (`methods.pdf`, `methods.html`), which describes how each
+file was made.
 
 In the names below, `<sample>` is the sample ID of the BAM and `<no>`
 is the project number (for example `18143`). Coordinates are 0-based
@@ -48,7 +49,9 @@ atacSeq
 │   └── <sample>_postProcess.large_tss_enrich.png
 ├── docs
 │   ├── output.pdf
-│   └── methods.pdf
+│   ├── output.html
+│   ├── methods.pdf
+│   └── methods.html
 └── diff                      (projects with replicates only)
     ├── Proj_<no>__DiffPeaksEdgeR_V5.xlsx
     └── Proj_<no>__DiffPeaks_V5.pdf
