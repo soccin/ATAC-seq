@@ -76,8 +76,8 @@ mitochondrial, unplaced and other contigs are left out.</p>
 │   ├── output.pdf
 │   └── methods.pdf
 └── diff                      (projects with replicates only)
-    ├── Proj_&lt;no&gt;__DiffPeaksEdgeR_V4.xlsx
-    └── Proj_&lt;no&gt;__DiffPeaks_V4.pdf</code></pre>
+    ├── Proj_&lt;no&gt;__DiffPeaksEdgeR_V5.xlsx
+    └── Proj_&lt;no&gt;__DiffPeaks_V5.pdf</code></pre>
 <p>The filtered BAM files (<code>&lt;sample&gt;_postProcess.bam</code>)
 are not delivered. If you need them, please contact us.</p>
 <h2 id="peaks-macs">Peaks (<code>macs</code>)</h2>
@@ -370,7 +370,7 @@ above it.</p>
 delivered in the <code>diff</code> folder as two files, named with the
 project number and, when one was used, a run tag:</p>
 <ul>
-<li><code>Proj_&lt;no&gt;__DiffPeaksEdgeR_V4.xlsx</code>: one
+<li><code>Proj_&lt;no&gt;__DiffPeaksEdgeR_V5.xlsx</code>: one
 <code>Summary</code> sheet with the number of significant regions per
 comparison, then one sheet per comparison, named
 <code>&lt;group2&gt;_v_&lt;group1&gt;</code>, listing the regions
@@ -384,7 +384,7 @@ log2 counts per million), <code>PValue</code>, <code>FDR</code>
 annotation: <code>SYMBOL</code> and <code>GENENAME</code> of the nearest
 gene, <code>annotation</code> (promoter, exon, intron, distal
 intergenic, …) and <code>distanceToTSS</code>.</li>
-<li><code>Proj_&lt;no&gt;__DiffPeaks_V4.pdf</code>: the PCA of the
+<li><code>Proj_&lt;no&gt;__DiffPeaks_V5.pdf</code>: the PCA of the
 samples (with and without labels; the point size is the sample’s
 fragments in peaks, as in the QC report), then for each comparison an MA
 plot (log fold change against mean log CPM) and a volcano plot (log fold
@@ -395,8 +395,8 @@ p-value at which the FDR cut falls.</li>
 </ul>
 <p>The names above are those without a run tag (hence the double
 underscore); with a tag <code>&lt;tag&gt;</code> they are
-<code>Proj_&lt;no&gt;_&lt;tag&gt;_DiffPeaksEdgeR_V4.xlsx</code> and
-<code>Proj_&lt;no&gt;_&lt;tag&gt;_DiffPeaks_V4.pdf</code>.</p>
+<code>Proj_&lt;no&gt;_&lt;tag&gt;_DiffPeaksEdgeR_V5.xlsx</code> and
+<code>Proj_&lt;no&gt;_&lt;tag&gt;_DiffPeaks_V5.pdf</code>.</p>
 <p>Samples whose group starts with <code>EXC</code> were excluded from
 the differential analysis.</p>
 <p>In our deliveries made before October 2026 the <code>FDR</code>

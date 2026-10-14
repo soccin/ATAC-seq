@@ -21,9 +21,9 @@ OPTIONAL ARGUMENTS:
   RUNTAG        Tag to append to output filenames (default: none)
 
 OUTPUT FILES (in the current directory):
-  - <PROJ>__DiffPeaksEdgeR_V4.xlsx : Excel file with differential peaks
-  - <PROJ>__DiffPeaks_V4.pdf       : PDF with PCA and MA/volcano plots
-  With a RUNTAG: <PROJ>_<RUNTAG>_DiffPeaksEdgeR_V4.xlsx, and so on.
+  - <PROJ>__DiffPeaksEdgeR_V5.xlsx : Excel file with differential peaks
+  - <PROJ>__DiffPeaks_V5.pdf       : PDF with PCA and MA/volcano plots
+  With a RUNTAG: <PROJ>_<RUNTAG>_DiffPeaksEdgeR_V5.xlsx, and so on.
   <PROJ> is the last directory of the current path named Proj_* or
   B-<digits>, else ATAC.
 
@@ -502,7 +502,7 @@ summary_stats <- map(result_tables, nrow) |>
 # Built sheet-by-sheet rather than with write.xlsx() because zoom can only be
 # set when the worksheet is created; the Summary sheet gets 150% zoom and
 # auto-fitted column widths.
-output_xlsx <- cc(project_id, RUNTAG, "DiffPeaksEdgeR_V4.xlsx")
+output_xlsx <- cc(project_id, RUNTAG, "DiffPeaksEdgeR_V5.xlsx")
 xlsx_sheets <- c(list(Summary = summary_stats), result_tables)
 
 wb <- createWorkbook()
@@ -516,7 +516,7 @@ setColWidths(wb, "Summary", cols = seq_len(ncol(summary_stats)),
 saveWorkbook(wb, output_xlsx, overwrite = TRUE)
 
 # Generate PDF with PCA and differential analysis plots
-output_pdf <- cc(project_id, RUNTAG, "DiffPeaks_V4.pdf")
+output_pdf <- cc(project_id, RUNTAG, "DiffPeaks_V5.pdf")
 pdf(output_pdf, width = 11, height = 8.5)
 
 print(pca_plot)

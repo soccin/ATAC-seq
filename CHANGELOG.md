@@ -161,7 +161,7 @@ section, under "Internal".
   one b37 sample checked). Earlier b38 runs are not affected. The
   postProcess BAM still holds the mitochondrial reads; the shifted BED,
   and everything made from it, does not.
-- **The PCA in `*__ATACSeqQC.pdf` and `*DiffPeaks_V4.pdf` is the usual
+- **The PCA in `*__ATACSeqQC.pdf` and `*DiffPeaks_V5.pdf` is the usual
   PCA of the samples** (log-CPM, each peak centered across samples),
   with the variance explained on the axes. Before, the peaks were the
   observations and the plot showed the rotation: its PC1 was the
@@ -196,6 +196,11 @@ section, under "Internal".
   `gridExtra`. Both scripts run in the control job, so without these
   packages the run fails at `STAGE=REPORTS`.
   `R/diffAnalysisPairwise.R` already needed `pals`.
+- **The differential files are `*_DiffPeaksEdgeR_V5.xlsx` and
+  `*_DiffPeaks_V5.pdf`** (were `_V4`), so a rerun of
+  `R/diffAnalysisPairwise.R` does not overwrite the files of a v1.x
+  run, whose FDR, PCA and plots differ (above). `deliverResults.sh`
+  delivers the `_V5` files only.
 
 #### Internal
 
@@ -236,7 +241,7 @@ section, under "Internal".
     marked `LOW DEPTH` (also a `WARNING` line in the control log).
     The same numbers are in the new deliverable `*__ATACSeqDepth.csv`.
   - The point size on the PCA is the sample's fragments in peaks
-    (also on the PCA of `*DiffPeaks_V4.pdf`).
+    (also on the PCA of `*DiffPeaks_V5.pdf`).
   - A PCA depth check: the PCA beside the same PCA after every
     sample is thinned at random (binomial, fixed seed) to about the
     smallest sample's depth. In Proj_18143 ED1-1, at 0.28 times the
@@ -311,7 +316,7 @@ section, under "Internal".
 
 ### Fixes
 
-- The volcano plots of `*DiffPeaks_V4.pdf` show the p-value on a
+- The volcano plots of `*DiffPeaks_V5.pdf` show the p-value on a
   log scale (-log10, labeled 10^0, 10^-50, ...). Before, the p-value
   was clipped at 4.9e-32 and drawn on a reversed log scale: in a
   strong comparison (Proj_18143 GD1 vs G12C, p-values down to 1e-234)

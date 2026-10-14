@@ -171,9 +171,9 @@ Holm's correction, which is much stricter. Samples whose `Group` starts
 with `EXC` are left out. Every count matrix column must have a manifest
 row (`MapID` is the BAM's SM tag), and every row a column.
 
-The results are `<PROJ>_<RUNTAG>_DiffPeaksEdgeR_V4.xlsx` (a summary
+The results are `<PROJ>_<RUNTAG>_DiffPeaksEdgeR_V5.xlsx` (a summary
 sheet and, per comparison, the significant peaks with their nearest
-gene) and `<PROJ>_<RUNTAG>_DiffPeaks_V4.pdf` (PCA, MA and volcano
+gene) and `<PROJ>_<RUNTAG>_DiffPeaks_V5.pdf` (PCA, MA and volcano
 plots). `<PROJ>` is the last `Proj_*` or `B-<digits>` directory in
 the path of the analysis directory, else `ATAC`.
 
@@ -199,8 +199,8 @@ the run `COMPLETED` and you can read the delivery folder, then:
   `Proj_<no>`;
 - copies, as `svc_core001_bot01`, `atacSeq/` to `r_NNN/atacSeq`,
   `docs/output.pdf` and `docs/methods.pdf` of this checkout to
-  `atacSeq/docs`, and the project's `*_DiffPeaksEdgeR_V4.xlsx` and
-  `*_DiffPeaks_V4.pdf` (any RUNTAG) to `atacSeq/diff`;
+  `atacSeq/docs`, and the project's `*_DiffPeaksEdgeR_V5.xlsx` and
+  `*_DiffPeaks_V5.pdf` (any RUNTAG) to `atacSeq/diff`;
 - writes the email, from `tmpldeliveryEmail_*.txt`, to
   `deliveryEmail_<no>_r_NNN_<yymmdd>.txt`;
 - registers the run with the bicdelivery permissions database

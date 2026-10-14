@@ -16,7 +16,7 @@
 #   - copies atacSeq/ to DELIVERY/r_NNN/, with the client docs
 #     (docs/output.pdf, docs/methods.pdf of this checkout) in
 #     atacSeq/docs and the differential analysis files of the project
-#     (Proj_<no>_*_DiffPeaksEdgeR_V4.xlsx, Proj_<no>_*_DiffPeaks_V4.pdf),
+#     (Proj_<no>_*_DiffPeaksEdgeR_V5.xlsx, Proj_<no>_*_DiffPeaks_V5.pdf),
 #     if any, in atacSeq/diff;
 #   - writes the delivery email to deliveryEmail_<no>_r_NNN_<yymmdd>.txt,
 #     with the release of VERSION.md of this checkout;
@@ -207,16 +207,16 @@ done
 # (Proj_<no>__...) or tagged (Proj_<no>_<tag>_...).
 #
 shopt -s nullglob
-DIFF_XLSX=("${PROJ}"_*_DiffPeaksEdgeR_V4.xlsx)
-DIFF_PDF=("${PROJ}"_*_DiffPeaks_V4.pdf)
+DIFF_XLSX=("${PROJ}"_*_DiffPeaksEdgeR_V5.xlsx)
+DIFF_PDF=("${PROJ}"_*_DiffPeaks_V5.pdf)
 shopt -u nullglob
 DIFF_FILES=("${DIFF_XLSX[@]}" "${DIFF_PDF[@]}")
 
 if [[ ${#DIFF_XLSX[@]} -ne ${#DIFF_PDF[@]} ]]; then
-    warn "${#DIFF_XLSX[@]} DiffPeaksEdgeR_V4.xlsx but ${#DIFF_PDF[@]} DiffPeaks_V4.pdf files"
+    warn "${#DIFF_XLSX[@]} DiffPeaksEdgeR_V5.xlsx but ${#DIFF_PDF[@]} DiffPeaks_V5.pdf files"
 fi
 for f in "${DIFF_FILES[@]}"; do
-    if [[ "$f" != "${PROJ}__DiffPeaksEdgeR_V4.xlsx" && "$f" != "${PROJ}__DiffPeaks_V4.pdf" ]]; then
+    if [[ "$f" != "${PROJ}__DiffPeaksEdgeR_V5.xlsx" && "$f" != "${PROJ}__DiffPeaks_V5.pdf" ]]; then
         warn "diff file $f has a run tag; the email names the untagged files, edit it"
     fi
 done

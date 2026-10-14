@@ -50,8 +50,8 @@ atacSeq
 │   ├── output.pdf
 │   └── methods.pdf
 └── diff                      (projects with replicates only)
-    ├── Proj_<no>__DiffPeaksEdgeR_V4.xlsx
-    └── Proj_<no>__DiffPeaks_V4.pdf
+    ├── Proj_<no>__DiffPeaksEdgeR_V5.xlsx
+    └── Proj_<no>__DiffPeaks_V5.pdf
 ```
 
 The filtered BAM files (`<sample>_postProcess.bam`) are not delivered.
@@ -274,7 +274,7 @@ For projects with replicates, pairwise comparisons between groups are
 delivered in the `diff` folder as two files, named with the project
 number and, when one was used, a run tag:
 
-- `Proj_<no>__DiffPeaksEdgeR_V4.xlsx`: one `Summary` sheet with the
+- `Proj_<no>__DiffPeaksEdgeR_V5.xlsx`: one `Summary` sheet with the
   number of significant regions per comparison, then one sheet per
   comparison, named `<group2>_v_<group1>`, listing the regions
   significant at FDR < 0.05. Columns: `PeakNo` (the atlas region),
@@ -285,7 +285,7 @@ number and, when one was used, a run tag:
   `Length`, and the ChIPseeker annotation: `SYMBOL` and `GENENAME` of
   the nearest gene, `annotation` (promoter, exon, intron, distal
   intergenic, ...) and `distanceToTSS`.
-- `Proj_<no>__DiffPeaks_V4.pdf`: the PCA of the samples (with and
+- `Proj_<no>__DiffPeaks_V5.pdf`: the PCA of the samples (with and
   without labels; the point size is the sample's fragments in peaks,
   as in the QC report), then for each comparison an MA plot (log fold
   change against mean log CPM) and a volcano plot (log fold change
@@ -296,8 +296,8 @@ number and, when one was used, a run tag:
 
 The names above are those without a run tag (hence the double
 underscore); with a tag `<tag>` they are
-`Proj_<no>_<tag>_DiffPeaksEdgeR_V4.xlsx` and
-`Proj_<no>_<tag>_DiffPeaks_V4.pdf`.
+`Proj_<no>_<tag>_DiffPeaksEdgeR_V5.xlsx` and
+`Proj_<no>_<tag>_DiffPeaks_V5.pdf`.
 
 Samples whose group starts with `EXC` were excluded from the
 differential analysis.
