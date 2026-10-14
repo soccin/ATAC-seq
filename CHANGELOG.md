@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [v2.0.0] — 2026-10-13
+## [v2.0.0] — 2026-10-14
 
 Most outputs change; do not mix the results of a v1.x run with those
 of this version. Counts from any v1.x run may be wrong for one or more
@@ -270,7 +270,8 @@ section, under "Internal".
   If a stage's accounting records never arrive, `MESSAGE` says so, and
   if the check before staging finds stage jobs that are not
   `COMPLETED`, it lists them.
-- **`deliverResults.sh` delivers on IRIS** (`00.FIXME.md` #2), as
+- **`deliverResults.sh` delivers on IRIS** (`00.FIXME.md` #2, now in
+  `attic/zzISSUES.md`), as
   adagio's `bin/deliver.sh` does: to
   `/data1/core002/res/bic/results/<pi>/<invest>/Proj_<no>/r_NNN` (`-d`
   takes the folder from the path of the analysis directory, the run
@@ -420,11 +421,15 @@ section, under "Internal".
   (`00.FIXME.md` #4). hg38 and b37 were run (`docs/SLURM_PORT.md`,
   "Validation").
 - Full-size runs were made on hg38 only, on Proj_18143 (15 samples).
-  v2.x-pre5 has the code of this version except the depth pages of the
-  QC report, which were tested on its counts; v2.x-pre3 and v2.x-pre4
-  lacked both or one of the read filters (`docs/SLURM_PORT.md`,
-  "Insert-size and 5' clip filters"). b37 was run on the 4 downsampled
-  Proj_18741 BAMs only.
+  v2.x-pre5 has the pipeline code of this version except the depth
+  pages of the QC report, which were tested on its counts, and two
+  lines of `pipe.sh` that do not touch the data: `RELEASE=` (below)
+  and `git describe --tags`. The changes to
+  `R/diffAnalysisPairwise.R` after v2.x-pre5 (the `_V5` names, the MA
+  and volcano plots) were run by hand on the v2.x-pre5 count matrix.
+  v2.x-pre3 and v2.x-pre4 lacked both or one of the read filters
+  (`docs/SLURM_PORT.md`, "Insert-size and 5' clip filters"). b37 was
+  run on the 4 downsampled Proj_18741 BAMs only.
 - `deliverResults.sh` was run only with `-n`, on the v2.x-pre5 run
   and on a test directory with tagged and untagged diff files; the
   copy as `svc_core001_bot01` and the permissions database step have

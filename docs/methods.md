@@ -196,7 +196,7 @@ accessible in.
 | Picard SortSam, CollectInsertSizeMetrics | 3.4.0 |
 | bedtools | 2.31.1 |
 | UCSC bedClip | v369 |
-| UCSC wigToBigWig | not recorded (binary vendored 2022) |
+| UCSC wigToBigWig | kent source v361 |
 | MACS2 | 2.2.9.1 |
 | featureCounts (subread) | 2.1.1 |
 | R | 4.5.1 |
