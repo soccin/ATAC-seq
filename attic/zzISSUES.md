@@ -15,14 +15,23 @@ refers to the old list unless it says otherwise. Entries from
 
 ## Closed — fixed on `rel/2.0.0`
 
+**#28 of `00.FIXME.md`, atlas merges peaks within 500 bp** (was
+C-18; `docs` `encode`) — The merge itself stays: `mergePeaksToSAF.sh`
+uses `bedtools merge -d 500`, R. Koche's method, where ENCODE never
+merges, so the atlas grows with the number of samples. The one action
+was to note in deliveries that ENCODE's per-sample peak-count
+standards do not apply to the atlas; `docs/output.md` ("Atlas") and
+`docs/methods.md` ("Peak atlas") say so since v2.0.0.
+
 **#2 of `00.FIXME.md`, `deliverResults.sh` not ported**
 (`enhancement`) — Rewritten on `feat/deliver-v2` after adagio's
 `bin/deliver.sh`: it delivers to `/data1/core002/res/bic/results` as
 `svc_core001_bot01`, picks the next `r_NNN`, stops unless
 `bin/checkRun.sh` exits 0, delivers diff files with any RUNTAG and
-`docs/output.pdf` and `docs/methods.pdf` (in `atacSeq/docs`), and has
-a dry run (`-n`). The email still names the untagged diff files; the
-script prints a `WARNING` to edit it when there are tagged ones.
+the client docs `output` and `methods` as PDF and HTML (in
+`atacSeq/docs`), and has a dry run (`-n`). The email still names the
+untagged diff files; the script prints a `WARNING` to edit it when
+there are tagged ones.
 Tested with `-n` only (`CHANGELOG.md`, "Not tested").
 
 **#1 of `00.FIXME.md`, no full-size run of v2.0.0 with the 5' clip
