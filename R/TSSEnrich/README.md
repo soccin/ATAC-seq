@@ -18,28 +18,30 @@ much. See [Where lib/ came from](#where-lib-came-from) and
 | Path | What it is |
 | --- | --- |
 | `tss_enrich.R` | The live script. R port of `encode_task_tss_enrich.py`. |
-| `lib/b38_tss.bed` | ENCODE hg38 TSS BED (GENCODE v24, unique protein-coding TSS). Vendored verbatim. |
-| `lib/b38.chrom.sizes` | Chromosome sizes for the **GDC GRCh38.d1.vd1** reference, i.e. what BIC b38 BAMs are aligned to. Not ENCODE's hg38 chrom.sizes. |
-| `v1/computeTSSEnrichment.R` | Superseded. Custom method: strand-aware windows, 2000 bp / 10 bp bins, score from +/-200 bp of the TSS. Reference only, not called by the pipeline. |
-| `v1/encodeTSS.R` | Superseded. Earlier, looser translation of the ENCODE Python (401 bins, 100 bp background). Reference only. |
-| `v1/TSSEnrichMethods.md` | Notes comparing the v1 methods and ATACseqQC. Explains why ATACseqQC scores come out inflated (~310). |
+| `lib/hg38_tss.bed` | ENCODE hg38 TSS BED (GENCODE v24, unique protein-coding TSS). Vendored verbatim. |
+| `lib/hg38.chrom.sizes` | Chromosome sizes for the **GDC GRCh38.d1.vd1** reference, i.e. what BIC hg38 BAMs are aligned to. **Not** ENCODE's or UCSC's `hg38.chrom.sizes`, despite the name. |
+| `lib/b37_tss.bed`, `lib/b37.chrom.sizes` | ENCODE hg19 TSS BED with `chr` stripped; sizes from a b37 BAM header. Made by `lib/getB37.sh`. |
+| `lib/mm10_tss.bed`, `lib/mm10.chrom.sizes` | ENCODE mm10 TSS BED (GENCODE vM7), rebuilt byte for byte; sizes from the IRIS mm10 dict. Made by `lib/getMM10.sh`. |
+
+The superseded `v1/` scripts (`computeTSSEnrichment.R`, `encodeTSS.R`,
+`TSSEnrichMethods.md`) are in `R/attic/TSSEnrich_v1/`. `TSSEnrichMethods.md`
+explains why ATACseqQC scores come out inflated (~310).
 
 ## How it is invoked
 
-The pipeline never calls `tss_enrich.R` directly. `bin/computeTSSEnrich.sh`
-is the wrapper, and `pipe.sh` fans it out per sample. The wrapper:
+The pipeline never calls `tss_enrich.R` directly. `bin/computeTSSEnrich.sh
+GENOME BAM` is the wrapper, and `pipe.sh` fans it out per sample with the
+run's genome tag (`b37`, `hg38`, `mm10`). The wrapper:
 
-1. Runs `bin/getGenomeBuildBAM.sh` on the BAM to get a build tag (`b38`, `mm10`, ...).
-2. Derives read length from the modal `^[0-9]+M$` CIGAR over the first 100k reads.
+1. Checks the tag against `lib/genomes/GENOMES.tsv` (`bin/genomeInfo.sh`).
+2. Takes the read length as the most common length among the first
+   100,000 reads whose CIGAR is a single `M` (`^[0-9]+M$`).
 3. Calls `tss_enrich.R` with `lib/${GENOME}.chrom.sizes` and `lib/${GENOME}_tss.bed`.
 
-**The lib filenames are built by string interpolation from the detected build
-tag.** That is the whole genome-support mechanism. To support a new build you
-drop two correctly named files into `lib/` and nothing else needs to change.
-Currently only the `b37` and `b38` pairs exist. `pipe.sh` checks for the
-pair before it submits anything; for any other build (mm10) it skips this
-stage with a warning and does not require its output. Run standalone on
-such a build, `computeTSSEnrich.sh` fails with a missing-file error.
+**The lib filenames are built by string interpolation from the build
+tag.** Every supported genome (a row of `GENOMES.tsv`) must have both
+files; `pipe.sh` stops before submitting anything if either is missing,
+and so does the wrapper.
 
 Standalone invocation for debugging:
 
@@ -47,8 +49,8 @@ Standalone invocation for debugging:
 Rscript R/TSSEnrich/tss_enrich.R \
     --nodup-bam sample.bam \
     --read-len 101 \
-    --chrsz R/TSSEnrich/lib/b38.chrom.sizes \
-    --tss   R/TSSEnrich/lib/b38_tss.bed \
+    --chrsz R/TSSEnrich/lib/hg38.chrom.sizes \
+    --tss   R/TSSEnrich/lib/hg38_tss.bed \
     --out-dir out/tssEnrich/sample
 ```
 
@@ -61,20 +63,42 @@ sorted by signal).
 `--nodup-bam` means what it says. A BAM where duplicates are only flagged
 (`0x400`) gives inflated scores, because every PCR duplicate is counted as
 signal. The script aborts if it sees duplicate-flagged reads. Produce the
-input with `samtools view -F 1024 -b marked.bam > nodup.bam`.
+input with `samtools view -F 1024 -b marked.bam > nodup.bam`. In the
+pipeline the input is the postProcess BAM, from which POST has already
+removed duplicates (`-F 1804`).
 
 ### Algorithm parameters
 
-+/-2000 bp window (4001 bp), 400 bins by linear interpolation, per-read strand
-shift of `-read_len/2` with C-style truncation, Greenleaf normalization against
-the 10 outermost bins on each side (100 bp), score = max of the normalized
-mean profile. ENCODE thresholds: >= 7 ideal, >= 5 acceptable, < 1 failed
-library.
++/-2000 bp window (4001 bp), 400 bins by linear interpolation,
+Greenleaf normalization against the 10 outermost bins on each side
+(100 bp), score = max of the normalized mean profile. Each read is
+shifted by `SHIFT <- -read_len/2`, added on `+` and subtracted on
+`-`, and the position truncated toward zero. For an even read length
+both strands move read_len/2. For an odd one they differ: at 101 bp
+a `+` read moves 51 bp left and a `-` read 50 bp right, where ENCODE
+moves both 51 bp (`00.FIXME.md` #23).
+
+### Thresholds
+
+ENCODE's thresholds depend on the genome and the annotation:
+
+| Genome | Concerning | Acceptable | Ideal |
+| --- | --- | --- | --- |
+| hg38 | < 5 | 5-7 | > 7 |
+| b37 (hg19 TSS) | < 6 | 6-10 | > 10 |
+| mm10 | < 10 | 10-15 | > 15 |
+
+The ENCODE portal states them per annotation (RefSeq TSS for GRCh38
+and mm10). The files in `lib/` are ENCODE's v1 GENCODE files (v24,
+v19, vM7; see below), not the v3 files the current ENCODE pipeline
+uses, so read the cut-offs as a guide. Scores are consistent with
+earlier deliveries, but are not the numbers the current ENCODE
+pipeline would report. ENCODE has no "failed" band.
 
 ## Where lib/ came from
 
-The porting work was done outside this repo, on juno at
-`/juno/bic/work/socci/Work/Users/ChandarS/LiuY16/TSSEnrich/`:
+The porting work was done outside this repo, in
+`/data1/core001/work/bic/socci/Users/ChandarS/LiuY16/TSSEnrich/`:
 
 - `TSSTest/` — pulled `atac-seq-pipeline_v2.2.3.sif` from ENCODE and ran the
   real `encode_task_tss_enrich.py` on `ED1-1___MD_postProcess.bam` to get a
@@ -87,31 +111,34 @@ The porting work was done outside this repo, on juno at
 
 Commit `8a8e953` copied `tss_enrich.R` plus that project's `lib/` into this
 repo. Commit `a10bb65` renamed `hg38_*` to `b38_*` to match the pipeline's
-genome tag vocabulary. Commit `2f0fed6` wired the stage into `pipe.sh`.
+genome tag vocabulary of the time; v2.0.0 reverses that, back to `hg38_*`,
+when the tag `b38` became `hg38`. Commit `2f0fed6` wired the stage into
+`pipe.sh`.
 
-Provenance of the two vendored files, verified 2026-08-23:
+Provenance of the two hg38 files, verified 2026-08-23:
 
-`lib/b38_tss.bed` is byte-identical to ENCODE's published file:
+`lib/hg38_tss.bed` is byte-identical to ENCODE's published file:
 
 ```bash
 curl -sO https://storage.googleapis.com/encode-pipeline-genome-data/hg38/ataqc/hg38_gencode_tss_unique.bed.gz
 gunzip hg38_gencode_tss_unique.bed.gz
-# 19,553 lines, md5 4f2803777a4e77dc592105f295d9886c  == lib/b38_tss.bed
+# 19,553 lines, md5 4f2803777a4e77dc592105f295d9886c  == lib/hg38_tss.bed
 ```
 
 19,553 one-base BED6 records, one per unique protein-coding gene TSS, on the
 24 primary `chr*` contigs, named by versioned Ensembl gene ID. Built by
 ENCODE from GENCODE v24. The upstream file is dated 2019-07-30.
 
-`lib/b38.chrom.sizes` has a **different** origin, and this is the part that is
-easy to get wrong later. ENCODE's own `hg38.chrom.sizes` is the 195-sequence
-no-alt analysis set; UCSC's is 455 sequences. Neither matches BIC BAMs. The
+`lib/hg38.chrom.sizes` has a **different** origin, and this is the part that is
+easy to get wrong later. Despite its name it is **not** ENCODE's or UCSC's
+`hg38.chrom.sizes`, and must not be replaced by either: ENCODE's is the
+195-sequence no-alt analysis set; UCSC's is 455 sequences. Neither matches BIC BAMs. The
 vendored file is 2,779 sequences — 25 primary (`chr1`-`chr22`, `chrX`, `chrY`,
 `chrM`), 42 `*_random`, 2,512 `chrUn_*` including the JTFH decoys, `chrEBV`,
 and 199 named viral contigs (HPV, HIV, HCV, CMV, KSHV, HTLV) — sorted by
 decreasing length. That is the **GDC `GRCh38.d1.vd1`** sequence set, which is
-what `getGenomeBuildBAM.sh` calls `b38`. The first attempt used the UCSC file
-and it was replaced for this reason; the UCSC copy survives on juno as
+what `getGenomeBuildBAM.sh` calls `hg38`. The first attempt used the UCSC file
+and it was replaced for this reason; the UCSC copy is kept there as
 `TSSTest/hg38.chrom.sizes.orig`.
 
 **Rule: the TSS BED comes from ENCODE, the chrom.sizes must match the BAM
@@ -126,7 +153,10 @@ All ENCODE ATAQC TSS BEDs live in one bucket with a uniform path. Source of
 truth is `scripts/download_genome_data.sh` in
 [ENCODE-DCC/atac-seq-pipeline](https://github.com/ENCODE-DCC/atac-seq-pipeline)
 (the `TSS=` variable per genome). All URLs below were confirmed live
-2026-08-23.
+2026-08-23; on 2026-10-11 the whole bucket returned 404 (the hg38 and mm10
+files and `mm10/mm10.chrom.sizes` alike), though the script still lists
+these URLs. The md5s below still identify the files; the recipe at the end
+of this page rebuilds them (see `lib/getMM10.sh`).
 
 | Build | TSS BED URL | Lines | md5 (uncompressed) |
 | --- | --- | --- | --- |
@@ -147,43 +177,41 @@ version, not for consistency with existing deliveries:
 - v3 hg38: `https://www.encodeproject.org/files/ENCFF493CCB/@@download/ENCFF493CCB.bed.gz`
 - v3 mm10: `https://www.encodeproject.org/files/ENCFF498BEJ/@@download/ENCFF498BEJ.bed.gz`
 
-### Recipe: add mm10 support
+### mm10 (added in v2.0.0)
+
+Made 2026-10-11 by
 
 ```bash
-cd R/TSSEnrich/lib
-
-curl -sL -o mm10_tss.bed.gz \
-  https://storage.googleapis.com/encode-pipeline-genome-data/mm10/ataqc/mm10_gencode_tss_unique.bed.gz
-gunzip mm10_tss.bed.gz
-
-# chrom.sizes MUST come from a real BAM of the build in question,
-# not from ENCODE or UCSC, or contig sets will not match.
-samtools view -H /path/to/an/mm10/sample.bam \
-  | awk -F'\t' '$1=="@SQ" {
-        sn=""; ln="";
-        for (i=2; i<=NF; i++) {
-            if ($i ~ /^SN:/) sn=substr($i,4);
-            if ($i ~ /^LN:/) ln=substr($i,4);
-        }
-        if (sn != "" && ln != "") print sn"\t"ln
-    }' \
-  | sort -k2,2nr > mm10.chrom.sizes
+R/TSSEnrich/lib/getMM10.sh /data1/core001/rsrc/genomic/bic/assemblies/M.musculus/mm10/mm10.dict
 ```
 
-That is all. `bin/computeTSSEnrich.sh` picks the files up by name once
-`getGenomeBuildBAM.sh` reports `mm10`, and `pipe.sh` stops skipping the
-stage. Verify on one sample and check `pct_tss_used` in the CSV before
-trusting the score.
+ENCODE's file could not be downloaded (404), so the script rebuilds it
+from the GENCODE vM7 GTF (EBI FTP) with the recipe below followed by
+`sort -k1,1 -k2,2n -u`. The result is byte-identical to ENCODE's
+`mm10_gencode_tss_unique.bed` (16,956 lines, md5
+`b0a24d5c8165f8782c5c6c6c98ab511f`, checked by the script). The recipe
+alone gives 16,965 lines: 9 TSS are shared by two genes, and ENCODE kept
+one, the first when the recipe's output is sorted by the whole line. A
+single `sort -u` keeps a different gene for 5 of them, so the script
+sorts twice.
 
-The same recipe covers `mm9Full`, `GRC_m38`, and `mm10_hBRAF_V600E`, except
-those tags need files named after the tag itself (`GRC_m38_tss.bed`, and so
-on) — the wrapper interpolates the tag, not the species. `pipe.sh` rejects
-those builds up front, though (`SUPPORTED_GENOMES`), until the other stages
-support them too.
+`mm10.chrom.sizes` is the 66 contigs of the IRIS mm10 dict, the header
+`getGenomeBuildBAM.sh` calls `mm10`, sorted by decreasing length. All
+16,956 TSS are on its contigs, and its sizes for chr1-19, X and Y equal
+`lib/genomes/mm10.genome`. No mm10 sample has been scored with it yet:
+check `pct_tss_used` in the CSV of the first mm10 run.
+
+### Other builds
+
+A new build needs `<TAG>_tss.bed` and `<TAG>.chrom.sizes` named after its
+tag, plus a row in `lib/genomes/GENOMES.tsv` (see `docs/GENOMES.md`); the
+wrapper interpolates the tag. The chrom.sizes MUST come from a real BAM
+header (or the reference `.dict`) of the build, not from ENCODE or UCSC,
+or contig sets will not match.
 
 Before dropping files in, check the BAM header naming. ENCODE TSS BEDs are all
-`chr`-prefixed. If the BAM uses Ensembl-style names (`1`, `2`, ...), as b37 and
-b37_dmp do and as `GRC_m38` may, rewrite the BED to match:
+`chr`-prefixed. If the BAM uses Ensembl-style names (`1`, `2`, ...), as b37
+does, rewrite the BED to match:
 
 ```bash
 sed 's/^chr//' hg19_tss.bed > b37_tss.bed
@@ -191,7 +219,7 @@ sed 's/^chr//' hg19_tss.bed > b37_tss.bed
 
 Mitochondrial naming differs as well (`chrM` versus `MT`), but that contig
 carries no TSS in these files so it does not matter. `chrY` does carry TSS (64
-in the b38 file), so do not drop it. A whole-genome prefix mismatch, on the
+in the hg38 file), so do not drop it. A whole-genome prefix mismatch, on the
 other hand, zeroes out the score.
 
 ### Recipe: build a TSS BED from scratch for an unsupported genome
@@ -218,5 +246,5 @@ delivery which annotation was used.
 
 - `bin/computeTSSEnrich.sh` — the wrapper that chooses the lib files
 - `bin/getGenomeBuildBAM.sh` — where build tags are defined
+- `docs/GENOMES.md` — genome tags and `lib/genomes/GENOMES.tsv`
 - `QC/QCNotes.md` — which ATAC QC metrics matter and why
-- `CLAUDE.md` — genome tag vocabulary across the codebase

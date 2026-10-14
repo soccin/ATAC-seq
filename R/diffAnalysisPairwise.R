@@ -1,27 +1,31 @@
 args <- commandArgs(trailing = TRUE)
-if (len(args) < 3) {
+if (len(args) < 2) {
   cat("
 ================================================================================
-  Pairwise Differential ChIP-seq Peak Analysis using edgeR
+  Pairwise Differential ATAC-seq Peak Analysis using edgeR
 ================================================================================
 
 USAGE:
-  Rscript diffAnalysisPairwise.R GENOME MANIFEST COMPARISONS [RUNTAG]
+  Rscript diffAnalysisPairwise.R MANIFEST COMPARISONS [RUNTAG]
+
+Run from the analysis directory of a pipe.sh run. The genome is not an
+argument: it is GENOME= in 00.RUNSTATUS.txt there (b37, hg38 or mm10),
+and the annotation (TxDb, org.db, chr prefix) comes from
+lib/genomes/GENOMES.tsv.
 
 REQUIRED ARGUMENTS:
-  GENOME        Genome assembly, one of:
-                  hg19   human, UCSC hg19 (org.Hs.eg.db)
-                  b38    human, UCSC hg38 (org.Hs.eg.db)
-                  mm10   mouse, UCSC mm10 (org.Mm.eg.db)
   MANIFEST      Sample manifest CSV file (with header row)
   COMPARISONS   Comparison pairs CSV file (NO header row)
 
 OPTIONAL ARGUMENTS:
   RUNTAG        Tag to append to output filenames (default: none)
 
-OUTPUT FILES:
-  - DiffPeaksEdgeR_V4.xlsx : Excel file with differential peaks
-  - DiffPeaks_V4.pdf       : PDF with PCA and MA/volcano plots
+OUTPUT FILES (in the current directory):
+  - <PROJ>__DiffPeaksEdgeR_V5.xlsx : Excel file with differential peaks
+  - <PROJ>__DiffPeaks_V5.pdf       : PDF with PCA and MA/volcano plots
+  With a RUNTAG: <PROJ>_<RUNTAG>_DiffPeaksEdgeR_V5.xlsx, and so on.
+  <PROJ> is the last directory of the current path named Proj_* or
+  B-<digits>, else ATAC.
 
 --------------------------------------------------------------------------------
 MANIFEST FILE FORMAT (with header):
@@ -34,7 +38,8 @@ MANIFEST FILE FORMAT (with header):
     876-ko,876-ko,ko
     978-ko,978-ko,ko
 
-  See example: R/sampleManifest.csv
+  pipe.sh writes sampleManifest.csv in the analysis directory; edit
+  its SampleID and Group columns before running this script.
 
 --------------------------------------------------------------------------------
 COMPARISONS FILE FORMAT (NO header):
@@ -49,74 +54,31 @@ COMPARISONS FILE FORMAT (NO header):
   Positive logFC means higher in Group2 (ko)
   Negative logFC means higher in Group1 (wt)
 
-  See example: R/comparisions.csv
-
 --------------------------------------------------------------------------------
 EXAMPLE USAGE:
-  Rscript diffAnalysisPairwise.R mm10 R/sampleManifest.csv R/comparisions.csv
-  Rscript diffAnalysisPairwise.R b38 manifest.csv comps.csv run1
+  Rscript diffAnalysisPairwise.R sampleManifest.csv Comparisons.csv
+  Rscript diffAnalysisPairwise.R sampleManifest.csv Comparisons.csv run1
 
 ================================================================================
 
 ")
-  quit()
+  quit(status = 1)
 }
 
-#' Fix sample names based on naming convention
+#' Map count matrix column names to manifest MapIDs
 #'
-#' Detects whether samples use PEmap or BIC naming and applies the appropriate
-#' transformation to match the sample manifest.
+#' The columns are BAM paths. BIC names (pipe.sh: `out/<SM>/<SM>_postProcess.bam`)
+#' and PEmap names (`<SM>___MD.bam`) both reduce to the SM tag, which is the
+#' MapID of the manifest.
 #'
-#' @param sample_names Character vector of raw sample names
-#' @return Character vector of cleaned sample names matching manifest
-fix_sample_names <- function(sample_names) {
-  if (grepl("___MD", sample_names[1])) {
-    fix_sample_names_pemap(sample_names)
+#' @param sample_names Character vector of count matrix column names
+#' @return Character vector of MapIDs
+map_ids <- function(sample_names) {
+  if (str_detect(sample_names[1], "___MD")) {
+    sample_names |> basename() |> str_remove("___.*")
   } else {
-    fix_sample_names_bic(sample_names)
+    sample_names |> basename() |> str_remove("_postProcess.*")
   }
-}
-
-#' Fix sample names using BIC naming convention
-#'
-#' Removes processing suffixes and path prefixes, then maps to manifest IDs.
-#'
-#' @param sample_names Character vector of BIC-format sample names
-#' @return Character vector of cleaned sample names
-fix_sample_names_bic <- function(sample_names) {
-  sample_names |> basename() |> str_remove("_postProcess.*") |> unname()
-}
-
-#' Fix sample names using PEmap naming convention
-#'
-#' Extracts basename and removes PEmap suffixes, then maps to manifest IDs.
-#'
-#' @param sample_names Character vector of PEmap-format sample names
-#' @return Character vector of cleaned sample names
-fix_sample_names_pemap <- function(sample_names) {
-  sample_names |>
-    basename() |>
-    gsub("___.*", "", x = _) |>
-    (\(x) sampRename[x])() |>
-    unname()
-}
-
-#' Create reverse log transformation for ggplot2 volcano plots
-#'
-#' Transforms p-values so smaller values appear higher on the y-axis.
-#'
-#' @param base Numeric base for logarithm (default: e)
-#' @return A transformation object for ggplot2 scales
-reverselog_trans <- function(base = exp(1)) {
-  trans <- function(x) -log(x, base)
-  inv <- function(x) base^(-x)
-  trans_new(
-    paste0("reverselog-", format(base)),
-    trans,
-    inv,
-    log_breaks(base = base),
-    domain = c(1e-100, Inf)
-  )
 }
 
 #' Create PNG file with Cairo graphics device
@@ -168,6 +130,15 @@ suppressPackageStartupMessages({
 })
 cat(" done\n")
 
+# The ATAC-seq checkout is the parent of this script's directory
+SDIR <- commandArgs(trailingOnly = FALSE) |>
+  str_subset("^--file=") |>
+  str_remove("^--file=") |>
+  normalizePath() |>
+  dirname() |>
+  dirname()
+source(file.path(SDIR, "R", "genomeInfo.R"))
+
 # Locate feature counts summary file
 # Works with both ATACseq and ChIPSeq pipeline structures
 peak_counts_file <- fs::dir_ls(regex = "peaks_raw_fcCounts.txt.summary")
@@ -177,44 +148,22 @@ if (len(peak_counts_file) == 0) {
                                  regex = "peaks_raw_fcCounts.txt.summary")
 }
 
-feature_summary <- read_tsv(peak_counts_file,show_col_types = FALSE)
-
 # Parse command line arguments
-GENOME <- args[1]
-MANIFEST_FILE <- args[2]
-COMPARISON_FILE <- args[3]
-RUNTAG <- if (len(args) == 4) args[4] else ""
+MANIFEST_FILE <- args[1]
+COMPARISON_FILE <- args[2]
+RUNTAG <- if (len(args) == 3) args[3] else ""
 
-# Set genome-specific annotation databases
-if (GENOME == "hg19") {
-  txdb <- TxDb.Hsapiens.UCSC.hg19.knownGene::TxDb.Hsapiens.UCSC.hg19.knownGene
-  annoDb <- "org.Hs.eg.db"
-} else if (GENOME == "b38") {
-  txdb <- TxDb.Hsapiens.UCSC.hg38.knownGene::TxDb.Hsapiens.UCSC.hg38.knownGene
-  annoDb <- "org.Hs.eg.db"
-} else if (GENOME == "mm10") {
-  txdb <- TxDb.Mmusculus.UCSC.mm10.knownGene::TxDb.Mmusculus.UCSC.mm10.knownGene
-  annoDb <- "org.Mm.eg.db"
-} else {
-  cat("\n\tUnknown GENOME", GENOME, "\n")
-  cat("\tValid genomes: hg19, b38, mm10\n\n")
-  quit()
-}
+# Genome of the run and its annotation databases, from GENOMES.tsv
+GENOME <- runGenome()
+cat("GENOME =", GENOME, "\n")
+txdb_pkg <- genomeInfo(GENOME, "TXDB", SDIR)
+txdb <- getExportedValue(txdb_pkg, txdb_pkg)
+annoDb <- genomeInfo(GENOME, "ORGDB", SDIR)
+add_chr <- genomeInfo(GENOME, "ADD_CHR", SDIR) == "yes"
+mito_contig <- genomeInfo(GENOME, "MITO", SDIR)
 
-# Load sample manifest and create renaming lookup
+# Load sample manifest
 manifest <- read_csv(MANIFEST_FILE,show_col_types = FALSE) |> arrange(SampleID)
-
-sampRename <- manifest$SampleID
-names(sampRename) <- manifest$MapID
-
-# Process feature counts summary for QC
-feature_summary <- feature_summary |>
-  gather(Sample, Count, -Status) |>
-  mutate(Sample = fix_sample_names(Sample)) |>
-  mutate(Status = gsub("_.*", "", Status)) |>
-  group_by(Sample, Status) |>
-  summarize(Counts = sum(Count), .groups = "drop") |>
-  mutate(Status = ifelse(Status == "Assigned", "InPeaks", "Outside"))
 
 # Load raw feature counts matrix
 raw_counts <- read_tsv(gsub(".txt.summary$", ".txt", peak_counts_file),
@@ -224,57 +173,90 @@ raw_counts <- read_tsv(gsub(".txt.summary$", ".txt", peak_counts_file),
 peak.annote <- raw_counts |>
   select(PeakNo = Geneid, Chr, Start, End, Strand, Length)
 
-# Remove excluded samples from manifest
-manifest <- manifest |> filter(!grepl("^EXC", Group))
-
 # Create count matrix for edgeR
 count_matrix <- raw_counts |>
   select(PeakNo = Geneid, matches(".bam$")) |>
   data.frame(check.names = FALSE) |>
   column_to_rownames("PeakNo")
 
-colnames(count_matrix) <- fix_sample_names(colnames(count_matrix))
+# Every count matrix column must be a MapID of the manifest, every MapID
+# must have a column, and MapIDs and SampleIDs must be unique. A mismatch
+# stops the run; no sample is left out silently.
+map_id <- map_ids(colnames(count_matrix))
+not_in_manifest <- setdiff(map_id, manifest$MapID)
+no_counts <- setdiff(manifest$MapID, map_id)
+dup_ids <- c(manifest$MapID[duplicated(manifest$MapID)],
+             manifest$SampleID[duplicated(manifest$SampleID)])
 
-# Remove columns not in manifest (NA values from failed sample name mapping)
-count_matrix <- count_matrix[, !is.na(colnames(count_matrix))]
-
-# Validate all count matrix columns are in manifest
-if (!all(colnames(count_matrix) %in% manifest$SampleID)) {
-  cat("\nERROR: Count matrix columns don't match manifest SampleIDs\n")
-  cat("Check sample naming conventions and manifest file\n\n")
+if (len(not_in_manifest) > 0 || len(no_counts) > 0 || len(dup_ids) > 0) {
+  cat("\nERROR: count matrix columns and manifest do not match\n")
+  if (len(not_in_manifest) > 0) {
+    cat("  In the count matrix, not a MapID of the manifest:",
+        not_in_manifest, "\n")
+  }
+  if (len(no_counts) > 0) {
+    cat("  MapID of the manifest with no count matrix column:",
+        no_counts, "\n")
+  }
+  if (len(dup_ids) > 0) {
+    cat("  Duplicated MapID or SampleID in the manifest:", dup_ids, "\n")
+  }
+  cat("\n")
   rlang::abort("Count matrix validation failed")
 }
 
+colnames(count_matrix) <- manifest$SampleID[match(map_id, manifest$MapID)]
+
+# Remove excluded samples (Group starting with EXC)
+manifest <- manifest |> filter(!str_detect(Group, "^EXC"))
+
 # Prepare edgeR DGEList object
-count_matrix <- count_matrix[, manifest$SampleID]
+count_matrix <- count_matrix[, manifest$SampleID, drop = FALSE]
 group <- factor(manifest$Group)
 dge <- DGEList(counts = count_matrix, group = group)
 keep <- filterByExpr(dge)
 dge <- dge[keep, , keep.lib.sizes = FALSE]
 dge <- calcNormFactors(dge)
 
-# Perform PCA for quality control
-pca_result <- prcomp(cpm(dge, log = TRUE), scale = FALSE)
-pca_data <- pca_result$rotation |>
+# PCA of the samples for quality control. The samples are the
+# observations, so each peak is centered across samples and PC1 is the
+# largest difference between them. (Before v2.0.0 the peaks were the
+# observations and the plot showed the rotation; its PC1 was the profile
+# all samples share and carried no information about them.)
+pca_result <- prcomp(t(cpm(dge, log = TRUE)), scale = FALSE)
+pca_pct <- round(100 * summary(pca_result)$importance[2, 1:2])
+pca_axes <- labs(x = str_glue("PC1 ({pca_pct[1]}%)"),
+                 y = str_glue("PC2 ({pca_pct[2]}%)"))
+
+# Each sample's fragments in peaks, the column sum of the count matrix,
+# sizes its point, as in R/analyzeATAC.R, so a sample apart because of
+# its depth can be seen as such
+depth <- tibble(SampleID = colnames(count_matrix),
+                FragmentsInPeaks = colSums(count_matrix))
+
+pca_data <- pca_result$x |>
   data.frame() |>
   rownames_to_column("SampleID") |>
-  left_join(manifest, by = "SampleID")
+  left_join(manifest, by = "SampleID") |>
+  left_join(depth, by = "SampleID")
 
-# Define color palette for plots
+# 34 group colors; scale_color_uchicago() alone has 9 and draws any
+# further group in grey
 plot_colors <- c(pal_uchicago("default")(9), pals::cols25())
+
+depth_size <- scale_size(name = "Fragments\nin peaks", range = c(1.5, 7),
+                         labels = label_number(suffix = " M", scale = 1e-6))
 
 # PCA plot without labels
 pca_plot <- ggplot(pca_data, aes(PC1, PC2, color = Group, label = SampleID)) +
   theme_light(base_size = 16) +
-  geom_point(size = 4, alpha = 0.6) +
-  scale_color_manual(values = plot_colors)
-
-# PCA plot with sample labels
-pca_plot_labeled <- ggplot(pca_data,
-                           aes(PC1, PC2, color = Group, label = SampleID)) +
-  theme_light(base_size = 16) +
-  geom_point(size = 2) +
+  geom_point(aes(size = FragmentsInPeaks), alpha = 0.6) +
   scale_color_manual(values = plot_colors) +
+  depth_size +
+  pca_axes
+
+# The same plot with sample labels
+pca_plot_labeled <- pca_plot +
   geom_label_repel(
     color = "black",
     max.overlaps = Inf,
@@ -333,15 +315,15 @@ do_differential_analysis <- function(dge_object, design, contrast,
   comp_label <- str_c(group2, " vs ", group1)
   comp_tag <- str_c(group2, "_v_", group1)
 
-  # Extract and process results table
+  # Extract and process results table. The method must be named:
+  # p.adjust() defaults to Holm, which was used, by that default, until
+  # v2.0.0
   results_table <- model$table |>
     data.frame() |>
     rownames_to_column("PeakNo") |>
     tibble() |>
-    mutate(FDR = p.adjust(PValue)) |>
-    arrange(FDR, PValue) |>
-    mutate(PValue.mod = ifelse(PValue < .Machine$double.eps^2,
-                                .Machine$double.eps^2, PValue))
+    mutate(FDR = p.adjust(PValue, method = "fdr")) |>
+    arrange(FDR, PValue)
 
   # Apply IHW (Independent Hypothesis Weighting) for multiple testing
   library(IHW)
@@ -350,33 +332,75 @@ do_differential_analysis <- function(dge_object, design, contrast,
                     alpha = 0.25)
   cat("IHW rejections =", rejections(ihw_result), "\n")
 
-  # Create MA plot
+  # MA and volcano plots. Each peak is not significant, higher in
+  # group1 or higher in group2 (FDR < fdr_cut and the sign of logFC);
+  # the legend gives the count of each. The volcano's y is -log10 of
+  # the p-value itself, labeled with the p-value (10^0, 10^-50, ...).
+  # (Until v2.0.0 it was the p-value clipped at
+  # 4.9e-32 on a reversed log scale: in a strong comparison thousands
+  # of peaks lay on that ceiling, and the scale's breaks collapsed
+  # into unreadable labels.) A p-value of 0 (an underflow) is drawn
+  # at the smallest nonzero one; the tables keep it as is.
   max_logfc <- max(abs(results_table$logFC))
+  p_floor <- min(results_table$PValue[results_table$PValue > 0])
+  plot_table <- results_table |>
+    mutate(Status = case_when(FDR >= fdr_cut ~ "ns",
+                              logFC > 0 ~ "up",
+                              TRUE ~ "down"),
+           Status = factor(Status, levels = c("ns", "down", "up")),
+           negLog10P = -log10(pmax(PValue, p_floor))) |>
+    arrange(Status)
+  n_status <- table(plot_table$Status)
+  status_colors <- c(ns = "#bdbdbd", down = "#1f78b4", up = "#e31a1c")
+  status_labels <- c(
+    ns = "Not significant",
+    down = str_glue("Higher in {group1} ({format(n_status[['down']], big.mark = ',')})"),
+    up = str_glue("Higher in {group2} ({format(n_status[['up']], big.mark = ',')})"))
+  status_scale <- list(
+    scale_color_manual(values = status_colors, labels = status_labels,
+                       name = str_glue("FDR < {fdr_cut}"), drop = FALSE),
+    guides(color = guide_legend(override.aes = list(size = 3, alpha = 1))),
+    theme(legend.position = "bottom"))
+  n_peaks <- format(nrow(plot_table), big.mark = ",")
+  logfc_label <- str_glue("log2 fold change ({group2} / {group1})")
 
-  ma_plot <- ggplot(arrange(results_table, desc(PValue)),
-                    aes(logCPM, logFC, color = FDR < fdr_cut)) +
+  ma_plot <- ggplot(plot_table, aes(logCPM, logFC, color = Status)) +
     theme_light(base_size = 16) +
-    rasterize(geom_point()) +
-    scale_color_manual(values = c("#7f7f7f33", "#e31a1c")) +
-    ggtitle(comp_label) +
-    scale_y_continuous(limits = c(-1, 1) * max_logfc)
+    geom_hline(yintercept = 0, color = "grey70") +
+    rasterize(geom_point(size = 1, alpha = 0.5), dpi = 300) +
+    status_scale +
+    scale_y_continuous(limits = c(-1, 1) * max_logfc) +
+    labs(title = comp_label, subtitle = str_glue("{n_peaks} peaks"),
+         x = "mean log2 CPM", y = logfc_label)
 
-  # Create volcano plot (PValue.mod clipped for readability)
-  volcano_plot <- ggplot(arrange(results_table, desc(PValue)),
-                         aes(logFC, PValue.mod, color = FDR < fdr_cut)) +
+  # Dashed line: the largest p-value still significant, where the
+  # FDR cut falls on this comparison
+  p_cut <- if (sum(n_status[c("down", "up")]) > 0) {
+    max(plot_table$PValue[plot_table$Status != "ns"])
+  } else {
+    NA
+  }
+  volcano_plot <- ggplot(plot_table, aes(logFC, negLog10P, color = Status)) +
     theme_light(base_size = 16) +
-    rasterize(geom_point()) +
-    scale_y_continuous(trans = reverselog_trans(10)) +
+    geom_vline(xintercept = 0, color = "grey70") +
+    rasterize(geom_point(size = 1, alpha = 0.5), dpi = 300) +
+    status_scale +
     scale_x_continuous(limits = c(-1, 1) * max_logfc) +
-    scale_color_manual(values = c("#7f7f7f33", "#e31a1c")) +
-    ggtitle(comp_label)
+    scale_y_continuous(labels = \(b) parse(text = str_glue("10^{-b}"))) +
+    labs(title = comp_label,
+         subtitle = str_glue("{n_peaks} peaks; dashed line: FDR = {fdr_cut}"),
+         x = logfc_label, y = "p-value")
+  if (!is.na(p_cut)) {
+    volcano_plot <- volcano_plot +
+      geom_hline(yintercept = -log10(p_cut), linetype = 2, color = "grey40")
+  }
 
   # Filter for significant peaks (exclude mitochondrial)
   sig_results <- results_table |>
     filter(FDR < fdr_cut) |>
     left_join(peak.annote, by = "PeakNo") |>
     select(-matches("^F$|^LR")) |>
-    filter(Chr != "MT")
+    filter(Chr != mito_contig)
 
   # Prepare significant peaks for ChIPseeker annotation
   sig_peaks_bed <- sig_results |>
@@ -385,8 +409,9 @@ do_differential_analysis <- function(dge_object, design, contrast,
 
   # Annotate significant peaks with nearest genes
   if (nrow(sig_results) > 0) {
-    # Add "chr" prefix if missing (genome-dependent)
-    if (substr(sig_results$Chr[1], 1, 3) != "chr") {
+    # Add "chr" prefix for builds whose contigs lack it (b37), so the
+    # names match the UCSC TxDb; the rule is ADD_CHR in GENOMES.tsv
+    if (add_chr) {
       sig_peaks_bed <- sig_peaks_bed |>
         mutate(V1 = paste0("chr", V1)) |>
         data.frame()
@@ -422,12 +447,18 @@ do_differential_analysis <- function(dge_object, design, contrast,
   )
 }
 
-# Extract project number from working directory for output naming
-working_dir_parts <- strsplit(getwd(), "/")[[1]]
-project_id <- grep("^Proj_|^B-\\d+", working_dir_parts, value = TRUE)
+# Project for output naming: the last directory of the working directory
+# path named Proj_* or B-<digits>, else ATAC
+project_id <- getwd() |>
+  str_split_1("/") |>
+  str_subset("^Proj_|^B-\\d+") |>
+  tail(1)
+if (len(project_id) == 0) {
+  project_id <- "ATAC"
+}
 
 # Load comparisons file and extract group names from design matrix
-group_names <- gsub("group", "", colnames(design))
+group_names <- str_remove(colnames(design), "^group")
 comparisons <- read_csv(COMPARISON_FILE, col_names = FALSE, show_col_types = FALSE)
 
 # Run differential analysis for each comparison
@@ -471,7 +502,7 @@ summary_stats <- map(result_tables, nrow) |>
 # Built sheet-by-sheet rather than with write.xlsx() because zoom can only be
 # set when the worksheet is created; the Summary sheet gets 150% zoom and
 # auto-fitted column widths.
-output_xlsx <- cc(project_id, RUNTAG, "DiffPeaksEdgeR_V4.xlsx")
+output_xlsx <- cc(project_id, RUNTAG, "DiffPeaksEdgeR_V5.xlsx")
 xlsx_sheets <- c(list(Summary = summary_stats), result_tables)
 
 wb <- createWorkbook()
@@ -485,7 +516,7 @@ setColWidths(wb, "Summary", cols = seq_len(ncol(summary_stats)),
 saveWorkbook(wb, output_xlsx, overwrite = TRUE)
 
 # Generate PDF with PCA and differential analysis plots
-output_pdf <- cc(project_id, RUNTAG, "DiffPeaks_V4.pdf")
+output_pdf <- cc(project_id, RUNTAG, "DiffPeaks_V5.pdf")
 pdf(output_pdf, width = 11, height = 8.5)
 
 print(pca_plot)

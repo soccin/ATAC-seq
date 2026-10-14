@@ -21,7 +21,7 @@ usage() {
     echo
     echo "    usage: postMapBamProcessing_ATACSeq.sh [(-q | --mapq) MAPQ] GENOME INPUT_BAM [OUTPUT_BAM]"
     echo
-    echo "    GENOME : b37 | b38 | mm10"
+    echo "    GENOME : a tag in lib/genomes/GENOMES.tsv (b37 | hg38 | mm10)"
     echo
     exit "${1:-0}"
 }
@@ -57,24 +57,17 @@ echo "MAPQ = ${MAPQ}"
 GENOME=$1
 shift 1
 
-case $GENOME in
-  b37)
-  GENOME_BED=$SDIR/lib/genomes/human_b37.genome.bed
-  ;;
-
-  b38)
-  GENOME_BED=$SDIR/lib/genomes/human_b38.genome.bed
-  ;;
-
-  mm10)
-  GENOME_BED=$SDIR/lib/genomes/mouse_mm10.genome.bed
-  ;;
-
-  *)
-  echo -e "\n\nunknown" \$GENOME=$GENOME "\n\n"
-  exit 1
-  ;;
-esac
+#
+# lib/genomes/<GENOME>.genome lists the contigs analyzed: autosomes, X
+# and Y. Mitochondrial, unplaced, random, decoy and viral contigs are
+# left out of the shifted BED, so out of peaks, bigWigs and the atlas.
+#
+MITO=$($SDIR/bin/genomeInfo.sh "$GENOME" MITO) || exit 1
+GENOME_FILE=$SDIR/lib/genomes/$GENOME.genome
+if [ ! -s "$GENOME_FILE" ]; then
+    echo "FATAL ERROR: no genome file $GENOME_FILE"
+    exit 1
+fi
 
 
 [ "$#" == "0" ] && usage 1
@@ -112,11 +105,41 @@ echo $TDIR
 
 # f 3 ==> paired, proper pair
 # F 1804 ==> unmapped, mate unmapped, not primary, fails QC, duplicate
-# Also remove reads that have an Insert Size <= 30
 #
-samtools view -h -q $MAPQ -f 3 -F 1804 $IBAM \
-    | awk 'substr($0,1,1)=="@" || sqrt($9*$9)>30' \
-    | samtools view -Sb - >$TDIR/step1.bam \
+# ENCODE's filter (encode_task_filter.py): MAPQ and flags, then
+# samtools fixmate -r on the name-sorted reads, which clears the proper
+# pair flag of a read whose mate was removed, and the flag filter again,
+# which removes it. Until v2.0.0 such orphans were kept.
+#
+# Two filters ENCODE does not have. Both remove reads that are not from
+# the reference. BWA-MEM is a local aligner: it aligns the best 19-35
+# bp seed of such a read, soft-clips the rest and gives the seed a MAPQ
+# of its own. ENCODE aligns end to end with bowtie2, which leaves these
+# reads unaligned. In Proj_18143 they were a tandem repeat, the same in
+# every sample, up to 55% of a sample's reads, piled up by the hundreds
+# on single bases, and they made up 38-75% of the counts of ten of its
+# 15 samples. MarkDuplicates cannot see them: the clip length varies,
+# which moves the unclipped 5' position it compares.
+#
+# KEEP_5P, on the first view: the 5' end of a read must align, as a
+# Tn5 read starts at the cut site. The 5' end is the start of a forward
+# read and the end of a reverse read (0x10; CIGAR is in reference
+# order). A 3' clip is kept: it is mostly the Nextera adapter, which
+# PEMapper does not trim. It is applied before the name sort so that
+# fixmate -r and the second -f 3 remove the mate of a dropped read.
+#
+# The insert filter, in this pipeline since 2022: pairs with
+# |TLEN| <= 30 are removed (fixmate gives both reads the same |TLEN|).
+# After KEEP_5P it removes the few seed pairs left whose 5' ends both
+# align, e.g. 22M79S with its mate 79S22M.
+#
+KEEP_5P='(flag.reverse && !(cigar =~ "S$")) || (!flag.reverse && !(cigar =~ "^[0-9]+S"))'
+
+samtools view -u -q $MAPQ -f 3 -F 1804 -e "$KEEP_5P" $IBAM \
+    | samtools sort -n -m 4G -T $TMPDIR/nsort -u - \
+    | samtools fixmate -r - - \
+    | samtools view -b -f 3 -F 1804 -e 'tlen > 30 || tlen < -30' \
+        -o $TDIR/step1.bam - \
     || { echo "FATAL ERROR: filter step failed"; exit 1; }
 
 picard SortSam I=$TDIR/step1.bam O=$OBAM SO=coordinate MAX_RECORDS_IN_RAM=5000000 \
@@ -126,16 +149,36 @@ picard SortSam I=$TDIR/step1.bam O=$OBAM SO=coordinate MAX_RECORDS_IN_RAM=500000
 # Runs in the background while the BED is built; waited on below so the
 # job does not end, and Slurm does not kill it, before it has finished.
 #
-picard CollectInsertSizeMetrics LEVEL=null LEVEL=SAMPLE I=$OBAM O=${OBAM/.bam/___INS.txt} H=${OBAM/.bam/___INS.pdf} &
+# W=1000 fixes the histogram at 0-1000 bp, as ENCODE's fraglen_stat_pe
+# does and plotINSStats.R plots. Without W, picard cuts the histogram
+# (and the mean and SD) at median + 10 x MAD; in a sample with many
+# short fragments that falls inside the nucleosome peaks.
+#
+picard CollectInsertSizeMetrics LEVEL=null LEVEL=SAMPLE W=1000 \
+    I=$OBAM O=${OBAM/.bam/___INS.txt} H=${OBAM/.bam/___INS.pdf} &
 INS_PID=$!
 
 #
-# Do Tn5 shift and remove non-standard chromosomes (keep those in genome)
+# Do Tn5 shift and keep only the contigs of the genome file. On the way,
+# count the reads on the mitochondrial contig ($MITO) out of all reads
+# in the filtered BAM, before they are dropped, for the ___MITO.txt
+# metric.
 #
+
+awk 'BEGIN {OFS = "\t"} {print $1, 0, $2}' $GENOME_FILE >$TDIR/genome.bed \
+    || { echo "FATAL ERROR: cannot write $TDIR/genome.bed"; exit 1; }
+
+MITO_TXT=${OBAM/.bam/___MITO.txt}
 
 samtools view -b $OBAM \
     | bedtools bamtobed -i - \
-    | bedtools intersect -nonamecheck -a - -b $GENOME_BED \
+    | awk -F'\t' -v mito="$MITO" -v sid="$SID" -v out="$MITO_TXT" '
+        { n++; if ($1 == mito) m++; print }
+        END {
+            printf "SAMPLE\tMITO_CONTIG\tREADS\tMITO_READS\tFRAC_MITO\n" >out
+            printf "%s\t%s\t%d\t%d\t%.4f\n", sid, mito, n, m, (n ? m / n : 0) >out
+        }' \
+    | bedtools intersect -nonamecheck -a - -b $TDIR/genome.bed \
     | awk -F'\t' \
         'BEGIN {OFS = FS} { if ($6 == "+") {$2 = $2 + 4} else if ($6 == "-") {$3 = $3 - 5} print $0}' \
     | gzip -nc >${OBAM/.bam/.shifted.bed.gz} \

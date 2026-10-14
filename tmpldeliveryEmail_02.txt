@@ -1,16 +1,14 @@
 - diff: Differential analysis of peaks in atlas using edgeR
 
-   - Proj_ATAC_PROJECT_NUM__DiffPeaksEdgeR_V3.xlsx
+   - Proj_{PROJNO}__DiffPeaksEdgeR_V5.xlsx
 
       - A summary sheet of the number of significant peaks for each comparison
 
-      - For each comparison a sheet with the differentially significant peaks
+      - For each comparison a sheet with the differentially significant peaks (FDR < 0.05) and their nearest gene
 
-   - Proj_ATAC_PROJECT_NUM__DiffPeaks_V3.pdf
+   - Proj_{PROJNO}__DiffPeaks_V5.pdf
 
-      - PCA from the peak atlas. Can be used to look for potential outliers
+      - PCA from the peak atlas, as in the QC report; the point size is the sample's depth in peaks
 
-      - Fold change vs average signal (log-log) for each comparison
-
-      - Volcano plot
+      - For each comparison an MA plot (log fold change vs mean log2 CPM) and a volcano plot (log fold change vs p-value), with the significant peaks colored by the group they are higher in and counted in the legend
 

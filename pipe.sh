@@ -59,7 +59,18 @@ if [ ! -e "$SDIR/venv" ]; then
     exit 1
 fi
 
-SCRIPT_VERSION=$(git --git-dir=$SDIR/.git --work-tree=$SDIR describe --always --long)
+SCRIPT_VERSION=$(git --git-dir=$SDIR/.git --work-tree=$SDIR describe --tags --always --long)
+
+#
+# The client-facing release, set by hand in VERSION.md; VERSION (git)
+# is the exact code.
+#
+if ! SCRIPT_RELEASE=$($SDIR/bin/getRelease.sh); then
+    echo
+    echo "    FATAL ERROR: no release in $SDIR/VERSION.md"
+    echo
+    exit 1
+fi
 PIPENAME="ATAC-Seq"
 
 ##
@@ -96,7 +107,7 @@ COMMAND_LINE=$*
 function usage {
     echo
     echo "usage: $PIPENAME/pipe.sh [-q MAPQ] BAM1 [BAM2 ... BAMN]"
-    echo "version=$SCRIPT_VERSION"
+    echo "release=$SCRIPT_RELEASE version=$SCRIPT_VERSION"
     echo ""
     echo "Default MAPQ==$MAPQ"
     echo
@@ -112,6 +123,7 @@ echo "MAPQ = ${MAPQ}"
 BAMS=$*
 echo SDIR=$SDIR
 echo BAMS=$BAMS
+echo RELEASE=$SCRIPT_RELEASE
 echo VERSION=$SCRIPT_VERSION
 
 #
@@ -190,6 +202,7 @@ RC=$RUN_RC
 MESSAGE=$RUN_MESSAGE
 STARTED=$RUN_STARTED
 FINISHED=$RUN_FINISHED
+RELEASE=$SCRIPT_RELEASE
 VERSION=$SCRIPT_VERSION
 CTRL_JOBID=$CTRL_JOBID
 CTRL_LOG=$CTRL_LOG
@@ -275,6 +288,15 @@ onExit() {
         kill $BSYNC_PID 2>/dev/null || true
     fi
     if [ "$RUN_DONE" != "1" ]; then
+        #
+        # A failed bCheck leaves the reason in the stage job logs; copy it
+        # into MESSAGE, ahead of any message already there.
+        #
+        local reason=""
+        reason=$(failedJobsMessage "$RUN_STAGE" "$JOBS" 2>/dev/null) || true
+        if [ -n "$reason" ]; then
+            RUN_MESSAGE="$reason${RUN_MESSAGE:+; $RUN_MESSAGE}"
+        fi
         RUN_STATUS=FAILED
         RUN_RC=$rc
         RUN_FINISHED=$(date '+%Y-%m-%d %H:%M:%S')
@@ -288,16 +310,22 @@ onExit() {
 trap onExit EXIT
 
 #
-# Every BAM must be on the same build, and on one every stage takes:
-# postMapBamProcessing_ATACSeq.sh accepts only b37, b38 and mm10. Any
-# other tag getGenomeBuildBAM.sh can emit (hg19, b37_dmp, GRCh37-lite,
-# ...) would pass on to POST and fail there, in every job.
+# Every BAM must be on the same build, and the build must be a row of
+# lib/genomes/GENOMES.tsv (b37, hg38, mm10). Any other tag
+# getGenomeBuildBAM.sh can emit (hg19, b37_dmp, hg38+mm39, ...) would
+# pass on to POST and fail there, in every job. getGenomeBuildBAM.sh exits
+# 1 when it cannot read the header; under set -e a bare $(...) would end
+# pipe.sh with no MESSAGE, so it is called in an if.
 #
-SUPPORTED_GENOMES="b37 b38 mm10"
-
 GENOME=""
 for BAM in $BAMS; do
-    BUILD=$($SDIR/bin/getGenomeBuildBAM.sh $BAM)
+    if ! BUILD=$($SDIR/bin/getGenomeBuildBAM.sh $BAM); then
+        RUN_MESSAGE="cannot identify the genome of [$BAM]"
+        echo
+        echo "    FATAL ERROR: $RUN_MESSAGE"
+        echo
+        exit 1
+    fi
     echo "    genome [$BUILD] $BAM"
     if [ -z "$GENOME" ]; then
         GENOME=$BUILD
@@ -310,39 +338,33 @@ for BAM in $BAMS; do
     fi
 done
 
-case " $SUPPORTED_GENOMES " in
-    *" $GENOME "*)
-        ;;
-    *)
-        RUN_MESSAGE="unsupported genome [$GENOME]; supported: $SUPPORTED_GENOMES"
-        echo
-        echo "    FATAL ERROR: $RUN_MESSAGE"
-        echo
-        exit 1
-        ;;
-esac
+if ! GENOME_ERR=$($SDIR/bin/genomeInfo.sh "$GENOME" TAG 2>&1 >/dev/null); then
+    RUN_MESSAGE=${GENOME_ERR#genomeInfo.sh: }
+    echo
+    echo "    FATAL ERROR: $RUN_MESSAGE"
+    echo
+    exit 1
+fi
 
 echo GENOME=$GENOME
 
 #
-# TSS enrichment (stage TSSE) needs R/TSSEnrich/lib/<GENOME>_tss.bed and
-# <GENOME>.chrom.sizes, which exist for b37 and b38 only. For any other
-# build (mm10) the stage is skipped with a warning in this log and in
-# the MESSAGE of the status file, and its output is left out of staging
-# and of the deliverables check. Adding the two files (see
-# R/TSSEnrich/README.md) turns the stage on.
+# Every supported genome has its genome file, its peak blacklist
+# (lib/genomes/<GENOME>.blacklist.bed) and its TSS enrichment files
+# (R/TSSEnrich/lib/<GENOME>_tss.bed and <GENOME>.chrom.sizes). A missing
+# one is a broken checkout; stop before submitting anything.
 #
 TSS_LIB=$SDIR/R/TSSEnrich/lib
-RUN_TSSE=1
-TSSE_WARNING=""
-if [ ! -s "$TSS_LIB/${GENOME}_tss.bed" ] || [ ! -s "$TSS_LIB/${GENOME}.chrom.sizes" ]; then
-    RUN_TSSE=0
-    TSSE_WARNING="WARNING: TSS enrichment skipped; no R/TSSEnrich/lib files for $GENOME"
-    RUN_MESSAGE=$TSSE_WARNING
-    echo
-    echo "    $TSSE_WARNING"
-    echo
-fi
+for F in $SDIR/lib/genomes/$GENOME.genome $SDIR/lib/genomes/$GENOME.blacklist.bed \
+         $TSS_LIB/${GENOME}_tss.bed $TSS_LIB/${GENOME}.chrom.sizes; do
+    if [ ! -s "$F" ]; then
+        RUN_MESSAGE="genome $GENOME: missing file $F"
+        echo
+        echo "    FATAL ERROR: $RUN_MESSAGE"
+        echo
+        exit 1
+    fi
+done
 
 getSMTag () {
     samtools view -H $1 \
@@ -422,14 +444,26 @@ LONG_W=12:00:00
 
 #
 # Minutes per GB of input, the slowest measured on a full-size run
-# (Proj_18143_B: 12 b38 samples, 4.6 to 14.1 GB BAMs, 2026-10-09) rounded
-# up; the measured range is in the comment. See docs/SLURM_PORT.md.
+# (Proj_18143_B: 12 hg38 samples, 4.6 to 14.1 GB BAMs, 2026-10-09; Count
+# and CountCheck on Proj_18143: 15 hg38 samples, 2026-10-12) rounded up;
+# the measured range is in the comment. See docs/SLURM_PORT.md.
 #
 RATE_POST=6        # input BAM                     3.5 to 5.3
 RATE_BW=30         # shifted.bed.gz                24.5 to 26.0
 RATE_CALLP=10      # shifted.bed.gz                8.1 to 9.5
 RATE_TSSE=3.5      # postProcess BAM               1.6 to 2.9
-RATE_COUNT=1.2     # all postProcess BAMs, summed  0.94
+RATE_COUNT=0.1     # all postProcess BAMs, summed  0.05
+RATE_CCHECK=1.5    # postProcess BAM               0.79 to 1.02
+
+#
+# Memory (-M) is a hard cap. In each stage the memory the processes
+# allocate is bounded by a fixed setting, not by the input size: the
+# picard heap (-Xmx24g in ~/bin/picard) in POST, sort -S in BW, MergePeaks
+# and CountCheck. The cap sits well above that setting. sacct MaxRSS on
+# IRIS includes file cache, which the kernel frees at the cap, so a job
+# that reports MaxRSS at its cap has not run out of memory. Measured
+# without cache in docs/SLURM_PORT.md, "Memory".
+#
 
 #
 # A job is SHORT if its estimated run time is at most SHORT_MAX_MIN, half
@@ -570,19 +604,51 @@ waitStage CALLP2
 # DependencyNeverSatisfied.
 #
 atacSub MergePeaks all SLURM.04a.CALLP SHORT "-n 3 -M 24G" \
-    $SDIR/mergePeaksToSAF.sh callpeaks \>macsPeaksMerged.saf
+    $SDIR/mergePeaksToSAF.sh $GENOME callpeaks \>macsPeaksMerged.saf
 
 waitStage MergePeaks
 
+#
+# The counts are never used unchecked. featureCounts 1.6.0 once counted
+# every read of one BAM as a fragment, about doubling that sample, and
+# exited 0. Two checks must pass before DESEQ:
+#
+#   A  in the Count job (bin/countPeaks.sh): each sample's fragment total
+#      is about half its mapped reads. Needs the .bai, hence the wait on
+#      Index here.
+#   B  one CountCheck job per sample (bin/assignedCheck.sh), run beside
+#      Count: the fragments over the atlas, counted with samtools alone,
+#      must equal featureCounts' Assigned. Compared here by
+#      bin/checkCounts.sh once both stages are done.
+#
+waitStage Index
+
 PBAMS=$(ls out/*/*_postProcess.bam)
 CLASS=$(runClass $RATE_COUNT $PBAMS)
-atacSub Count all SLURM.04b.CALLP $CLASS "-n 10 -M 24G" \
-    $SDIR/bin/featureCounts -O -Q $MAPQ -p -T 10 \
-        -F SAF -a macsPeaksMerged.saf \
-        -o peaks_raw_fcCounts.txt \
+atacSub Count all SLURM.04b.CALLP $CLASS "-n 8 -M 24G" \
+    $SDIR/bin/countPeaks.sh $MAPQ macsPeaksMerged.saf peaks_raw_fcCounts.txt \
         $PBAMS
 
+for PBAM in $PBAMS; do
+    CLASS=$(runClass $RATE_CCHECK $PBAM)
+    atacSub CountCheck $(basename $(dirname $PBAM)) SLURM.04d.CHECK $CLASS "-n 2 -M 12G" \
+        $SDIR/bin/assignedCheck.sh $PBAM macsPeaksMerged.saf ${PBAM%.bam}.atlasFragments.txt
+done
+
 waitStage Count
+waitStage CountCheck
+
+if ! CHECK_OUT=$($SDIR/bin/checkCounts.sh peaks_raw_fcCounts.txt.summary \
+                     out/*/*_postProcess.atlasFragments.txt); then
+    echo "$CHECK_OUT"
+    RUN_MESSAGE="count check failed: $(echo "$CHECK_OUT" | grep -m1 FAIL || true)"
+    echo
+    echo "    FATAL ERROR: $RUN_MESSAGE"
+    echo
+    exit 1
+fi
+echo "$CHECK_OUT"
+echo "$CHECK_OUT" >peaks_raw_fcCounts.checks.txt
 
 atacSub DESEQ all SLURM.05.DESEQ SHORT "-M 24G" \
     Rscript --no-save $SDIR/R/getDESeqScaleFactors.R
@@ -598,21 +664,14 @@ if [ ! -e "sampleManifest.csv" ]; then
 fi
 
 waitStage DESEQ
-waitStage Index
 
-if [ "$RUN_TSSE" == "1" ]; then
-    for PBAM in out/*/*_postProcess.bam; do
-        CLASS=$(runClass $RATE_TSSE $PBAM)
-        atacSub TSSE $(basename $(dirname $PBAM)) SLURM.06.QC $CLASS "-n 2 -M 32G" \
-            $SDIR/bin/computeTSSEnrich.sh $PBAM
-    done
+for PBAM in out/*/*_postProcess.bam; do
+    CLASS=$(runClass $RATE_TSSE $PBAM)
+    atacSub TSSE $(basename $(dirname $PBAM)) SLURM.06.QC $CLASS "-n 2 -M 32G" \
+        $SDIR/bin/computeTSSEnrich.sh $GENOME $PBAM
+done
 
-    waitStage TSSE
-else
-    echo
-    echo "    $TSSE_WARNING"
-    echo
-fi
+waitStage TSSE
 
 setStage REPORTS
 
@@ -632,6 +691,7 @@ if [ "$FAILED_JOBS" != "" ]; then
   echo -e "\n\n\nFailed Slurm jobs\n\n"
   echo "$FAILED_JOBS"
   echo -e "\n\n"
+  RUN_MESSAGE="stage jobs not COMPLETED:$(echo "$FAILED_JOBS" | awk '{printf " %s %s", $1, $2}')"
   exit 1
 fi
 
@@ -639,18 +699,15 @@ mv macsPeaksMerged* atacSeq/atlas
 cp peaks_raw_fcCounts.txt* atacSeq/atlas/
 mv *_postProcess.shifted.10mNorm.bw atacSeq/bigwig
 cp -val callpeaks/* atacSeq/macs
-cp *__postInsDistribution.pdf *__ATACSeqQC.pdf atacSeq/metrics
+cp *__postInsDistribution.pdf *__ATACSeqQC.pdf *__ATACSeqDepth.csv atacSeq/metrics
 
-cp -val out/*/*___INS.* atacSeq/metrics
-if [ "$RUN_TSSE" == "1" ]; then
-    cp -val out/*/*enrich* atacSeq/metrics
-fi
+cp -val out/*/*___INS.* out/*/*___MITO.txt atacSeq/metrics
+cp -val out/*/*enrich* atacSeq/metrics
 
 #
 # Every sample must have each of its deliverables, not just the run as a
 # whole. A peak file may legitimately be empty, so it only has to exist;
-# everything else has to be non-empty. The TSS enrichment is required
-# only when the TSSE stage ran.
+# everything else has to be non-empty.
 #
 setStage DELIVERABLES
 
@@ -664,9 +721,12 @@ checkFile() {
 
 checkFile atacSeq/atlas/macsPeaksMerged.saf
 checkFile atacSeq/atlas/peaks_raw_fcCounts.txt
+checkFile atacSeq/atlas/peaks_raw_fcCounts.txt.summary
+checkFile peaks_raw_fcCounts.checks.txt
 checkFile scaleFactorsDESeq2.csv
 
-for PATTERN in "atacSeq/metrics/*__postInsDistribution.pdf" "atacSeq/metrics/*__ATACSeqQC.pdf"; do
+for PATTERN in "atacSeq/metrics/*__postInsDistribution.pdf" "atacSeq/metrics/*__ATACSeqQC.pdf" \
+               "atacSeq/metrics/*__ATACSeqDepth.csv"; do
     if ! compgen -G "$PATTERN" >/dev/null; then
         MISSING="$MISSING $PATTERN"
     fi
@@ -675,13 +735,16 @@ done
 for SID in $SAMPLES; do
     checkFile atacSeq/bigwig/${SID}_postProcess.shifted.10mNorm.bw
     checkFile atacSeq/metrics/${SID}_postProcess___INS.txt
-    if [ "$RUN_TSSE" == "1" ]; then
-        checkFile atacSeq/metrics/${SID}_postProcess.tss_enrich.csv
-    fi
-    PEAKS=atacSeq/macs/${SID}_postProcess.shifted/${SID}_postProcess.shifted_peaks.narrowPeak
-    if [ ! -e "$PEAKS" ]; then
-        MISSING="$MISSING $PEAKS"
-    fi
+    checkFile atacSeq/metrics/${SID}_postProcess___MITO.txt
+    checkFile atacSeq/metrics/${SID}_postProcess.tss_enrich.csv
+    MACS=atacSeq/macs/${SID}_postProcess.shifted/${SID}_postProcess.shifted
+    for F in ${MACS}_peaks.narrowPeak ${MACS}_summits.bed ${MACS}_peaks.xls \
+             ${MACS}_peaks.blacklistFiltered.narrowPeak \
+             ${MACS}_summits.blacklistFiltered.bed; do
+        if [ ! -e "$F" ]; then
+            MISSING="$MISSING $F"
+        fi
+    done
 done
 
 if [ -n "$MISSING" ]; then

@@ -4,6 +4,12 @@
 
 1) MACS2 calls on bam files containing both reads, but not setting the ‘bampe’ flag.
 
+(Note, 2026-10-12: the pipeline calls MACS2 on the Tn5-shifted BED of
+both reads (`-f BED`), not on the BAM, with the ENCODE ATAC-seq
+settings `--nomodel --shift -75 --extsize 150 --keep-dup all
+--call-summits -p 0.01`. See `callPeaks_ATACSeq.sh` and CHANGELOG.md,
+v2.0.0.)
+
 2) Merge all peaks (any overlap, or even anything within 500 bp, as we do) and calculating the raw counts matrix
 Note: if using featureCounts and PE reads, set the ‘-p’ flag so fragments are counted instead of individual reads.
 Also, in featureCounts, multi-mapped reads are filtered with the NH tag, which I don’t believe is set by bwa mem, but this shouldn’t be an issue because we’re filtering by MAPQ, etc anyway.
@@ -11,6 +17,8 @@ Also, in featureCounts, multi-mapped reads are filtered with the NH tag, which I
 An example of how we create the raw counts matrix, based on a gtf or SAF (below) formatted merged peaks file:
 
 subread-1.6.0-Linux-x86_64/bin/featureCounts -O -Q 10 -p -T 10 -F SAF -a  <PeakCoordinates_inSAFformat>  -o Peaks_raw_ftCounts.txt  <tab-separated list of all bam files to be processed>
+
+(Note, 2026-10-11: historical. Since v2.0.0 the pipeline uses featureCounts v2.1.1 with `-p --countReadPairs`, through `bin/countPeaks.sh`; v1.6.0 with several threads sometimes counted every read of one BAM as a fragment. See CLAUDE.md, "Count checks".)
 
 3) Get the DESeq2 sizeFactors for the above matrix, and as you’ve already noticed, they’re the inverse of what we’re used to dealing with.
 (and if curious, can make scatter plot of [inverse] size factor vs the sequencing depth-based normalization for comparison)
@@ -35,6 +43,14 @@ bwout=${sortedbam/%.bam/.sizeFactorNorm.bw}
 ### ATAC (no read extension)
 
 bamToBed -split -i $sortedbam |  slopBed -i stdin -g  $chromsizes -s -l 0 -r 0 | grep -vi "rand\|Un\|gl"  |  genomeCoverageBed -split -g  $chromsizes -i stdin -bg -scale $scalefactor |  wigToBigWig stdin $chromsizes $bwout
+
+(Note, 2026-10-12: `makeBigWigFromBEDZ.sh` starts from the Tn5-shifted
+BED that POST writes, not from the BAM, keeps the contigs of
+`lib/genomes/<TAG>.genome` (autosomes, X, Y) instead of the `grep`,
+and uses neither `-split`. The scale factor is 10,000,000 divided by
+the number of reads in that BED. Only the `10mNorm` bigWig is made;
+the script's `sizeFactorNorm` branch is not called by `pipe.sh` and
+reads the wrong argument (`00.FIXME.md` #11).)
 
 ### Or for ChIP, with read extension (-r) accounting for avg frag length: 200 bp (or whatever is empirically determined)
 

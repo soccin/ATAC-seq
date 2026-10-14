@@ -20,7 +20,9 @@ resolves its own location into `SDIR` and is run from a separate per-project
 analysis directory, where all outputs land (`out/`, `callpeaks/`, `SLURM.*/`,
 `atacSeq/`). Never assume the repo dir and the cwd are the same.
 
-Install MACS2 + IDR into a local venv once per repo checkout:
+Install MACS2 into a local venv once per repo checkout, from the repo
+root (`00.SETUP.sh` also installs IDR 2.0.3, which nothing runs;
+`00.FIXME.md` #29):
 
 ```bash
 . 00.SETUP.sh          # creates ./venv from the python3 on PATH (3.10 on IRIS)
@@ -85,82 +87,173 @@ the shim sends it to `cmobic_short,cpushort`. `LONG` is `-W 12:00:00` with
 `SBATCH_QOS=priority` set on that one `bsub` call; the shim sends it to
 `cmobic_cpu`. Never give a `SHORT` job a qos: `cpushort` allows only
 `normal` and rejects the job. Never export `SBATCH_QOS` (`pipe.sh` unsets
-every `SBATCH_*` variable it inherits). POST, BW, CALLP, TSSE and Count
-choose their class per job with `runClass MIN_PER_GB FILE...`, which
+every `SBATCH_*` variable it inherits). POST, BW, CALLP, TSSE, Count and
+CountCheck choose their class per job with `runClass MIN_PER_GB FILE...`, which
 estimates the run time from the input size using the `RATE_*` values
 measured on a full-size run; the other stages are always `SHORT`. A new
 stage whose run time grows with its input needs a measured `RATE_*`.
 
-`deliverResults.sh` has not been ported: it still points at the JUNO
-paths `/ifs/res/seq/pi/invest` and `~/Code/BIC/Delivery`. Deliver the
-`atacSeq/` directory by hand until it is updated (`00.ISSUES.md` #1).
+`deliverResults.sh [-n] -d|DELIVERY_DIR[/r_NNN]`, run from the
+analysis directory, delivers a run whose `bin/checkRun.sh` exits 0
+(README.md, "Delivery"). It follows adagio's `bin/deliver.sh`: every
+write to the delivery area goes through `asbot` (`dzdo -u
+svc_core001_bot01`), `-d` derives the folder from the
+`.../Users/<Pi>/<Invest>/Proj_<no>` path, the run folder is the next
+`r_NNN`, and `-n` prints those writes and the permissions-database
+call instead of running them. `GENOME` and `MAPQ` come from
+`00.RUNSTATUS.txt`, `VERSION` from `VERSION.md` of the checkout
+(`bin/getRelease.sh`); the email templates take `{PROJNO}`, `{RUNDIR}`
+and `{VERSION}`. The email lists each folder and its main files with
+a sentence or two each, at the level of the v1 email; how a file is
+made belongs in `docs/output.md` and `docs/methods.md`, not in the
+email. It names only the files a client looks at first; the rest
+are in `docs/output.md`.
+`bin/readme2yaml.R` writes `project.yaml`
+with the delivery folder as `root` and the build tag as `genome`.
+
+The client-facing version is static: the `- **Version:** vX.Y.Z`
+line of `VERSION.md`, changed by hand only when a release is made,
+with a git tag of the same name. Never derive it from git. `pipe.sh`
+records it as `RELEASE=` in `00.RUNSTATUS.txt` and stops if it is
+missing; `VERSION=` there is `git describe --tags --always --long`,
+the exact code, for internal use.
 
 ## Pipeline stages (pipe.sh)
 
-1. `postMapBamProcessing_ATACSeq.sh` — MAPQ + flag filter (`-f 3 -F 1804`),
-   drop inserts <=30bp, Picard SortSam + CollectInsertSizeMetrics, then
-   bamToBed with the Tn5 shift (+4 on `+`, -5 on `-`) → `*.shifted.bed.gz`
+1. `postMapBamProcessing_ATACSeq.sh` — MAPQ + flag filter (`-f 3 -F 1804`)
+   plus `KEEP_5P` (the read's 5' end is not soft-clipped), then
+   ENCODE's `samtools fixmate -r` on the name-sorted reads and the flag
+   filter again, which removes a read whose mate failed (until v2.0.0
+   such orphans were kept), with pairs of insert <=30bp dropped in the
+   same step. `KEEP_5P` must stay on the first view, so that the mate
+   of a dropped read becomes an orphan. ENCODE has neither the 5' nor
+   the insert filter; keep both. BWA-MEM, a local aligner, aligns a
+   19-35 bp seed of a read that is not from the reference and clips the
+   rest; in Proj_18143 such reads were up to 55% of a sample's, piled
+   up on single bases and were mostly in peaks. ENCODE's end-to-end
+   bowtie2 leaves them unaligned; both filters can go only with such an
+   aligner (C-21) (`docs/SLURM_PORT.md`, "Insert-size and 5' clip
+   filters").
+   Then Picard SortSam + CollectInsertSizeMetrics (`W=1000`, as ENCODE;
+   without it picard cuts the histogram at median + 10 x MAD), then
+   bamToBed with the Tn5 shift (+4 on `+`, -5 on `-`), keeping only the
+   contigs of `lib/genomes/<TAG>.genome` → `*.shifted.bed.gz`; also the
+   mitochondrial fraction → `*___MITO.txt`
 2. `makeBigWigFromBEDZ.sh` — 10M-read-normalized bigWig via bedtools +
    `bin/wigToBigWig`
-3. `callPeaks_ATACSeq.sh` — MACS2 on the BED (not BAM), `--nomodel --shift 75
-   --extsize 150 --call-summits -p 0.01`
-4. `mergePeaksToSAF.sh` — merge all narrowPeak within 500bp into
-   `macsPeaksMerged.saf` (the peak atlas)
-5. `bin/featureCounts` — raw count matrix `peaks_raw_fcCounts.txt` over the
-   atlas, with `-Q` set to the same MAPQ as stage 1
+3. `callPeaks_ATACSeq.sh` — MACS2 on the BED (not BAM) with ENCODE's
+   settings, `--nomodel --shift -75 --extsize 150 --keep-dup all
+   --call-summits -p 0.01` (until v2.0.0 `--shift 75` and the default
+   `--keep-dup 1`). MACS2's files in `callpeaks/<PREFIX>/` are left as
+   written. Then ENCODE's steps, in its order: sort by `-log10 p`,
+   clamp negative coordinates, keep the top 300,000, clip to the contig
+   ends
+   (`bin/bedClip -truncate`), drop the peaks overlapping
+   `lib/genomes/<TAG>.blacklist.bed` and cap the score at 1000. The
+   result and its summits are written beside MACS2's files as
+   `*_peaks.blacklistFiltered.narrowPeak` and
+   `*_summits.blacklistFiltered.bed`; peaks keep MACS2's names (ENCODE
+   renames them `Peak_N`). Never overwrite or replace a primary tool's
+   output; write derived files under a new, readable name
+4. `mergePeaksToSAF.sh GENOME callpeaks` — merge all
+   `*_peaks.blacklistFiltered.narrowPeak` (never MACS2's
+   `*_peaks.narrowPeak`) within 500bp into `macsPeaksMerged.saf` (the
+   peak atlas), then subtract the blacklist again, since a merge can
+   bridge a blacklisted region between two kept peaks. SAF is 1-based
+   and inclusive: its `Start` is the BED start plus 1 (until v2.0.0 the
+   BED start was written as is)
+5. `bin/countPeaks.sh` → `bin/featureCounts` (v2.1.1) — raw count matrix
+   `peaks_raw_fcCounts.txt` over the atlas, `-O -p --countReadPairs`, with
+   `-Q` set to the same MAPQ as stage 1, then Check A. Beside it, one
+   `CountCheck` job per sample (`bin/assignedCheck.sh`) for Check B; the
+   control job compares both with `bin/checkCounts.sh` (see "Count
+   checks")
 6. `R/getDESeqScaleFactors.R` — DESeq2 size factors (written **inverted**, per
    R. Koche's convention; see NOTES.md)
 7. `bin/computeTSSEnrich.sh` → `R/TSSEnrich/tss_enrich.R` — ENCODE TSS
-   enrichment; skipped with a warning when `R/TSSEnrich/lib/` has no files
-   for the build (mm10)
-8. `plotINSStats.R` and `R/analyzeATAC.R` — insert-size and QC/PCA reports
+   enrichment, for every build
+8. `plotINSStats.R` and `R/analyzeATAC.R` — insert-size and QC/PCA reports;
+   `analyzeATAC.R` also writes the per-sample depth table
+   `*__ATACSeqDepth.csv`, a deliverable
 9. Staging into `atacSeq/{atlas,bigwig,macs,metrics}` for delivery
 
-Differential analysis is a separate manual step (needs replicates):
+Differential analysis is a separate manual step (needs replicates), run
+from the analysis directory, which gives it the genome
+(`00.RUNSTATUS.txt`):
 
 ```bash
-Rscript R/diffAnalysisPairwise.R GENOME sampleManifest.csv Comparisons.csv [RUNTAG]
+Rscript /path/to/ATAC-seq/R/diffAnalysisPairwise.R \
+    sampleManifest.csv Comparisons.csv [RUNTAG]
 ```
 
 ## Genome handling — read this before touching any genome code
 
+Full detail and the reasons are in `docs/GENOMES.md`.
+
+A genome is named by its build tag everywhere: `b37`, `hg38`, `mm10`.
+GRCh38 was `b38` until v2.0.0; do not reintroduce that name, species
+words (`human`, `mouse`) or stand-ins (`hg19` for b37 data). ChIP-seq
+uses the same tags, genome files and `bin/getGenomeBuildBAM.sh` (keep
+that file byte-identical in both repos).
+
 Genome is **auto-detected**, never passed by the user: `bin/getGenomeBuildBAM.sh`
 md5sums the sorted `@SQ` lines of the BAM header and maps that to a build tag.
-Adding a new reference means adding its md5 there first — everything downstream
-keys off that string.
+`pipe.sh` does this for every BAM before it submits anything, stops
+(`STATUS=FAILED`, reason in `MESSAGE`) if the BAMs differ or the tag is
+not supported, passes the tag to every stage, and records it as
+`GENOME=` in `00.RUNSTATUS.txt`. Nothing detects it again: post-run
+tools (`R/diffAnalysisPairwise.R`) read it from the status file and take
+no genome argument.
 
-The tag vocabulary is **not uniform across the codebase**, and this is a live
-source of bugs:
+Every genome-dependent value is in `lib/genomes/GENOMES.tsv`; a
+supported genome is a row of it. Shell reads it with
+`bin/genomeInfo.sh TAG FIELD`, R with `genomeInfo()` in
+`R/genomeInfo.R`; both fail on an unknown tag or field. There is no
+`case` on genome names anywhere. Adding a genome is data only: its md5
+in `getGenomeBuildBAM.sh`, a row in `GENOMES.tsv`,
+`lib/genomes/<TAG>.genome`, `lib/genomes/<TAG>.blacklist.bed` (ENCODE's
+list, built by `lib/genomes/getBlacklists.sh`), and
+`R/TSSEnrich/lib/<TAG>_tss.bed` and `<TAG>.chrom.sizes`. `pipe.sh`
+stops if any of the four files is missing.
 
-| Consumer | Accepted tags |
-| --- | --- |
-| `bin/getGenomeBuildBAM.sh` (emits) | `b37`, `b37_dmp`, `hg19`, `hg19-mainOnly`, `GRCh37-lite`, `b38`, `b37+mm10`, `mm10`, `mm10_hBRAF_V600E`, `mm9Full`, `GRC_m38`, `sCer+sMik_IFO1815` |
-| `pipe.sh` (`SUPPORTED_GENOMES`) | `b37`, `b38`, `mm10` |
-| `postMapBamProcessing_ATACSeq.sh` | `b37`, `b38`, `mm10` |
-| `callPeaks_ATACSeq.sh`, `makeBigWigFromBEDZ.sh` | `b37`, `b38`, `mm10`, `sCer+sMik_IFO1815` |
-| `bin/computeTSSEnrich.sh` (files in `R/TSSEnrich/lib/`) | `b37`, `b38` |
-| `R/diffAnalysisPairwise.R` | `hg19`, `b38`, `mm10` |
+Chromosome filtering is allowlist-driven: `lib/genomes/<TAG>.genome` lists
+autosomes, X and Y only (no mitochondria, no unplaced, random, decoy or
+viral contigs). It is the chrom sizes, and the scripts write its BED form
+to a temp file for `bedtools intersect -nonamecheck`. Do not reintroduce
+`egrep -v` denylists, and never give the 2-column file to
+`samtools view -L` (it reads column 2 as one position and selects almost
+nothing). Mitochondrial reads are therefore dropped from the shifted BED
+for every build, as ENCODE's ATAC pipeline does; POST reports the
+fraction in `___MITO.txt`.
 
-So a detected build that the shell stages accept may still be rejected
-downstream, and vice versa. When adding genome support, update **every** case
-statement, not just the one that failed, and `SUPPORTED_GENOMES` in
-`pipe.sh`.
+## Count checks
 
-`pipe.sh` detects the build of every BAM before it submits anything and
-stops (`STATUS=FAILED`, reason in `MESSAGE`) if the BAMs are on different
-builds or the build is not in `SUPPORTED_GENOMES`, the builds
-`postMapBamProcessing_ATACSeq.sh` accepts.
+The counts are never accepted unchecked, whatever the counter.
+featureCounts v1.6.0 (used until v2.0.0), run with several threads on
+several BAMs, sometimes did not pair the reads of one file and counted
+that sample about twice, exiting 0 with no error. Two checks must pass
+before DESEQ runs; `bin/checkCounts.sh SUMMARY [ASSIGNED ...]` does both
+and can be run by hand from an analysis directory to audit a run.
 
-Chromosome filtering is allowlist-driven: `lib/genomes/<build>.genome` (chrom
-sizes) and `lib/genomes/<build>.genome.bed` (regions to keep) are intersected
-with `bedtools intersect -nonamecheck`. Do not reintroduce `egrep -v` denylists.
+- **Check A (pairing)**, in the Count job: each sample's fragment total
+  (the sum of every `.summary` row, not rows picked by name) divided by
+  mapped reads / 2 (`samtools idxstats`, so Count waits for Index) must
+  be within 0.95 to 1.05. Correct runs give 1.000 (1.000 to 1.004
+  until v2.0.0, when POST kept orphan reads); an unpaired
+  BAM, or featureCounts 2.x with `-p` but without `--countReadPairs`,
+  gives 2.0.
+- **Check B (independent count)**: `bin/assignedCheck.sh` counts the
+  distinct read names among reads that `samtools view -L` finds over the
+  atlas. It must equal featureCounts' `Assigned` **exactly**; it did for
+  all 42 BAMs tested (27 full-size hg38, 11 downsampled hg38, 4
+  downsampled b37). A difference fails
+  the run and must be explained before anything is changed; do not add a
+  tolerance to make it pass. It relies on the postProcess BAM being
+  already filtered; if that filter changes, apply it there too.
 
-`R/TSSEnrich/lib/` ships only `b38` and `b37` files (`<build>_tss.bed`,
-`<build>.chrom.sizes`). For any other build (in practice mm10) `pipe.sh`
-skips stage 7 (`RUN_TSSE=0`) with a warning in the control log and in
-`MESSAGE`, and leaves the TSS files out of staging and of the
-deliverables check. Adding the two files turns the stage on; no code
-change is needed.
+No Bioconductor package (Rsubread, `GenomicAlignments`, ...) in a
+pipeline step that produces counts: their APIs change without warning.
+The standalone subread binary is not Bioconductor.
 
 ## Cross-stage conventions
 
@@ -174,7 +267,8 @@ change is needed.
   stripping a leading `s_` for `SampleID` and a trailing `[-_]\d+` for `Group`.
   It is usually wrong for real projects and is meant to be hand-edited, after
   which `plotINSStats.R` and `R/analyzeATAC.R` are rerun manually.
-- Groups prefixed `EXC` are dropped from differential analysis.
+- Groups prefixed `EXC` are dropped from differential analysis and
+  from the depth and PCA pages of `R/analyzeATAC.R`.
 - The R scripts map count-matrix column names back to `SampleID` via the
   manifest; `diffAnalysisPairwise.R` supports two naming conventions (BIC
   `*_postProcess*` and PEmap `*___MD*`). Sample-name mismatches surface here
@@ -187,12 +281,25 @@ change is needed.
 - All R scripts depend on helpers from the user's `~/.Rprofile` — `len()`,
   `cc()`, `DATE()`, `halt()`, `suppress()`. They are not defined in this repo
   and are used without qualification; read `~/.Rprofile` before editing.
-- `R/diffAnalysisPairwise.R` and `R/TSSEnrich/tss_enrich.R` are the modernized
-  scripts (native `|>`, roxygen-style docs, snake_case). `R/analyzeATAC.R`,
-  `plotINSStats.R` and `R/getDESeqScaleFactors.R` are older (`%>%`, base R,
-  camelCase). Match the file you are in.
-- Pipeline R scripts print `## START: <script>` / `## END: <script>` for log
-  tracing and wrap library loads in `suppressPackageStartupMessages`.
+- `R/diffAnalysisPairwise.R` is the modernized script (native `|>`,
+  roxygen-style docs, snake_case); `R/TSSEnrich/tss_enrich.R` uses
+  `|>` and snake_case. `R/analyzeATAC.R`, `plotINSStats.R` and
+  `R/getDESeqScaleFactors.R` are older (`%>%`, base R, camelCase).
+  Match the file you are in.
+- Pipeline R scripts print `## START: <script>` / `## END: <script>`
+  for log tracing (`tss_enrich.R` does not yet) and wrap library
+  loads in `suppressPackageStartupMessages`.
+- Always name the method of `p.adjust()`: its default is Holm, which
+  made the diff `FDR` column a Holm correction until v2.0.0. The diff
+  FDR is `method = "fdr"`.
+- A PCA of samples is `prcomp(t(logCPM))` and its scores `$x` (samples
+  as observations), never the `$rotation` of `prcomp(logCPM)`; that
+  plotted the profile all samples share as PC1 until v2.0.0.
+- To reduce a sample's counts to a lower depth, thin binomially
+  (`rbinom(size=count, prob=target/total)`), never with
+  `edgeR::thinCounts(target.size=)`: it subtracts a multinomial draw
+  made with replacement and clips at 0, so a sample thinned 10-fold
+  gets about 10 times the variance of a real shallow library.
 - `R/attic/` and `attic/` hold superseded versions kept for reference. Do not
   edit them; do not treat them as live code.
 
@@ -200,7 +307,9 @@ change is needed.
 
 `sbatch` (the `SBATCH_SCRIPT_DIR` wrapper), `bsub` (the openlava shim),
 `bSync.sh`, `picard` and `bedtools` come from `~/bin`; `samtools` is loaded by `bin/loadTools.sh` via `module load
-samtools/1.20`. `sacct`, `squeue` and `scancel` are the Slurm client tools.
+samtools/1.20`. ImageMagick (`convert`, used only by the unused
+`mergePNGs`/`merge_pngs` helpers in the R reports) is `module load
+imagemagick` (7.1.2-33); nothing loads it yet. `sacct`, `squeue` and `scancel` are the Slurm client tools.
 Scratch for intermediates is
 `${ATAC_SCRATCH_ROOT:-/scratch/core001/bic/$USER/ATACSeq}`.
 
@@ -213,9 +322,21 @@ tool with its own temp-dir option gets `$TMPDIR` or a scratch dir, never
 its default. R is the 4.5.1
 on PATH; `tss_enrich.R` needs `optparse`.
 
-`bin/featureCounts`, `bin/wigToBigWig`, and `bin/bedGraphToBigWig` are
-vendored Linux x86-64 binaries — they will not run on macOS, so anything
-invoking them can only be tested on the cluster.
+`bin/featureCounts`, `bin/wigToBigWig`, `bin/bedGraphToBigWig` and
+`bin/bedClip` are vendored Linux x86-64 binaries — they will not run on
+macOS, so anything invoking them can only be tested on the cluster.
+`bin/bedClip` is the
+UCSC v369 build that ENCODE installs
+(<https://hgdownload.soe.ucsc.edu/admin/exe/linux.x86_64.v369/bedClip>,
+md5 `7b4d41d51a340f8641e6786383136c63`); the current UCSC build needs
+glibc 2.34 and IRIS has 2.28. `bin/featureCounts` is
+subread v2.1.1, statically linked, md5
+`0eff90d8e30311160dbddda542f17383`, from
+`subread-2.1.1-Linux-x86_64.tar.gz` (md5
+`ed031bb0734650731f0bfe7ea2053d5a`) on
+<https://sourceforge.net/projects/subread/files/subread-2.1.1/>. In 2.x
+`-p` only declares paired input; `--countReadPairs` is what makes it
+count fragments.
 
 ## Docs worth reading
 
@@ -224,9 +345,21 @@ invoking them can only be tested on the cluster.
 - `QC/QCNotes.md` — which ATAC QC metrics matter and why.
 - `docs/SLURM_PORT.md` — how the JUNO/LSF to IRIS/Slurm port was done, the
   flag translation, and the memory and partition choices.
-- `docs/UPDATE_TO_B38.md`, `docs/CHECKLIST_B38.md` — the plan for the b38
-  rollout, done in v1.1.0. Historical: the checkboxes were never ticked
-  and the line numbers are out of date.
+- `docs/GENOMES.md` — genome tags, `GENOMES.tsv`, the genome files, and
+  what ENCODE does with mitochondrial reads (with links).
+- `docs/output.md`, `docs/methods.md` — the client-facing description
+  of the delivered files and of the methods, rendered to HTML and PDF
+  by `docs/MAKE_DOCS.sh`. Update them with any change to an output
+  or a method.
+- `R/TSSEnrich/README.md` — the TSS enrichment port, where its
+  reference files came from, and ENCODE's thresholds per genome.
+- `attic/UPDATE_TO_B38.md`, `attic/CHECKLIST_B38.md` — the plan for the
+  GRCh38 rollout, done in v1.1.0 under the tag `b38` (now `hg38`).
+  Historical: the checkboxes were never ticked and the line numbers are
+  out of date.
 - `CHANGELOG.md` — kept current; add entries for user-visible changes.
-- `00.ISSUES.md` — open issues only, numbered in order of work;
-  `attic/zzISSUES.md` — the closed ones, with the reason.
+- `00.FIXME.md` — the one list of open work, numbered in order of
+  work and grouped by priority; `attic/zzISSUES.md` — the closed
+  issues, with the reason. `attic/00.ISSUES.md` and
+  `attic/ENCODE_PIPE_CONCORDANCE.md` (the ENCODE review, with what
+  ENCODE does for each C-NN finding) are the two lists it replaced.

@@ -67,6 +67,13 @@ sacctByName() {
 # Sleeps run in the background and are waited on, as in bSync, so a
 # SIGTERM reaches the caller's trap at once.
 #
+# Before it exits, bCheck leaves the reason for the caller's EXIT trap:
+# BCHECK_FAILED holds the sacct rows of the failed jobs, BCHECK_ERROR a
+# one-line reason when the accounting records never arrived.
+#
+BCHECK_FAILED=""
+BCHECK_ERROR=""
+
 bCheck() {
     local jobname=$1
     local njobs=${2:-1}
@@ -83,6 +90,7 @@ bCheck() {
 
         if [ "$nrows" -lt "$njobs" ]; then
             if [ "$waited" -ge "$limit" ]; then
+                BCHECK_ERROR="$nrows of $njobs accounting records for [$jobname] after ${waited}s"
                 echo
                 echo "    FATAL: $nrows of $njobs accounting records for [$jobname]" \
                      "since $ATAC_START after ${waited}s"
@@ -111,6 +119,7 @@ bCheck() {
 
     n_bad=$(echo "$rows" | awk -F'|' 'NF > 0 && $3 !~ /^COMPLETED/' | wc -l)
     if [ "$n_bad" -gt 0 ]; then
+        BCHECK_FAILED=$(echo "$rows" | awk -F'|' 'NF > 0 && $3 !~ /^COMPLETED/')
         echo
         echo "    FATAL: $n_bad job(s) failed for [$jobname]"
         echo "$rows" \
@@ -120,6 +129,71 @@ bCheck() {
     fi
 
     echo "bCheck: [$jobname] $(echo "$rows" | wc -l) job(s) COMPLETED"
+}
+
+# logReason LOG
+#
+# The line of a stage log that says why the job failed: the first line
+# with FATAL, else the first with error or fail in any case. This also
+# catches the "error: *** JOB ... DUE TO TIME LIMIT ***" line Slurm
+# writes into the log of a job it kills (probe job 18919113). Whitespace
+# squeezed, cut to 160 characters. Prints nothing if
+# the log is missing or has no such line.
+#
+logReason() {
+    local line=""
+    if [ ! -r "$1" ]; then
+        return 0
+    fi
+    line=$(grep -m1 FATAL "$1" || true)
+    if [ -z "$line" ]; then
+        line=$(grep -m1 -i -E 'error|fail' "$1" || true)
+    fi
+    echo "$line" | tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//' | cut -c1-160
+}
+
+# failedJobsMessage STAGE JOBS_TSV
+#
+# One line for MESSAGE in the status file, built from what bCheck left
+# in BCHECK_FAILED and BCHECK_ERROR: for each failed job (at most 3) its
+# sample, job id, sacct state and the logReason of its log, found in
+# JOBS_TSV (job id, stage, sample, log). Prints nothing if bCheck left
+# no reason.
+#
+failedJobsMessage() {
+    local stage=$1
+    local jobs=$2
+    local max=3
+    local n=0
+    local msg=""
+    local id name state code elapsed sample logf reason
+
+    if [ -n "$BCHECK_ERROR" ]; then
+        echo "$stage: $BCHECK_ERROR"
+        return 0
+    fi
+    if [ -z "$BCHECK_FAILED" ]; then
+        return 0
+    fi
+
+    while IFS='|' read -r id name state code elapsed; do
+        if [ -z "$id" ]; then
+            continue
+        fi
+        n=$((n + 1))
+        if [ "$n" -gt "$max" ]; then
+            continue
+        fi
+        sample=$(awk -F'\t' -v id="$id" '$1 == id {print $3}' "$jobs")
+        logf=$(awk -F'\t' -v id="$id" '$1 == id {print $4}' "$jobs")
+        reason=$(logReason "$logf")
+        msg="$msg${msg:+ | }${sample:-?} job $id ${state%% *}${reason:+: $reason}"
+    done <<<"$BCHECK_FAILED"
+
+    if [ "$n" -gt "$max" ]; then
+        msg="$msg | $((n - max)) more"
+    fi
+    echo "$stage failed: $msg"
 }
 
 # bCheckAll REGEX
