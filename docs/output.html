@@ -39,8 +39,9 @@ differential analysis. <code>bigwig</code> holds a normalized signal
 track per sample for a genome browser. <code>metrics</code> holds the QC
 metrics and plots. Projects with replicates have a <code>diff</code>
 folder with the differential accessibility analysis. <code>docs</code>
-holds this document, <code>output.pdf</code>, and the methods document,
-<code>methods.pdf</code>, which describes how each file was made.</p>
+holds this document (<code>output.pdf</code>, <code>output.html</code>)
+and the methods document (<code>methods.pdf</code>,
+<code>methods.html</code>), which describes how each file was made.</p>
 <p>In the names below, <code>&lt;sample&gt;</code> is the sample ID of
 the BAM and <code>&lt;no&gt;</code> is the project number (for example
 <code>18143</code>). Coordinates are 0-based with an exclusive end (BED
@@ -74,7 +75,9 @@ mitochondrial, unplaced and other contigs are left out.</p>
 │   └── &lt;sample&gt;_postProcess.large_tss_enrich.png
 ├── docs
 │   ├── output.pdf
-│   └── methods.pdf
+│   ├── output.html
+│   ├── methods.pdf
+│   └── methods.html
 └── diff                      (projects with replicates only)
     ├── Proj_&lt;no&gt;__DiffPeaksEdgeR_V5.xlsx
     └── Proj_&lt;no&gt;__DiffPeaks_V5.pdf</code></pre>

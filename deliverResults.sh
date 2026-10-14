@@ -14,8 +14,8 @@
 #     from the run and the first README.txt found going up from here
 #     to Proj_<no> (bin/readme2yaml.R);
 #   - copies atacSeq/ to DELIVERY/r_NNN/, with the client docs
-#     (docs/output.pdf, docs/methods.pdf of this checkout) in
-#     atacSeq/docs and the differential analysis files of the project
+#     (docs/output and docs/methods of this checkout, PDF and HTML)
+#     in atacSeq/docs and the differential analysis files of the project
 #     (Proj_<no>_*_DiffPeaksEdgeR_V5.xlsx, Proj_<no>_*_DiffPeaks_V5.pdf),
 #     if any, in atacSeq/diff;
 #   - writes the delivery email to deliveryEmail_<no>_r_NNN_<yymmdd>.txt,
@@ -195,7 +195,8 @@ if ! VERSION=$("$SDIR/bin/getRelease.sh"); then
     fatal "no release in $SDIR/VERSION.md"
 fi
 
-DOCS=("$SDIR/docs/output.pdf" "$SDIR/docs/methods.pdf")
+DOCS=("$SDIR/docs/output.pdf" "$SDIR/docs/output.html"
+      "$SDIR/docs/methods.pdf" "$SDIR/docs/methods.html")
 for f in "${DOCS[@]}"; do
     if [ ! -s "$f" ]; then
         fatal "missing $f; render it with docs/MAKE_DOCS.sh"
