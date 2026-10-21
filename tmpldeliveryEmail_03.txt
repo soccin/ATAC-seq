@@ -7,3 +7,4 @@
    - Proj_{PROJNO}__PathwayGSEA.pdf
 
       - For each comparison and collection the normalized enrichment score of the top gene sets, positive where the set is more accessible in the second group of the comparison
+
