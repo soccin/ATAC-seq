@@ -20,7 +20,9 @@ REQUIRED ARGUMENTS:
 OPTIONAL ARGUMENTS:
   RUNTAG        Tag to append to output filenames (default: none)
 
-OUTPUT FILES (in the current directory):
+INPUT: atacSeq/atlas/peaks_raw_fcCounts.txt, the counts of pipe.sh
+
+OUTPUT FILES (in atacSeq/diff):
   - <PROJ>__DiffPeaksEdgeR_V5.xlsx : Excel file with differential peaks
   - <PROJ>__DiffPeaks_V5.pdf       : PDF with PCA and MA/volcano plots
   - <PROJ>__DiffPeaksEdgeR_V5.rds  : every tested peak of every
@@ -142,14 +144,14 @@ SDIR <- commandArgs(trailingOnly = FALSE) |>
   dirname()
 source(file.path(SDIR, "R", "genomeInfo.R"))
 
-# Locate feature counts summary file
-# Works with both ATACseq and ChIPSeq pipeline structures
-peak_counts_file <- fs::dir_ls(regex = "peaks_raw_fcCounts.txt.summary")
-
-if (len(peak_counts_file) == 0) {
-  peak_counts_file <- fs::dir_ls("out/macs",
-                                 regex = "peaks_raw_fcCounts.txt.summary")
+# Counts of pipe.sh in, results out, both under atacSeq/
+peak_counts_file <- "atacSeq/atlas/peaks_raw_fcCounts.txt"
+if (!file_exists(peak_counts_file)) {
+  stop(str_glue("no {peak_counts_file} in {getwd()}; run from the ",
+                "analysis directory of a pipe.sh run"), call. = FALSE)
 }
+out_dir <- "atacSeq/diff"
+dir_create(out_dir)
 
 # Parse command line arguments
 MANIFEST_FILE <- args[1]
@@ -169,8 +171,7 @@ mito_contig <- genomeInfo(GENOME, "MITO", SDIR)
 manifest <- read_csv(MANIFEST_FILE,show_col_types = FALSE) |> arrange(SampleID)
 
 # Load raw feature counts matrix
-raw_counts <- read_tsv(gsub(".txt.summary$", ".txt", peak_counts_file),
-                       comment = "#", show_col_types = FALSE)
+raw_counts <- read_tsv(peak_counts_file, comment = "#", show_col_types = FALSE)
 
 # Extract peak annotation
 peak.annote <- raw_counts |>
@@ -510,7 +511,7 @@ summary_stats <- map(result_tables, nrow) |>
 # Built sheet-by-sheet rather than with write.xlsx() because zoom can only be
 # set when the worksheet is created; the Summary sheet gets 150% zoom and
 # auto-fitted column widths.
-output_xlsx <- cc(project_id, RUNTAG, "DiffPeaksEdgeR_V5.xlsx")
+output_xlsx <- path(out_dir, cc(project_id, RUNTAG, "DiffPeaksEdgeR_V5.xlsx"))
 xlsx_sheets <- c(list(Summary = summary_stats), result_tables)
 
 wb <- createWorkbook()
@@ -525,7 +526,7 @@ saveWorkbook(wb, output_xlsx, overwrite = TRUE)
 
 # Every tested peak of every comparison, for R/pathwayGSEA.R: a ranked
 # gene list needs the statistic of every peak, not only the significant
-output_rds <- cc(project_id, RUNTAG, "DiffPeaksEdgeR_V5.rds")
+output_rds <- path(out_dir, cc(project_id, RUNTAG, "DiffPeaksEdgeR_V5.rds"))
 saveRDS(
   list(
     genome = GENOME,
@@ -539,7 +540,7 @@ saveRDS(
 )
 
 # Generate PDF with PCA and differential analysis plots
-output_pdf <- cc(project_id, RUNTAG, "DiffPeaks_V5.pdf")
+output_pdf <- path(out_dir, cc(project_id, RUNTAG, "DiffPeaks_V5.pdf"))
 pdf(output_pdf, width = 11, height = 8.5)
 
 print(pca_plot)
