@@ -184,7 +184,21 @@ from the analysis directory, which gives it the genome
 ```bash
 Rscript /path/to/ATAC-seq/R/diffAnalysisPairwise.R \
     sampleManifest.csv Comparisons.csv [RUNTAG]
+Rscript /path/to/ATAC-seq/R/pathwayGSEA.R [-c COLLECTIONS] [-m MODE] [RUNTAG]
 ```
+
+`diffAnalysisPairwise.R` saves every tested peak of every comparison
+in `*_DiffPeaksEdgeR_V5.rds`; `pathwayGSEA.R` reads only that file,
+so it can be rerun with other options without edgeR. It ranks genes
+(nearest gene by ChIPseeker, per gene the peak with the largest
+`|sign(logFC) * -log10(P)|`) and runs `fgseaMultilevel` per
+collection item (BH within it). Gene sets come from msigdbr; the
+MSigDB species (`MSIGDB_DB`) and the default collections
+(`MSIGDB_SETS`) are columns of `GENOMES.tsv`, so mouse uses the
+native mouse MSigDB (`MH`, `M2`, `M5`), not human orthologs. Match
+genes by Entrez ID (the knownGene `geneId`), never by symbol.
+`deliverResults.sh` copies `*_PathwayGSEA.xlsx/.pdf` to
+`atacSeq/diff`, and adds `tmpldeliveryEmail_03.txt` to the email.
 
 ## Genome handling — read this before touching any genome code
 

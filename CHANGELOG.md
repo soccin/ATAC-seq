@@ -4,7 +4,30 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-No change to any result; the version stays v2.0.0.
+No change to any existing result; the version stays v2.0.0.
+
+### New
+
+- **Pathway enrichment (GSEA)**, `R/pathwayGSEA.R`: preranked GSEA
+  (fgsea 1.36.2, `fgseaMultilevel`) of each comparison of
+  `diffAnalysisPairwise.R` against MSigDB 2026.1 (msigdbr 26.1.1).
+  Genes are ranked by `sign(logFC) * -log10(PValue)` of their peak
+  with the largest absolute value, among the peaks within 1 kb of
+  their nearest TSS (`--mode promoter`, the default) or within
+  `--max-distance` (`--mode distance`). `--collections` selects the
+  gene sets (`H`, `C2:CP:REACTOME`, `C5:GO:BP`, ...; `-` removes a
+  set); the default is `H,C2:CP,-C2:CP:KEGG_LEGACY,C5:GO:BP` for
+  human and `MH,M2:CP,M5:GO:BP` for mouse, which uses the mouse
+  MSigDB. Output: `*_PathwayGSEA.xlsx`, `.pdf` and `.rds`;
+  `deliverResults.sh` delivers the xlsx and PDF to `atacSeq/diff`
+  with an email section (`tmpldeliveryEmail_03.txt`).
+- `diffAnalysisPairwise.R` also writes `*_DiffPeaksEdgeR_V5.rds`,
+  every tested peak of every comparison (not delivered). Its xlsx
+  and PDF do not change.
+
+#### Internal
+
+- `GENOMES.tsv`: new columns `MSIGDB_DB` and `MSIGDB_SETS`.
 
 ### Fixes
 
