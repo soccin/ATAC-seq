@@ -13,9 +13,12 @@ The code is at
 [https://github.com/soccin/ATAC-seq/releases/tag/v2.0.0](https://github.com/soccin/ATAC-seq/releases/tag/v2.0.0).
 
 Read filtering, the Tn5 shift and peak calling follow the ENCODE
-ATAC-seq pipeline (ENCODE-DCC/atac-seq-pipeline v2.2.3). The signal
-tracks, the peak atlas and the count normalization follow the methods
-of R. Koche (MSKCC Center for Epigenetics Research).
+ATAC-seq pipeline (ENCODE-DCC/atac-seq-pipeline v2.2.3) with four
+differences, described below: the mapping quality cutoff, where
+duplicates are marked (by PEMapper, before the read filter), and two
+additional read filters. The signal tracks, the peak atlas and the
+count normalization follow the methods of R. Koche (MSKCC Center for
+Epigenetics Research).
 
 Reads were aligned to one of three reference genomes: GRCh37 (b37),
 GRCh38 (the GDC `GRCh38.d1.vd1` build, hg38) or GRCm38 (mm10). The
@@ -27,24 +30,31 @@ and the atlas use the autosomes, X and Y only.
 **Alignment.** Paired-end reads were aligned with BWA-MEM 0.7.19 (Li
 2013) using the PEMapper pipeline
 ([https://github.com/soccin/PEMapper](https://github.com/soccin/PEMapper)),
-which trims adapters with cutadapt, aligns with `bwa mem -M`, merges
-lanes, sorts, and marks duplicates with Picard MarkDuplicates 2.25.5.
-Duplicates are marked in the BAM, not removed. The PEMapper version is
-in the `@PG` header line of each BAM.
+which trims the TruSeq adapter (`AGATCGGAAGAGC`) with cutadapt, aligns
+with `bwa mem -M`, merges lanes, sorts, and marks duplicates with
+Picard MarkDuplicates 2.25.5. The Nextera adapter of ATAC-seq
+libraries is not trimmed; BWA-MEM soft-clips it at the 3' end of the
+read. Duplicates are marked in the BAM, not removed. The PEMapper
+version is in the `@PG` header line of each BAM.
 
 **Read filtering.** With samtools 1.20 (Danecek 2021) each BAM was
 reduced to properly paired reads with mapping quality 10 or more,
 without unmapped reads, reads whose mate is unmapped, secondary
 alignments, reads failing vendor QC or duplicates (`-q 10 -f 3 -F
-1804`). Two further filters, which the ENCODE pipeline does not have,
-correct for an artifact of BWA-MEM local alignment. A read whose
-sequence is not from the reference, or only partly from it, can still
-be reported as a short alignment of 19 to 35 bp with the rest of the
-read soft-clipped. Such reads carry the same non-reference sequence,
-so they pile up at single positions in a few hundred loci, and in some
-libraries they are half of all read pairs. Bowtie2 in end-to-end mode,
-the ENCODE aligner, cannot produce these alignments, so ENCODE needs
-no such filter. The first filter removes every read whose alignment is
+1804`). The cutoff of 10 is R. Koche's; the ENCODE pipeline by
+default keeps reads with up to four alignments, or uses a cutoff of 30
+when multimapping reads are not kept. The duplicates removed here were
+marked by PEMapper on all alignments, before this filter; the ENCODE
+pipeline marks duplicates after its own filter. Two further filters,
+which the ENCODE pipeline does not have, correct for an artifact of
+BWA-MEM local alignment. A read whose sequence is not from the
+reference, or only partly from it, can still be reported as a short
+alignment of 19 to 35 bp with the rest of the read soft-clipped. Such
+reads carry the same non-reference sequence, so hundreds or thousands
+of them pile up on single bases, mostly inside peaks; in some
+libraries they are about half of all read pairs. Bowtie2 in end-to-end
+mode, the ENCODE aligner, cannot produce these alignments, so ENCODE
+needs no such filter. The first filter removes every read whose alignment is
 soft-clipped at its 5' end, the Tn5 insertion site: a forward-strand
 read whose CIGAR string starts with `S` or a reverse-strand read whose
 CIGAR string ends with `S`. The reads were then name-sorted and passed
@@ -58,9 +68,10 @@ BAM is the input to every later step.
 **Tn5 shift.** Each read was converted to a BED interval with bedtools
 2.31.1 (Quinlan 2010) and shifted to place its 5' end at the Tn5
 insertion site: +4 bp on the forward strand and -5 bp on the reverse
-strand (Buenrostro 2013). Reads on the mitochondrial contig and on
-unplaced, random, decoy and viral contigs were dropped at this step, as
-in the ENCODE pipeline; the fraction of mitochondrial reads is reported
+strand (Buenrostro 2013). Reads on the mitochondrial contig were
+dropped at this step, as in the ENCODE pipeline, and so were reads on
+unplaced, random, decoy and viral contigs, which ENCODE removes only
+from its final peaks; the fraction of mitochondrial reads is reported
 as a QC metric. This set of shifted reads is the input to the signal
 tracks and to peak calling.
 
@@ -84,8 +95,9 @@ summits, xls) is delivered unchanged. The peaks were then
 post-processed as ENCODE does: sorted by p-value, the 300,000 most
 significant kept, clipped to the contig ends, peaks overlapping the
 ENCODE blacklist of the genome removed (Amemiya 2019; Boyle lab
-blacklist v2 for hg38 and mm10, the DAC consensus excludable list for
-b37) and the score column capped at 1000. These `blacklistFiltered`
+blacklist v2 for hg38 and mm10; for b37 the hg19 DAC consensus
+excludable list that ENCODE uses, with the `chr` prefix removed) and
+the score column capped at 1000. These `blacklistFiltered`
 peaks and summits are delivered beside MACS2's files and are the peaks
 used for the atlas.
 
@@ -113,10 +125,11 @@ assigned total exactly. A run whose counts fail either check is
 stopped.
 
 **Normalization.** Size factors were computed from the raw count
-matrix with DESeq2 (Love 2014; median-of-ratios method, Anders 2010).
-They are reported as scale factors, the reciprocal of the DESeq2 size
+matrix with DESeq2 (Love 2014; median-of-ratios method, Anders 2010)
+and written as scale factors, the reciprocal of the DESeq2 size
 factor, so that a normalized count is the raw count multiplied by the
-sample's scale factor.
+sample's scale factor. They are not applied to any delivered file and
+are not part of the standard delivery; they are available on request.
 
 **QC.** The insert-size distribution of the filtered BAM was computed
 with Picard CollectInsertSizeMetrics over a fixed range of 0 to 1000
@@ -129,13 +142,16 @@ after duplicate removal; ENCODE computes its fraction on all
 alignments before filtering, and because mitochondrial reads are
 highly duplicated the fraction here is the lower of the two. TSS
 enrichment was computed with an R port of ENCODE's
-`encode_task_tss_enrich.py`: the coverage of the shifted reads in a
-window of 2 kb on each side of every unique protein-coding TSS,
-averaged over TSSs in 400 bins and divided by the mean coverage of the
-outer 100 bp on each side; the score is the maximum of this profile.
-The TSS sets are the GENCODE v24 (hg38), v19 (b37) and vM7 (mm10)
-sets of the ENCODE pipeline; ENCODE's cutoffs for the score, given
-with the output, were set on these annotations and are a guide. The
+`encode_task_tss_enrich.py` on the filtered BAM: the coverage of the
+reads, each moved by half the read length so that it is centered on
+its 5' end, in a window of 2 kb on each side of every unique
+protein-coding TSS, averaged over TSSs in 400 bins and divided by the
+mean coverage of the outer 100 bp on each side; the score is the
+maximum of this profile. The TSS sets are the GENCODE v24 (hg38), v19
+(b37) and vM7 (mm10) files of ENCODE's first genome data release, not
+the newer files the current ENCODE pipeline uses, and ENCODE states
+its cutoffs for GRCh38 and mm10 on RefSeq TSSs, so the cutoffs given
+with the output are a guide. The
 fraction of fragments in peaks is the number of fragments
 featureCounts assigned to the atlas divided by all fragments of the
 filtered BAM, taken from the featureCounts summary. It measures the
@@ -154,7 +170,8 @@ at random (binomial, fixed seed) to about the depth of the smallest.
 pairwise comparisons between groups were tested with edgeR (Robinson
 2010; McCarthy 2012). For each comparison, the samples of its two
 groups were taken from the count matrix, atlas regions with too few
-counts removed with filterByExpr, library sizes normalized with TMM,
+counts removed with filterByExpr (over all samples, then over the
+samples of the comparison), library sizes normalized with TMM,
 dispersions estimated, and a negative binomial generalized linear
 model fitted and tested with the likelihood ratio test. P-values were
 adjusted with the Benjamini-Hochberg method (Benjamini 1995) and
@@ -163,7 +180,11 @@ fold change is group 2 minus group 1 of the comparison: a positive
 value means more accessible in group 2. Significant regions were
 annotated with the nearest gene and genomic feature using ChIPseeker
 (Yu 2015) with the UCSC knownGene annotation of the build and a TSS
-region of 5 kb on each side.
+region of 5 kb on each side. For each comparison, every tested region
+was plotted as an MA plot (log fold change against mean log2 CPM) and
+a volcano plot (log fold change against p-value, on a log scale),
+with the significant regions colored by the group they are more
+accessible in.
 
 ## Tool versions
 
@@ -174,18 +195,18 @@ region of 5 kb on each side.
 | samtools | 1.20 |
 | Picard SortSam, CollectInsertSizeMetrics | 3.4.0 |
 | bedtools | 2.31.1 |
-| UCSC wigToBigWig, bedClip | v369 |
+| UCSC bedClip | v369 |
+| UCSC wigToBigWig | kent source v361 |
 | MACS2 | 2.2.9.1 |
 | featureCounts (subread) | 2.1.1 |
 | R | 4.5.1 |
+| DESeq2 | 1.50.2 |
+| edgeR | 4.8.2 |
+| ChIPseeker | 1.46.1 |
+| TxDb.Hsapiens.UCSC.hg38.knownGene (hg38) | 3.22.0 |
+| TxDb.Hsapiens.UCSC.hg19.knownGene (b37) | 3.22.1 |
+| TxDb.Mmusculus.UCSC.mm10.knownGene (mm10) | 3.10.0 |
 | ENCODE ATAC-seq pipeline (settings followed) | 2.2.3 |
-
-<!--
-DRAFT NOTES (remove before delivery)
-
-- Tool versions to confirm on the cluster, and the DESeq2, edgeR and
-  ChIPseeker versions to add: see docs/NEED_VERSION.md.
--->
 
 ## References
 

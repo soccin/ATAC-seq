@@ -23,9 +23,6 @@
     .display.math{display: block; text-align: center; margin: 0.5rem auto;}
   </style>
   <link rel="stylesheet" href="https://sindresorhus.com/github-markdown-css/github-markdown.css" />
-  <!--[if lt IE 9]>
-    <script src="//cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv-printshiv.min.js"></script>
-  <![endif]-->
 </head>
 <body>
 <header id="title-block-header">
@@ -34,15 +31,17 @@
 <h1 id="bic-atac-seq-pipeline-v2.0.0">BIC ATAC-seq Pipeline
 (v2.0.0)</h1>
 <h2 id="introduction">Introduction</h2>
-<p>The results are delivered in one folder, <code>atacSeq</code>, with
-four parts. <code>macs</code> holds the peaks called for each sample.
+<p>The results are delivered in one folder, <code>atacSeq</code>.
+<code>macs</code> holds the peaks called for each sample.
 <code>atlas</code> holds the merged peak atlas of the project and the
 raw count matrix over it, which is the input to any normalization or
 differential analysis. <code>bigwig</code> holds a normalized signal
 track per sample for a genome browser. <code>metrics</code> holds the QC
-metrics and plots. Projects with replicates have a fifth part,
-<code>diff</code>, with the differential accessibility analysis. How
-each file was made is described in <code>methods.md</code>.</p>
+metrics and plots. Projects with replicates have a <code>diff</code>
+folder with the differential accessibility analysis. <code>docs</code>
+holds this document (<code>output.pdf</code>, <code>output.html</code>)
+and the methods document (<code>methods.pdf</code>,
+<code>methods.html</code>), which describes how each file was made.</p>
 <p>In the names below, <code>&lt;sample&gt;</code> is the sample ID of
 the BAM and <code>&lt;no&gt;</code> is the project number (for example
 <code>18143</code>). Coordinates are 0-based with an exclusive end (BED
@@ -67,15 +66,21 @@ mitochondrial, unplaced and other contigs are left out.</p>
 ├── metrics
 │   ├── Proj_&lt;no&gt;__postInsDistribution.pdf
 │   ├── Proj_&lt;no&gt;__ATACSeqQC.pdf
+│   ├── Proj_&lt;no&gt;__ATACSeqDepth.csv
 │   ├── &lt;sample&gt;_postProcess___INS.txt
 │   ├── &lt;sample&gt;_postProcess___INS.pdf
 │   ├── &lt;sample&gt;_postProcess___MITO.txt
 │   ├── &lt;sample&gt;_postProcess.tss_enrich.csv
 │   ├── &lt;sample&gt;_postProcess.tss_enrich.pdf
 │   └── &lt;sample&gt;_postProcess.large_tss_enrich.png
+├── docs
+│   ├── output.pdf
+│   ├── output.html
+│   ├── methods.pdf
+│   └── methods.html
 └── diff                      (projects with replicates only)
-    ├── Proj_&lt;no&gt;__DiffPeaksEdgeR_V4.xlsx
-    └── Proj_&lt;no&gt;__DiffPeaks_V4.pdf</code></pre>
+    ├── Proj_&lt;no&gt;__DiffPeaksEdgeR_V5.xlsx
+    └── Proj_&lt;no&gt;__DiffPeaks_V5.pdf</code></pre>
 <p>The filtered BAM files (<code>&lt;sample&gt;_postProcess.bam</code>)
 are not delivered. If you need them, please contact us.</p>
 <h2 id="peaks-macs">Peaks (<code>macs</code>)</h2>
@@ -102,7 +107,7 @@ position, pileup, -log10 p-value, fold enrichment and -log10 q-value.
 The header lines record the MACS2 command and settings.</li>
 </ul>
 <p><strong>Filtered peaks.</strong> The same peaks after the ENCODE
-post-processing steps (see <code>methods.md</code>): at most 300,000
+post-processing steps (see <code>methods.pdf</code>): at most 300,000
 peaks per sample, the most significant by p-value, clipped to the
 chromosome ends, with every peak that overlaps the ENCODE blacklist
 removed and the score capped at 1000. Peaks keep their MACS2 names, so a
@@ -129,30 +134,30 @@ compared region by region. It is in SAF format, as read by
 featureCounts, with no header line and five tab-separated columns:</p>
 <table>
 <thead>
-<tr class="header">
+<tr>
 <th>Column</th>
 <th>Contents</th>
 </tr>
 </thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td><code>GeneID</code></td>
 <td>region name, <code>Peak_1</code>, <code>Peak_2</code>, … in genome
 order</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>Chr</code></td>
 <td>chromosome</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>Start</code></td>
 <td>start, 1-based</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>End</code></td>
 <td>end, inclusive</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>Strand</code></td>
 <td>always <code>+</code></td>
 </tr>
@@ -197,22 +202,43 @@ total number of shifted reads.</p>
 <h2 id="metrics-metrics">Metrics (<code>metrics</code>)</h2>
 <h3 id="qc-report-proj_no__atacseqqc.pdf">QC report
 (<code>Proj_&lt;no&gt;__ATACSeqQC.pdf</code>)</h3>
-<p>Four pages built from the count matrix, with samples colored by
+<p>Six pages built from the count matrix, with samples colored by
 group:</p>
 <ol type="1">
 <li>The percentage of each sample’s fragments that fall in the atlas
 (<code>InPeaks</code>) against those outside it. This is a
 signal-to-noise measure; a sample with a much lower percentage than the
-others may have failed. It is computed against the pooled atlas, so it
-is higher than ENCODE’s per-sample FRiP and should not be read against
-ENCODE’s FRiP standard.</li>
+others may have failed. It is computed against the pooled atlas, and its
+denominator includes mitochondrial fragments, so it is not ENCODE’s
+per-sample FRiP and should not be read against ENCODE’s FRiP
+standard.</li>
 <li>The same as counts, in millions of fragments.</li>
+<li>Sequencing depth in peaks: each sample’s fragments in the atlas, its
+ratio to the median sample, and the share of the peaks used for the PCA
+in which it has fewer than 5 fragments. A sample below half the median
+is marked <code>LOW DEPTH</code>. Such a sample has noisy counts and may
+separate from all others on a principal component of its own, whatever
+its biology.</li>
 <li>A principal component analysis of the samples on the normalized log2
-counts over the atlas, with sample labels. Replicates of a group should
-lie together; samples that separate from their group on PC1 or PC2 are
-worth a look.</li>
+counts over the atlas, with sample labels. The size of a point is the
+sample’s fragments in peaks. Replicates of a group should lie together;
+samples that separate from their group on PC1 or PC2 are worth a
+look.</li>
 <li>The same PCA without labels.</li>
+<li>A depth check of the PCA: beside the PCA of page 4, the same PCA
+after every sample is reduced, by drawing its fragments at random, to
+about the depth of the smallest. A sample that is apart from its group
+on the left but not on the right is apart because of its depth; a sample
+apart on both differs from its group in its data. The reduced counts are
+used for this page only.</li>
 </ol>
+<h3 id="depth-table-proj_no__atacseqdepth.csv">Depth table
+(<code>Proj_&lt;no&gt;__ATACSeqDepth.csv</code>)</h3>
+<p>The numbers of page 3, one row per sample: <code>SampleID</code>,
+<code>Group</code>, <code>FragmentsInPeaks</code>,
+<code>RatioToMedian</code>, <code>FracKeptPeaksLT5</code> (the share of
+the peaks used for the PCA with fewer than 5 fragments) and
+<code>LowDepth</code> (<code>TRUE</code> below half the median).</p>
 <h3
 id="insert-size-distributions-proj_no__postinsdistribution.pdf">Insert-size
 distributions
@@ -240,14 +266,14 @@ Picard’s own histogram plot.</p>
 <h3
 id="mitochondrial-fraction-sample_postprocess___mito.txt">Mitochondrial
 fraction (<code>&lt;sample&gt;_postProcess___MITO.txt</code>)</h3>
-<p>One line per sample with the columns <code>SAMPLE</code>,
-<code>MITO_CONTIG</code>, <code>READS</code> (all reads of the filtered
-BAM), <code>MITO_READS</code> (those on the mitochondrial contig) and
-<code>FRAC_MITO</code>. Mitochondrial reads are left out of the peaks,
-the atlas and the signal tracks. The fraction is computed after the read
-filter, which removes duplicates, so it is lower than a fraction
-computed on the raw alignments (as ENCODE reports it) and should not be
-read against that standard.</p>
+<p>A header line and one line for the sample, with the columns
+<code>SAMPLE</code>, <code>MITO_CONTIG</code>, <code>READS</code> (all
+reads of the filtered BAM), <code>MITO_READS</code> (those on the
+mitochondrial contig) and <code>FRAC_MITO</code>. Mitochondrial reads
+are left out of the peaks, the atlas and the signal tracks. The fraction
+is computed after the read filter, which removes duplicates, so it is
+lower than a fraction computed on the raw alignments (as ENCODE reports
+it) and should not be read against that standard.</p>
 <h3 id="tss-enrichment-sample_postprocess.tss_enrich.csv">TSS enrichment
 (<code>&lt;sample&gt;_postProcess.tss_enrich.csv</code>)</h3>
 <p>The ENCODE TSS enrichment score, the standard measure of
@@ -260,44 +286,44 @@ Columns:</p>
 <col style="width: 50%" />
 </colgroup>
 <thead>
-<tr class="header">
+<tr>
 <th>Column</th>
 <th>Contents</th>
 </tr>
 </thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td><code>sample_id</code></td>
 <td>sample</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>tss_enrich</code></td>
 <td>the TSS enrichment score</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>peak_pos_bp</code></td>
 <td>position of the maximum of the profile, relative to the TSS</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>avg_noise</code></td>
 <td>mean signal in the flanking regions, the denominator of the
 score</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>n_tss_used</code>, <code>n_tss_total</code>,
 <code>pct_tss_used</code></td>
 <td>TSSs scored, TSSs in the reference set, and their ratio;
 <code>pct_tss_used</code> should be close to 1</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>n_mapped_reads</code></td>
 <td>reads of the filtered BAM</td>
 </tr>
-<tr class="odd">
+<tr>
 <td><code>read_len</code></td>
 <td>read length used for the computation</td>
 </tr>
-<tr class="even">
+<tr>
 <td><code>bam_file</code></td>
 <td>the filtered BAM</td>
 </tr>
@@ -308,7 +334,7 @@ annotation. The scores here use ENCODE’s GENCODE TSS sets (v24 for hg38,
 v19 for b37, vM7 for mm10); read the cutoffs as a guide:</p>
 <table>
 <thead>
-<tr class="header">
+<tr>
 <th>Genome</th>
 <th>Concerning</th>
 <th>Acceptable</th>
@@ -316,19 +342,19 @@ v19 for b37, vM7 for mm10); read the cutoffs as a guide:</p>
 </tr>
 </thead>
 <tbody>
-<tr class="odd">
+<tr>
 <td>hg38</td>
 <td>&lt; 5</td>
 <td>5 to 7</td>
 <td>&gt; 7</td>
 </tr>
-<tr class="even">
+<tr>
 <td>b37</td>
 <td>&lt; 6</td>
 <td>6 to 10</td>
 <td>&gt; 10</td>
 </tr>
-<tr class="odd">
+<tr>
 <td>mm10</td>
 <td>&lt; 10</td>
 <td>10 to 15</td>
@@ -347,7 +373,7 @@ above it.</p>
 delivered in the <code>diff</code> folder as two files, named with the
 project number and, when one was used, a run tag:</p>
 <ul>
-<li><code>Proj_&lt;no&gt;__DiffPeaksEdgeR_V4.xlsx</code>: one
+<li><code>Proj_&lt;no&gt;__DiffPeaksEdgeR_V5.xlsx</code>: one
 <code>Summary</code> sheet with the number of significant regions per
 comparison, then one sheet per comparison, named
 <code>&lt;group2&gt;_v_&lt;group1&gt;</code>, listing the regions
@@ -361,22 +387,23 @@ log2 counts per million), <code>PValue</code>, <code>FDR</code>
 annotation: <code>SYMBOL</code> and <code>GENENAME</code> of the nearest
 gene, <code>annotation</code> (promoter, exon, intron, distal
 intergenic, …) and <code>distanceToTSS</code>.</li>
-<li><code>Proj_&lt;no&gt;__DiffPeaks_V4.pdf</code>: the PCA of the
-samples (with and without labels), then for each comparison an MA plot
-(log fold change against mean log CPM) and a volcano plot (log fold
-change against p-value), with significant regions in red.</li>
+<li><code>Proj_&lt;no&gt;__DiffPeaks_V5.pdf</code>: the PCA of the
+samples (with and without labels; the point size is the sample’s
+fragments in peaks, as in the QC report), then for each comparison an MA
+plot (log fold change against mean log CPM) and a volcano plot (log fold
+change against p-value, on a log scale). Regions significant at FDR &lt;
+0.05 are colored by the group they are more accessible in, with the
+count of each in the legend; the dashed line on the volcano plot is the
+p-value at which the FDR cut falls.</li>
 </ul>
+<p>The names above are those without a run tag (hence the double
+underscore); with a tag <code>&lt;tag&gt;</code> they are
+<code>Proj_&lt;no&gt;_&lt;tag&gt;_DiffPeaksEdgeR_V5.xlsx</code> and
+<code>Proj_&lt;no&gt;_&lt;tag&gt;_DiffPeaks_V5.pdf</code>.</p>
 <p>Samples whose group starts with <code>EXC</code> were excluded from
 the differential analysis.</p>
-<!--
-DRAFT NOTES (remove before delivery)
-
-- scaleFactorsDESeq2.csv is not staged to atacSeq/ (00.FIXME.md #16).
-  When it is, add a section: columns are the BAM path (unnamed first
-  column) and scaleFactor, the reciprocal of the DESeq2 size factor;
-  normalized = raw * scaleFactor.
-- The diff file names assume no RUNTAG (the double underscore); with a
-  tag they are Proj_<no>_<tag>_DiffPeaksEdgeR_V4.xlsx (00.FIXME.md #16).
--->
+<p>In our deliveries made before October 2026 the <code>FDR</code>
+column was a Holm correction, which is much stricter; the same data now
+give more regions at FDR &lt; 0.05.</p>
 </body>
 </html>

@@ -34,7 +34,8 @@ GENOME BAM` is the wrapper, and `pipe.sh` fans it out per sample with the
 run's genome tag (`b37`, `hg38`, `mm10`). The wrapper:
 
 1. Checks the tag against `lib/genomes/GENOMES.tsv` (`bin/genomeInfo.sh`).
-2. Derives read length from the modal `^[0-9]+M$` CIGAR over the first 100k reads.
+2. Takes the read length as the most common length among the first
+   100,000 reads whose CIGAR is a single `M` (`^[0-9]+M$`).
 3. Calls `tss_enrich.R` with `lib/${GENOME}.chrom.sizes` and `lib/${GENOME}_tss.bed`.
 
 **The lib filenames are built by string interpolation from the build
@@ -62,14 +63,20 @@ sorted by signal).
 `--nodup-bam` means what it says. A BAM where duplicates are only flagged
 (`0x400`) gives inflated scores, because every PCR duplicate is counted as
 signal. The script aborts if it sees duplicate-flagged reads. Produce the
-input with `samtools view -F 1024 -b marked.bam > nodup.bam`.
+input with `samtools view -F 1024 -b marked.bam > nodup.bam`. In the
+pipeline the input is the postProcess BAM, from which POST has already
+removed duplicates (`-F 1804`).
 
 ### Algorithm parameters
 
-+/-2000 bp window (4001 bp), 400 bins by linear interpolation, per-read strand
-shift of `-read_len/2` with C-style truncation, Greenleaf normalization against
-the 10 outermost bins on each side (100 bp), score = max of the normalized
-mean profile.
++/-2000 bp window (4001 bp), 400 bins by linear interpolation,
+Greenleaf normalization against the 10 outermost bins on each side
+(100 bp), score = max of the normalized mean profile. Each read is
+shifted by `SHIFT <- -read_len/2`, added on `+` and subtracted on
+`-`, and the position truncated toward zero. For an even read length
+both strands move read_len/2. For an odd one they differ: at 101 bp
+a `+` read moves 51 bp left and a `-` read 50 bp right, where ENCODE
+moves both 51 bp (`00.FIXME.md` #23).
 
 ### Thresholds
 
@@ -90,8 +97,8 @@ pipeline would report. ENCODE has no "failed" band.
 
 ## Where lib/ came from
 
-The porting work was done outside this repo, on juno at
-`/juno/bic/work/socci/Work/Users/ChandarS/LiuY16/TSSEnrich/`:
+The porting work was done outside this repo, in
+`/data1/core001/work/bic/socci/Users/ChandarS/LiuY16/TSSEnrich/`:
 
 - `TSSTest/` — pulled `atac-seq-pipeline_v2.2.3.sif` from ENCODE and ran the
   real `encode_task_tss_enrich.py` on `ED1-1___MD_postProcess.bam` to get a
@@ -131,7 +138,7 @@ vendored file is 2,779 sequences — 25 primary (`chr1`-`chr22`, `chrX`, `chrY`,
 and 199 named viral contigs (HPV, HIV, HCV, CMV, KSHV, HTLV) — sorted by
 decreasing length. That is the **GDC `GRCh38.d1.vd1`** sequence set, which is
 what `getGenomeBuildBAM.sh` calls `hg38`. The first attempt used the UCSC file
-and it was replaced for this reason; the UCSC copy survives on juno as
+and it was replaced for this reason; the UCSC copy is kept there as
 `TSSTest/hg38.chrom.sizes.orig`.
 
 **Rule: the TSS BED comes from ENCODE, the chrom.sizes must match the BAM

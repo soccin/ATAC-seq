@@ -1,3 +1,13 @@
+# ATAC-seq QC metrics, from R. Koche
+
+What the pipeline produces of the list below: 1 as ENCODE's TSS
+enrichment over ENCODE's GENCODE TSS set, not over housekeeping genes
+(`R/TSSEnrich/`); 3 (`*___INS.*`, `*__postInsDistribution.pdf`); 5 as
+the fraction of fragments in the atlas peaks, which is not ENCODE's
+FRiP (`00.FIXME.md` #6); and 6 (`*__ATACSeqQC.pdf`). It does not
+produce 2 or report 4 (`00.FIXME.md` #8). The housekeeping gene lists
+mentioned in 1 are in `attic/QC/`.
+
 Koche, Richard P./Sloan Kettering Institute <kocher@mskcc.org> wrote:
 
 We haven't found one single 'one size fits all' metric for ATAC-seq success, but the combination of the following tends to work well, though I think you're already familiar with all of these based on our past discussions:

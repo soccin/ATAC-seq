@@ -20,7 +20,9 @@ resolves its own location into `SDIR` and is run from a separate per-project
 analysis directory, where all outputs land (`out/`, `callpeaks/`, `SLURM.*/`,
 `atacSeq/`). Never assume the repo dir and the cwd are the same.
 
-Install MACS2 + IDR into a local venv once per repo checkout:
+Install MACS2 into a local venv once per repo checkout, from the repo
+root (`00.SETUP.sh` also installs IDR 2.0.3, which nothing runs;
+`00.FIXME.md` #29):
 
 ```bash
 . 00.SETUP.sh          # creates ./venv from the python3 on PATH (3.10 on IRIS)
@@ -91,9 +93,30 @@ estimates the run time from the input size using the `RATE_*` values
 measured on a full-size run; the other stages are always `SHORT`. A new
 stage whose run time grows with its input needs a measured `RATE_*`.
 
-`deliverResults.sh` has not been ported: it still points at the JUNO
-paths `/ifs/res/seq/pi/invest` and `~/Code/BIC/Delivery`. Deliver the
-`atacSeq/` directory by hand until it is updated (`00.FIXME.md` #2).
+`deliverResults.sh [-n] -d|DELIVERY_DIR[/r_NNN]`, run from the
+analysis directory, delivers a run whose `bin/checkRun.sh` exits 0
+(README.md, "Delivery"). It follows adagio's `bin/deliver.sh`: every
+write to the delivery area goes through `asbot` (`dzdo -u
+svc_core001_bot01`), `-d` derives the folder from the
+`.../Users/<Pi>/<Invest>/Proj_<no>` path, the run folder is the next
+`r_NNN`, and `-n` prints those writes and the permissions-database
+call instead of running them. `GENOME` and `MAPQ` come from
+`00.RUNSTATUS.txt`, `VERSION` from `VERSION.md` of the checkout
+(`bin/getRelease.sh`); the email templates take `{PROJNO}`, `{RUNDIR}`
+and `{VERSION}`. The email lists each folder and its main files with
+a sentence or two each, at the level of the v1 email; how a file is
+made belongs in `docs/output.md` and `docs/methods.md`, not in the
+email. It names only the files a client looks at first; the rest
+are in `docs/output.md`.
+`bin/readme2yaml.R` writes `project.yaml`
+with the delivery folder as `root` and the build tag as `genome`.
+
+The client-facing version is static: the `- **Version:** vX.Y.Z`
+line of `VERSION.md`, changed by hand only when a release is made,
+with a git tag of the same name. Never derive it from git. `pipe.sh`
+records it as `RELEASE=` in `00.RUNSTATUS.txt` and stops if it is
+missing; `VERSION=` there is `git describe --tags --always --long`,
+the exact code, for internal use.
 
 ## Pipeline stages (pipe.sh)
 
@@ -122,8 +145,9 @@ paths `/ifs/res/seq/pi/invest` and `~/Code/BIC/Delivery`. Deliver the
    settings, `--nomodel --shift -75 --extsize 150 --keep-dup all
    --call-summits -p 0.01` (until v2.0.0 `--shift 75` and the default
    `--keep-dup 1`). MACS2's files in `callpeaks/<PREFIX>/` are left as
-   written. Then ENCODE's steps, in its order: sort by `-log10 p`, keep
-   the top 300,000, clamp negative coordinates, clip to the contig ends
+   written. Then ENCODE's steps, in its order: sort by `-log10 p`,
+   clamp negative coordinates, keep the top 300,000, clip to the contig
+   ends
    (`bin/bedClip -truncate`), drop the peaks overlapping
    `lib/genomes/<TAG>.blacklist.bed` and cap the score at 1000. The
    result and its summits are written beside MACS2's files as
@@ -158,7 +182,8 @@ from the analysis directory, which gives it the genome
 (`00.RUNSTATUS.txt`):
 
 ```bash
-Rscript R/diffAnalysisPairwise.R sampleManifest.csv Comparisons.csv [RUNTAG]
+Rscript /path/to/ATAC-seq/R/diffAnalysisPairwise.R \
+    sampleManifest.csv Comparisons.csv [RUNTAG]
 ```
 
 ## Genome handling — read this before touching any genome code
@@ -213,7 +238,7 @@ and can be run by hand from an analysis directory to audit a run.
 - **Check A (pairing)**, in the Count job: each sample's fragment total
   (the sum of every `.summary` row, not rows picked by name) divided by
   mapped reads / 2 (`samtools idxstats`, so Count waits for Index) must
-  be within 0.95 to 1.05. Correct runs give 1.000 (1.000 to 1.005
+  be within 0.95 to 1.05. Correct runs give 1.000 (1.000 to 1.004
   until v2.0.0, when POST kept orphan reads); an unpaired
   BAM, or featureCounts 2.x with `-p` but without `--countReadPairs`,
   gives 2.0.
@@ -242,7 +267,8 @@ The standalone subread binary is not Bioconductor.
   stripping a leading `s_` for `SampleID` and a trailing `[-_]\d+` for `Group`.
   It is usually wrong for real projects and is meant to be hand-edited, after
   which `plotINSStats.R` and `R/analyzeATAC.R` are rerun manually.
-- Groups prefixed `EXC` are dropped from differential analysis.
+- Groups prefixed `EXC` are dropped from differential analysis and
+  from the depth and PCA pages of `R/analyzeATAC.R`.
 - The R scripts map count-matrix column names back to `SampleID` via the
   manifest; `diffAnalysisPairwise.R` supports two naming conventions (BIC
   `*_postProcess*` and PEmap `*___MD*`). Sample-name mismatches surface here
@@ -255,12 +281,14 @@ The standalone subread binary is not Bioconductor.
 - All R scripts depend on helpers from the user's `~/.Rprofile` — `len()`,
   `cc()`, `DATE()`, `halt()`, `suppress()`. They are not defined in this repo
   and are used without qualification; read `~/.Rprofile` before editing.
-- `R/diffAnalysisPairwise.R` and `R/TSSEnrich/tss_enrich.R` are the modernized
-  scripts (native `|>`, roxygen-style docs, snake_case). `R/analyzeATAC.R`,
-  `plotINSStats.R` and `R/getDESeqScaleFactors.R` are older (`%>%`, base R,
-  camelCase). Match the file you are in.
-- Pipeline R scripts print `## START: <script>` / `## END: <script>` for log
-  tracing and wrap library loads in `suppressPackageStartupMessages`.
+- `R/diffAnalysisPairwise.R` is the modernized script (native `|>`,
+  roxygen-style docs, snake_case); `R/TSSEnrich/tss_enrich.R` uses
+  `|>` and snake_case. `R/analyzeATAC.R`, `plotINSStats.R` and
+  `R/getDESeqScaleFactors.R` are older (`%>%`, base R, camelCase).
+  Match the file you are in.
+- Pipeline R scripts print `## START: <script>` / `## END: <script>`
+  for log tracing (`tss_enrich.R` does not yet) and wrap library
+  loads in `suppressPackageStartupMessages`.
 - Always name the method of `p.adjust()`: its default is Holm, which
   made the diff `FDR` column a Holm correction until v2.0.0. The diff
   FDR is `method = "fdr"`.
@@ -319,7 +347,13 @@ count fragments.
   flag translation, and the memory and partition choices.
 - `docs/GENOMES.md` — genome tags, `GENOMES.tsv`, the genome files, and
   what ENCODE does with mitochondrial reads (with links).
-- `docs/UPDATE_TO_B38.md`, `docs/CHECKLIST_B38.md` — the plan for the
+- `docs/output.md`, `docs/methods.md` — the client-facing description
+  of the delivered files and of the methods, rendered to HTML and PDF
+  by `docs/MAKE_DOCS.sh`. Update them with any change to an output
+  or a method.
+- `R/TSSEnrich/README.md` — the TSS enrichment port, where its
+  reference files came from, and ENCODE's thresholds per genome.
+- `attic/UPDATE_TO_B38.md`, `attic/CHECKLIST_B38.md` — the plan for the
   GRCh38 rollout, done in v1.1.0 under the tag `b38` (now `hg38`).
   Historical: the checkboxes were never ticked and the line numbers are
   out of date.

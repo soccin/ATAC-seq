@@ -2,14 +2,16 @@
 
 ## Introduction
 
-The results are delivered in one folder, `atacSeq`, with four parts.
-`macs` holds the peaks called for each sample. `atlas` holds the merged
-peak atlas of the project and the raw count matrix over it, which is
-the input to any normalization or differential analysis. `bigwig`
-holds a normalized signal track per sample for a genome browser.
-`metrics` holds the QC metrics and plots. Projects with replicates
-have a fifth part, `diff`, with the differential accessibility
-analysis. How each file was made is described in `methods.md`.
+The results are delivered in one folder, `atacSeq`. `macs` holds the
+peaks called for each sample. `atlas` holds the merged peak atlas of
+the project and the raw count matrix over it, which is the input to
+any normalization or differential analysis. `bigwig` holds a
+normalized signal track per sample for a genome browser. `metrics`
+holds the QC metrics and plots. Projects with replicates have a
+`diff` folder with the differential accessibility analysis. `docs`
+holds this document (`output.pdf`, `output.html`) and the methods
+document (`methods.pdf`, `methods.html`), which describes how each
+file was made.
 
 In the names below, `<sample>` is the sample ID of the BAM and `<no>`
 is the project number (for example `18143`). Coordinates are 0-based
@@ -45,9 +47,14 @@ atacSeq
 │   ├── <sample>_postProcess.tss_enrich.csv
 │   ├── <sample>_postProcess.tss_enrich.pdf
 │   └── <sample>_postProcess.large_tss_enrich.png
+├── docs
+│   ├── output.pdf
+│   ├── output.html
+│   ├── methods.pdf
+│   └── methods.html
 └── diff                      (projects with replicates only)
-    ├── Proj_<no>__DiffPeaksEdgeR_V4.xlsx
-    └── Proj_<no>__DiffPeaks_V4.pdf
+    ├── Proj_<no>__DiffPeaksEdgeR_V5.xlsx
+    └── Proj_<no>__DiffPeaks_V5.pdf
 ```
 
 The filtered BAM files (`<sample>_postProcess.bam`) are not delivered.
@@ -78,7 +85,7 @@ unchanged:
   header lines record the MACS2 command and settings.
 
 **Filtered peaks.** The same peaks after the ENCODE post-processing
-steps (see `methods.md`): at most 300,000 peaks per sample, the most
+steps (see `methods.pdf`): at most 300,000 peaks per sample, the most
 significant by p-value, clipped to the chromosome ends, with every
 peak that overlaps the ENCODE blacklist removed and the score capped
 at 1000. Peaks keep their MACS2 names, so a peak can be looked up in
@@ -165,9 +172,10 @@ group:
 1. The percentage of each sample's fragments that fall in the atlas
    (`InPeaks`) against those outside it. This is a signal-to-noise
    measure; a sample with a much lower percentage than the others may
-   have failed. It is computed against the pooled atlas, so it is
-   higher than ENCODE's per-sample FRiP and should not be read
-   against ENCODE's FRiP standard.
+   have failed. It is computed against the pooled atlas, and its
+   denominator includes mitochondrial fragments, so it is not ENCODE's
+   per-sample FRiP and should not be read against ENCODE's FRiP
+   standard.
 2. The same as counts, in millions of fragments.
 3. Sequencing depth in peaks: each sample's fragments in the atlas,
    its ratio to the median sample, and the share of the peaks used
@@ -190,10 +198,10 @@ group:
 
 ### Depth table (`Proj_<no>__ATACSeqDepth.csv`)
 
-The numbers of page 3, one row per sample: `FragmentsInPeaks`,
-`RatioToMedian`, `FracKeptPeaksLT5` (the share of the peaks used for
-the PCA with fewer than 5 fragments) and `LowDepth` (`TRUE` below half
-the median).
+The numbers of page 3, one row per sample: `SampleID`, `Group`,
+`FragmentsInPeaks`, `RatioToMedian`, `FracKeptPeaksLT5` (the share of
+the peaks used for the PCA with fewer than 5 fragments) and
+`LowDepth` (`TRUE` below half the median).
 
 ### Insert-size distributions (`Proj_<no>__postInsDistribution.pdf`)
 
@@ -221,7 +229,8 @@ histogram plot.
 
 ### Mitochondrial fraction (`<sample>_postProcess___MITO.txt`)
 
-One line per sample with the columns `SAMPLE`, `MITO_CONTIG`, `READS`
+A header line and one line for the sample, with the columns `SAMPLE`,
+`MITO_CONTIG`, `READS`
 (all reads of the filtered BAM), `MITO_READS` (those on the
 mitochondrial contig) and `FRAC_MITO`. Mitochondrial reads are left
 out of the peaks, the atlas and the signal tracks. The fraction is
@@ -268,7 +277,7 @@ For projects with replicates, pairwise comparisons between groups are
 delivered in the `diff` folder as two files, named with the project
 number and, when one was used, a run tag:
 
-- `Proj_<no>__DiffPeaksEdgeR_V4.xlsx`: one `Summary` sheet with the
+- `Proj_<no>__DiffPeaksEdgeR_V5.xlsx`: one `Summary` sheet with the
   number of significant regions per comparison, then one sheet per
   comparison, named `<group2>_v_<group1>`, listing the regions
   significant at FDR < 0.05. Columns: `PeakNo` (the atlas region),
@@ -279,21 +288,23 @@ number and, when one was used, a run tag:
   `Length`, and the ChIPseeker annotation: `SYMBOL` and `GENENAME` of
   the nearest gene, `annotation` (promoter, exon, intron, distal
   intergenic, ...) and `distanceToTSS`.
-- `Proj_<no>__DiffPeaks_V4.pdf`: the PCA of the samples (with and
-  without labels), then for each comparison an MA plot (log fold
+- `Proj_<no>__DiffPeaks_V5.pdf`: the PCA of the samples (with and
+  without labels; the point size is the sample's fragments in peaks,
+  as in the QC report), then for each comparison an MA plot (log fold
   change against mean log CPM) and a volcano plot (log fold change
-  against p-value), with significant regions in red.
+  against p-value, on a log scale). Regions significant at FDR < 0.05
+  are colored by the group they are more accessible in, with the
+  count of each in the legend; the dashed line on the volcano plot is
+  the p-value at which the FDR cut falls.
+
+The names above are those without a run tag (hence the double
+underscore); with a tag `<tag>` they are
+`Proj_<no>_<tag>_DiffPeaksEdgeR_V5.xlsx` and
+`Proj_<no>_<tag>_DiffPeaks_V5.pdf`.
 
 Samples whose group starts with `EXC` were excluded from the
 differential analysis.
 
-<!--
-DRAFT NOTES (remove before delivery)
-
-- scaleFactorsDESeq2.csv is not staged to atacSeq/ (00.FIXME.md #16).
-  When it is, add a section: columns are the BAM path (unnamed first
-  column) and scaleFactor, the reciprocal of the DESeq2 size factor;
-  normalized = raw * scaleFactor.
-- The diff file names assume no RUNTAG (the double underscore); with a
-  tag they are Proj_<no>_<tag>_DiffPeaksEdgeR_V4.xlsx (00.FIXME.md #16).
--->
+In our deliveries made before October 2026 the `FDR` column was a
+Holm correction, which is much stricter; the same data now give more
+regions at FDR < 0.05.

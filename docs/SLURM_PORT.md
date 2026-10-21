@@ -199,7 +199,7 @@ A failing Slurm client call must not abort a run that is working.
 "all jobs done", so a single `squeue` failure (controller timeout) makes
 it return while the stage is still running. `bCheck` used to retry
 `sacct` for 60 s, then count the still-running jobs as failures and abort
-the run, and the `EXIT` trap cancelled every job. A failed `sacct` call
+the run, and the `EXIT` trap canceled every job. A failed `sacct` call
 ended `pipe.sh` at once, since `rows=$(...)` under `set -e` exits on a
 nonzero status. `bCheck NAME NJOBS` now:
 
@@ -231,8 +231,9 @@ PEMapper port:
 check that every sample has its bigWig, insert-size metrics,
 mitochondrial fraction, TSS enrichment and five peak files (MACS2's
 three and the two `blacklistFiltered` files), and that the atlas, count
-matrix and its `.summary`, count-check report, scale factors and QC PDFs
-exist. Any earlier exit runs the `EXIT` trap, which writes
+matrix and its `.summary`, count-check report, scale factors, QC PDFs
+and depth table (`*__ATACSeqDepth.csv`) exist. Any earlier exit runs
+the `EXIT` trap, which writes
 `STATUS=FAILED` with the stage and cancels the rest of the run's jobs.
 When the exit came from `bCheck`, the trap also puts the reason in
 `MESSAGE`: `bCheck` leaves the `sacct` rows of the failed jobs in
@@ -340,7 +341,9 @@ first, and stops up front if they differ or if the build is not one
 build such as hg19 failed in every POST job. For mm10 the TSSE stage is
 skipped with a warning instead of failing the run after stage 6. The
 Count stage passes `-Q $MAPQ` to featureCounts instead of a fixed `-Q
-10`.
+10`. Since v2.0.0 the tag is `hg38`, mm10 has its TSS files, and there
+is no skip: `pipe.sh` stops before submitting anything if a genome's
+TSS files are missing.
 
 ## Validation
 
@@ -349,7 +352,7 @@ about 1.2M reads each) run from `PortATACseq/test01`. Control job
 18237528: 70 stage jobs, all `COMPLETED`, 5m38s wall, every deliverable
 present under `atacSeq/`. A first attempt (18236503) failed at DESEQ only
 because the test harness overrode `R_LIBS_USER`; `bCheck` caught it and
-the `EXIT` trap cancelled the queue, which is the failure path working.
+the `EXIT` trap canceled the queue, which is the failure path working.
 
 The genome check and the TSSE skip were tested on 2026-10-10 with the
 same BAMs. A normal run (test15, control job 18460598) completed with 58
@@ -381,7 +384,7 @@ BAMs (`repro_T1_cwd/rep1.txt`).
 | Repeat test, v2.1.1 with the Count options, 20 runs each at `-T 2, 4, 8, 16, 32`, temp dir on `/localscratch` and on `/scratch` | 0 of 200 bad: every run exited 0, passed Check A, and gave a matrix identical to the reference (v1.6.0 at `-T 10` failed 6 of 20 with the shared and 19 of 20 with the local temp dir) |
 
 Check B was calibrated before the code was written: `samtools view -L`
-distinct read names over the atlas equalled featureCounts `Assigned`
+distinct read names over the atlas equaled featureCounts `Assigned`
 exactly on all 11 downsampled and all 12 full-size Proj_18143_B BAMs,
 as did `bedtools intersect -u -split`, which took about 2.2 times as
 long.
@@ -447,7 +450,7 @@ reads whose name is not there twice (orphans) and the reads with
 | --- | --- |
 | test43, the 11 hg38 BAMs with `-q 20` (control job 19283036) | `COMPLETED`, 69 of 69 jobs; Checks A and B pass, Check A exactly 1.0000 for every sample (test39 1.0003-1.0005). 0 orphans (test39 116-305 per sample); 1,126-2,164 reads with `|TLEN| <= 30` kept per sample; postProcess BAMs 0.2-0.4% larger. Filtered peaks 150,408-266,678; 9 samples gained 136-477 and GD1_1 and GD1_2 lost 2,352 and 1,510. Both losses are in MACS2's own output and among peaks with a pileup of 1 (GD1_1 146,348 to 143,782, GD1_2 103,839 to 102,023), which pass `-p 0.01` only just in 100x downsampled data; peaks with a pileup of 2 or more increased slightly. Atlas 902,445 peaks (test39 901,681) |
 | test44, the 4 b37 BAMs, MAPQ 10 (control job 19283038) | `COMPLETED`, 27 of 27 jobs; Checks A and B pass, Check A exactly 1.0000. 0 orphans (test40 302-371); 2,188-5,162 reads with `|TLEN| <= 30` kept; filtered peaks within 7 of test40's for the 3 capped samples, 647 more for the fourth. Atlas 727,558 peaks (test40 727,125) |
-| POST run time with the name sort and `fixmate` | 25-41 s (hg38) and 43-53 s (b37), against 24-34 s and 33-41 s; to be measured on a full-size run |
+| POST run time with the name sort and `fixmate` | 25-41 s (hg38) and 43-53 s (b37), against 24-34 s and 33-41 s; full size in the next section |
 
 ### Insert-size and 5' clip filters (v2.0.0)
 
@@ -590,9 +593,9 @@ every cell of the count matrix.
 
 ## Not done
 
-- `deliverResults.sh` still points at `/ifs/res/seq/pi/invest` and
-  `~/Code/BIC/Delivery`; not a scheduler change and not touched. It is
-  `00.FIXME.md` #2.
+- `deliverResults.sh` was not part of the port (not a scheduler
+  change); it was rewritten later for the IRIS delivery area
+  (`00.FIXME.md` #2, now in `attic/zzISSUES.md`).
 - The `RATE_*` values come from one project on one genome, and
   `RATE_POST` was measured before POST name-sorted every BAM. On the
   full-size v2.x-pre5 run the slowest POST job took 1:18:32 in `SHORT`

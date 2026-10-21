@@ -59,7 +59,18 @@ if [ ! -e "$SDIR/venv" ]; then
     exit 1
 fi
 
-SCRIPT_VERSION=$(git --git-dir=$SDIR/.git --work-tree=$SDIR describe --always --long)
+SCRIPT_VERSION=$(git --git-dir=$SDIR/.git --work-tree=$SDIR describe --tags --always --long)
+
+#
+# The client-facing release, set by hand in VERSION.md; VERSION (git)
+# is the exact code.
+#
+if ! SCRIPT_RELEASE=$($SDIR/bin/getRelease.sh); then
+    echo
+    echo "    FATAL ERROR: no release in $SDIR/VERSION.md"
+    echo
+    exit 1
+fi
 PIPENAME="ATAC-Seq"
 
 ##
@@ -96,7 +107,7 @@ COMMAND_LINE=$*
 function usage {
     echo
     echo "usage: $PIPENAME/pipe.sh [-q MAPQ] BAM1 [BAM2 ... BAMN]"
-    echo "version=$SCRIPT_VERSION"
+    echo "release=$SCRIPT_RELEASE version=$SCRIPT_VERSION"
     echo ""
     echo "Default MAPQ==$MAPQ"
     echo
@@ -112,6 +123,7 @@ echo "MAPQ = ${MAPQ}"
 BAMS=$*
 echo SDIR=$SDIR
 echo BAMS=$BAMS
+echo RELEASE=$SCRIPT_RELEASE
 echo VERSION=$SCRIPT_VERSION
 
 #
@@ -190,6 +202,7 @@ RC=$RUN_RC
 MESSAGE=$RUN_MESSAGE
 STARTED=$RUN_STARTED
 FINISHED=$RUN_FINISHED
+RELEASE=$SCRIPT_RELEASE
 VERSION=$SCRIPT_VERSION
 CTRL_JOBID=$CTRL_JOBID
 CTRL_LOG=$CTRL_LOG

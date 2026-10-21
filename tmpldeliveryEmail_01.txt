@@ -1,7 +1,8 @@
-Subject: Results for Project ATAC_PROJECT_NUM ATACseq ready
-The output for the ATACseq pipeline is now ready. You can access it at:
+Subject: Results for Project {PROJNO} ATACseq ready
 
-   https://bicdelivery.mskcc.org/project/ATAC_PROJECT_NUM/atacseq/r_001
+The output for the ATACseq pipeline ({VERSION}) is now ready. You can access it at:
+
+   https://bicdelivery.mskcc.org/project/{PROJNO}/atacseq/{RUNDIR}
 
 The ATACseq specific results are in the folder
 
@@ -9,25 +10,25 @@ The ATACseq specific results are in the folder
 
 Where you will find the following subfolders:
 
-- bigwig: These are the coverage profiles in bigwig format. Can be loaded into IGV to get a figure of the coverage. 
+- bigwig: These are the coverage profiles in bigwig format, scaled to 10 million reads. Can be loaded into IGV to get a figure of the coverage.
 
-- macs: the raw output from the MACS peak calling program.
+- macs: the output from the MACS2 peak calling program, one folder per sample. The *.blacklistFiltered.* files are the same peaks with those in ENCODE blacklisted regions removed; use these for any analysis of a sample's peaks.
 
-- atlas: this contains a bed and txt file that has the merged list of peaks found in all samples
+- atlas: the merged list of peaks found in all samples (macsPeaksMerged.saf) and the raw count matrix over it (peaks_raw_fcCounts.txt), the input for any normalization or differential analysis.
 
 - metrics: Plots of various QC metrics for the samples.
 
-   - Proj_ATAC_PROJECT_NUM__postInsDistribution.pdf: simple fragment length distribution. There should be some signature of nucleosomal periodicity.
+   - Proj_{PROJNO}__postInsDistribution.pdf: simple fragment length distribution. There should be some signature of nucleosomal periodicity.
 
-   - Proj_ATAC_PROJECT_NUM__ATACSeqQC.pdf
+   - Proj_{PROJNO}__ATACSeqQC.pdf
 
-      - Plots of Signal Portion of Tags (SPoT); which shows both the number and percentage of reads in peaks.
+      - Plots of the number and percentage of each sample's fragments in peaks.
 
-      - PCA from the peak atlas. Can be used to look for potential outliers
+      - Sequencing depth in peaks; samples below half the median are marked LOW DEPTH.
 
-   - tssEnrich: TSS Enrichment scores per sample.
+      - PCA from the peak atlas. Can be used to look for potential outliers. A second PCA, with every sample downsampled to the same depth, shows whether an outlier is one only because of its depth.
 
-      - Proj_ATAC_PROJECT_NUM__tssEnrich.csv: per-sample TSS enrichment scores. The tss_enrich column is the key QC metric; values above 6 are generally considered high quality.
+   - <sample>_postProcess.tss_enrich.csv: TSS enrichment score per sample. The tss_enrich column is the key QC metric; ENCODE considers values above 7 ideal for hg38 (above 10 for b37, above 15 for mm10). The plots tss_enrich.pdf and large_tss_enrich.png show the read coverage centered on transcription start sites.
 
-      - Per-sample TSS enrichment plots (tss_enrich.pdf) showing read coverage centered on transcription start sites.
+   - <sample>_postProcess___INS.pdf: Picard's insert size histogram per sample.
 
