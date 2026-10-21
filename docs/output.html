@@ -53,7 +53,9 @@ mitochondrial, unplaced and other contigs are left out.</p>
 ├── atlas
 │   ├── macsPeaksMerged.saf
 │   ├── peaks_raw_fcCounts.txt
-│   └── peaks_raw_fcCounts.txt.summary
+│   ├── peaks_raw_fcCounts.txt.summary
+│   ├── peaks_raw_fcCounts.checks.txt
+│   └── scaleFactorsDESeq2.csv
 ├── bigwig
 │   └── &lt;sample&gt;_postProcess.shifted.10mNorm.bw
 ├── macs
@@ -192,6 +194,31 @@ analysis, and are what to use for any analysis that needs counts.</p>
 <code>Unassigned_*</code> rows; <code>Unassigned_NoFeatures</code> is
 fragments that overlap no atlas region). The sum of the column is the
 number of fragments in the filtered BAM.</p>
+<h3 id="count-checks-peaks_raw_fccounts.checks.txt">Count checks
+(<code>peaks_raw_fcCounts.checks.txt</code>)</h3>
+<p>The two checks the counts passed before they were used (see
+<code>methods.pdf</code>), two lines per sample:</p>
+<ul>
+<li><code>CHECK_A</code>: the sample’s fragment total in the count
+summary (<code>frag</code>) against half its mapped reads
+(<code>pairs</code>). The <code>ratio</code> must be between 0.95 and
+1.05.</li>
+<li><code>CHECK_B</code>: the fragments featureCounts assigned to the
+atlas (<code>assigned</code>) against the same number counted with
+samtools (<code>samtools</code>). The difference (<code>diff</code>)
+must be 0.</li>
+</ul>
+<p>The last line is the overall result. A run is delivered only if every
+line is <code>OK</code>.</p>
+<h3 id="scale-factors-scalefactorsdeseq2.csv">Scale factors
+(<code>scaleFactorsDESeq2.csv</code>)</h3>
+<p>One row per sample, named by the path of its filtered BAM as in the
+count matrix (with <code>/</code> and <code>-</code> replaced by
+<code>.</code>), and one column, <code>scaleFactor</code>: the
+reciprocal of the DESeq2 size factor computed from the raw counts. A
+normalized count is the raw count multiplied by the sample’s scale
+factor. No delivered file has them applied; the signal tracks are scaled
+to 10 million reads instead.</p>
 <h2 id="signal-tracks-bigwig">Signal Tracks (<code>bigwig</code>)</h2>
 <p><code>&lt;sample&gt;_postProcess.shifted.10mNorm.bw</code> is the
 coverage of the filtered, Tn5-shifted reads of the sample, scaled to 10

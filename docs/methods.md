@@ -122,14 +122,15 @@ independent checks before use: each sample's fragment total must be
 half its mapped reads, within 5%, and the number of fragments in the atlas,
 counted a second time with samtools alone, must equal featureCounts'
 assigned total exactly. A run whose counts fail either check is
-stopped.
+stopped. The result of both checks for each sample is delivered with
+the counts.
 
 **Normalization.** Size factors were computed from the raw count
 matrix with DESeq2 (Love 2014; median-of-ratios method, Anders 2010)
 and written as scale factors, the reciprocal of the DESeq2 size
 factor, so that a normalized count is the raw count multiplied by the
-sample's scale factor. They are not applied to any delivered file and
-are not part of the standard delivery; they are available on request.
+sample's scale factor. They are delivered with the counts but are not
+applied to any delivered file.
 
 **QC.** The insert-size distribution of the filtered BAM was computed
 with Picard CollectInsertSizeMetrics over a fixed range of 0 to 1000

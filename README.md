@@ -82,7 +82,7 @@ below, is in `atacSeq/metrics/*___MITO.txt`.
   peak atlas. Two checks must pass before the run continues (the
   fragment total against the mapped reads, and an independent samtools
   count of the fragments in peaks); the results are in
-  `peaks_raw_fcCounts.checks.txt`.
+  `atacSeq/atlas/peaks_raw_fcCounts.checks.txt`.
 
 - BigWig: coverage of the Tn5-shifted reads, with no read extension,
   scaled to 10 million reads (R. Koche's method, `NOTES.md`). The
@@ -114,18 +114,22 @@ below, is in `atacSeq/metrics/*___MITO.txt`.
 
 ## Output
 
-Delivered in `atacSeq/` in the analysis directory:
+Every result of the run, and of the differential analysis, is written
+to `atacSeq/` in the analysis directory, which is what is delivered:
 
 | Directory | Contents |
 | --- | --- |
-| `atlas/` | `macsPeaksMerged.saf` (the atlas; SAF, 1-based), `peaks_raw_fcCounts.txt` (raw counts) and its `.summary` |
+| `atlas/` | `macsPeaksMerged.saf` (the atlas; SAF, 1-based), `peaks_raw_fcCounts.txt` (raw counts) and its `.summary`, the count checks `peaks_raw_fcCounts.checks.txt`, the DESeq2 scale factors `scaleFactorsDESeq2.csv` (inverted, `NOTES.md`) |
 | `bigwig/` | `<SID>_postProcess.shifted.10mNorm.bw` |
 | `macs/<SID>_postProcess.shifted/` | MACS2's files and the two `blacklistFiltered` files |
 | `metrics/` | per sample `___INS.txt`/`.pdf`, `___MITO.txt`, `tss_enrich.csv`/`.pdf`, `large_tss_enrich.png`; for the run `*__postInsDistribution.pdf`, `*__ATACSeqQC.pdf` and `*__ATACSeqDepth.csv` |
+| `diff/` | the differential analysis and pathway enrichment, if run (below); the `.rds` files are not delivered |
 
-The count-check report `peaks_raw_fcCounts.checks.txt`, the DESeq2
-scale factors `scaleFactorsDESeq2.csv` (inverted, `NOTES.md`) and
-`sampleManifest.csv` stay in the analysis directory.
+The rest of the analysis directory is work and run records:
+`out/<SID>/` and `callpeaks/` (per-sample work; the delivered files
+are copied from them into `atacSeq/macs` and `atacSeq/metrics`),
+`SLURM.*/` (logs), `00.RUNSTATUS.txt`, and `sampleManifest.csv`, which
+you edit (below).
 
 `docs/output.md` describes every delivered file for the client and
 `docs/methods.md` the methods; both are rendered to HTML and PDF by
@@ -171,6 +175,7 @@ Holm's correction, which is much stricter. Samples whose `Group` starts
 with `EXC` are left out. Every count matrix column must have a manifest
 row (`MapID` is the BAM's SM tag), and every row a column.
 
+It reads the counts from `atacSeq/atlas` and writes to `atacSeq/diff`.
 The results are `<PROJ>_<RUNTAG>_DiffPeaksEdgeR_V5.xlsx` (a summary
 sheet and, per comparison, the significant peaks with their nearest
 gene) and `<PROJ>_<RUNTAG>_DiffPeaks_V5.pdf` (PCA, MA and volcano
@@ -210,7 +215,8 @@ more accessible in Group2.
 
 Human builds use the human MSigDB and mouse the mouse MSigDB
 (`MSIGDB_DB`), so the collection names differ (`H` vs `MH`, `C5` vs
-`M5`). The output is `<PROJ>_<RUNTAG>_PathwayGSEA.xlsx` (summary, a
+`M5`). The output, in `atacSeq/diff` beside its input, is
+`<PROJ>_<RUNTAG>_PathwayGSEA.xlsx` (summary, a
 sheet per comparison, parameters), `.pdf` (NES of the top sets) and
 `.rds` (the gene ranks and full results; not delivered). Two runs
 with different options need different `--out-tag`s, or the second
@@ -241,10 +247,10 @@ the run `COMPLETED` and you can read the delivery folder, then:
   `README.txt` found going up from the analysis directory to
   `Proj_<no>`;
 - copies, as `svc_core001_bot01`, `atacSeq/` to `r_NNN/atacSeq`,
-  `docs/output` and `docs/methods` of this checkout (PDF and HTML)
-  to `atacSeq/docs`, and the project's `*_DiffPeaksEdgeR_V5.xlsx`,
-  `*_DiffPeaks_V5.pdf`, `*_PathwayGSEA.xlsx` and `*_PathwayGSEA.pdf`
-  (any RUNTAG) to `atacSeq/diff`;
+  without the `.rds` files of `atacSeq/diff`, and `docs/output` and
+  `docs/methods` of this checkout (PDF and HTML) to `atacSeq/docs`.
+  Diff or GSEA files left in the analysis directory by an older
+  checkout are not delivered; the script warns and names them;
 - writes the email, from `tmpldeliveryEmail_*.txt`, to
   `deliveryEmail_<no>_r_NNN_<yymmdd>.txt`;
 - registers the run with the bicdelivery permissions database

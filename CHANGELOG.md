@@ -4,7 +4,41 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-No change to any existing result; the version stays v2.0.0.
+No change to the content of any existing result; the version stays
+v2.0.0. Two files are newly delivered, and results are written to
+`atacSeq/` directly (below).
+
+### Changed
+
+- **Results are written to `atacSeq/`, not to the top of the
+  analysis directory.** The atlas, counts, count checks and scale
+  factors go to `atacSeq/atlas`, the bigWigs to `atacSeq/bigwig`, the
+  QC reports of `plotINSStats.R` and `analyzeATAC.R` to
+  `atacSeq/metrics`, and the files of `diffAnalysisPairwise.R` and
+  `pathwayGSEA.R` (`.xlsx`, `.pdf`, `.rds`) to `atacSeq/diff`. The
+  scripts read their inputs from there. Staging copies only
+  `callpeaks/` and the per-sample metrics of `out/`; the old copies of
+  the counts and QC reports at the top level are gone. The top level
+  keeps `out/`, `callpeaks/`, `SLURM.*/`, `00.RUNSTATUS.txt` and
+  `sampleManifest.csv`. Checked on Proj_18143 in a scratch copy:
+  `scaleFactorsDESeq2.csv` and `*__ATACSeqDepth.csv` are byte-identical
+  to the run's.
+- **Newly delivered:** `atacSeq/atlas/peaks_raw_fcCounts.checks.txt`
+  (the results of Checks A and B) and
+  `atacSeq/atlas/scaleFactorsDESeq2.csv`, each with a section in
+  `docs/output.md`.
+- `deliverResults.sh` delivers `atacSeq/` without
+  `atacSeq/diff/*.rds`; it no longer copies diff files from the top
+  level, and warns when it finds any there.
+- `pipe.sh` builds `sampleManifest.csv` without the `mapid`, `sid` and
+  `gid` files (same rows).
+- `makeBigWigFromBEDZ.sh` takes the output directory:
+  `GENOME BEDZ OUTDIR [SCALEFACTOR]`. Its unused scale-factor branch
+  read the BED path as the scale factor; it now reads `SCALEFACTOR`.
+- In an analysis directory made before this change,
+  `diffAnalysisPairwise.R` reads the copy of the counts that staging
+  put in `atacSeq/atlas`, so it still runs; its files now go to
+  `atacSeq/diff`.
 
 ### New
 
@@ -19,7 +53,7 @@ No change to any existing result; the version stays v2.0.0.
   set); the default is `H,C2:CP,-C2:CP:KEGG_LEGACY,C5:GO:BP` for
   human and `MH,M2:CP,M5:GO:BP` for mouse, which uses the mouse
   MSigDB. Output: `*_PathwayGSEA.xlsx`, `.pdf` and `.rds`;
-  `deliverResults.sh` delivers the xlsx and PDF to `atacSeq/diff`
+  `deliverResults.sh` delivers the xlsx and PDF in `atacSeq/diff`
   with an email section (`tmpldeliveryEmail_03.txt`).
 - `diffAnalysisPairwise.R` also writes `*_DiffPeaksEdgeR_V5.rds`,
   every tested peak of every comparison (not delivered). Its xlsx
@@ -31,6 +65,9 @@ No change to any existing result; the version stays v2.0.0.
 
 ### Fixes
 
+- The delivery email had no blank line between the GSEA section and
+  `- docs:`; `tmpldeliveryEmail_03.txt` now ends with one, as `_02`
+  does.
 - `deliverResults.sh` run through a path that passes through a home
   directory (e.g. `~/Work/...`, a symlink to `/data1/...`) stopped
   after copying `atacSeq/`: the service account could not read the

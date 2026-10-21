@@ -27,7 +27,9 @@ atacSeq
 ├── atlas
 │   ├── macsPeaksMerged.saf
 │   ├── peaks_raw_fcCounts.txt
-│   └── peaks_raw_fcCounts.txt.summary
+│   ├── peaks_raw_fcCounts.txt.summary
+│   ├── peaks_raw_fcCounts.checks.txt
+│   └── scaleFactorsDESeq2.csv
 ├── bigwig
 │   └── <sample>_postProcess.shifted.10mNorm.bw
 ├── macs
@@ -152,6 +154,30 @@ For each sample, the number of fragments assigned to the atlas
 `Unassigned_*` rows; `Unassigned_NoFeatures` is fragments that
 overlap no atlas region). The sum of the column is the number of
 fragments in the filtered BAM.
+
+### Count checks (`peaks_raw_fcCounts.checks.txt`)
+
+The two checks the counts passed before they were used (see
+`methods.pdf`), two lines per sample:
+
+- `CHECK_A`: the sample's fragment total in the count summary
+  (`frag`) against half its mapped reads (`pairs`). The `ratio` must
+  be between 0.95 and 1.05.
+- `CHECK_B`: the fragments featureCounts assigned to the atlas
+  (`assigned`) against the same number counted with samtools
+  (`samtools`). The difference (`diff`) must be 0.
+
+The last line is the overall result. A run is delivered only if every
+line is `OK`.
+
+### Scale factors (`scaleFactorsDESeq2.csv`)
+
+One row per sample, named by the path of its filtered BAM as in the
+count matrix (with `/` and `-` replaced by `.`), and one column,
+`scaleFactor`: the reciprocal of the DESeq2 size factor computed from
+the raw counts. A normalized count is the raw count multiplied by the
+sample's scale factor. No delivered file has them applied; the signal
+tracks are scaled to 10 million reads instead.
 
 ## Signal Tracks (`bigwig`)
 
