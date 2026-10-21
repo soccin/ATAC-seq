@@ -54,7 +54,9 @@ atacSeq
 │   └── methods.html
 └── diff                      (projects with replicates only)
     ├── Proj_<no>__DiffPeaksEdgeR_V5.xlsx
-    └── Proj_<no>__DiffPeaks_V5.pdf
+    ├── Proj_<no>__DiffPeaks_V5.pdf
+    ├── Proj_<no>__PathwayGSEA.xlsx    (when requested)
+    └── Proj_<no>__PathwayGSEA.pdf     (when requested)
 ```
 
 The filtered BAM files (`<sample>_postProcess.bam`) are not delivered.
@@ -308,3 +310,43 @@ differential analysis.
 In our deliveries made before October 2026 the `FDR` column was a
 Holm correction, which is much stricter; the same data now give more
 regions at FDR < 0.05.
+
+### Pathway enrichment (`Proj_<no>__PathwayGSEA.xlsx`)
+
+When requested, each comparison is also tested for pathway
+enrichment (GSEA) against MSigDB gene sets. Every tested region is
+assigned to its nearest gene; regions farther from that gene's TSS
+than a set distance (by default 1 kb, i.e. promoter regions only) are
+dropped, and each gene is scored by its region with the strongest
+change: sign(log fold change) x -log10(p-value). The `Parameters`
+sheet gives the distance and the collections used. The genes ranked
+by this score are tested against each collection:
+
+- `Summary`: per comparison and collection, `GenesRanked`,
+  `SetsTested` (sets of 15 to 500 ranked genes), and the number of
+  sets with adjusted p < 0.05 and a positive (`SigPositiveNES`) or
+  negative (`SigNegativeNES`) enrichment score.
+- One sheet per comparison, named as in the differential analysis,
+  with every gene set tested. Columns: `Collection` (e.g. `H`,
+  `C2:CP`, `C5:GO:BP`), `Subcollection` (e.g. `CP:REACTOME`),
+  `pathway` (the MSigDB set name), `NES` (normalized enrichment
+  score: positive means the set's genes are more accessible in group
+  2, negative in group 1), `pval`, `padj` (Benjamini-Hochberg within
+  the collection), `log2err` (the error of the p-value estimate),
+  `ES` (enrichment score), `size` (ranked genes in the set) and
+  `leadingEdge` (the genes that drive the enrichment). A few sets may
+  have no `NES`, `pval` or `padj`: the p-value could not be
+  estimated for them.
+- `Parameters`: the settings and the MSigDB and software versions.
+
+`Proj_<no>__PathwayGSEA.pdf` has one page per comparison and
+collection: the NES of the 15 sets with the smallest p-value on each
+side of 0, colored by the group they are more accessible in when
+adjusted p < 0.05, grey otherwise.
+
+Human data use the human MSigDB collections; the default is Hallmark
+(`H`), the canonical pathways (`C2:CP`: Reactome, WikiPathways,
+KEGG MEDICUS, BioCarta, PID; not the legacy KEGG sets) and GO
+biological process (`C5:GO:BP`). Mouse data use the mouse MSigDB
+(`MH`, `M2:CP`, `M5:GO:BP`). As for the differential analysis, a run
+tag `<tag>` gives `Proj_<no>_<tag>_PathwayGSEA.xlsx`.

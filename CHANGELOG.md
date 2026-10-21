@@ -2,6 +2,43 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+No change to any existing result; the version stays v2.0.0.
+
+### New
+
+- **Pathway enrichment (GSEA)**, `R/pathwayGSEA.R`: preranked GSEA
+  (fgsea 1.36.2, `fgseaMultilevel`) of each comparison of
+  `diffAnalysisPairwise.R` against MSigDB 2026.1 (msigdbr 26.1.1).
+  Genes are ranked by `sign(logFC) * -log10(PValue)` of their peak
+  with the largest absolute value, among the peaks within 1 kb of
+  their nearest TSS (`--mode promoter`, the default) or within
+  `--max-distance` (`--mode distance`). `--collections` selects the
+  gene sets (`H`, `C2:CP:REACTOME`, `C5:GO:BP`, ...; `-` removes a
+  set); the default is `H,C2:CP,-C2:CP:KEGG_LEGACY,C5:GO:BP` for
+  human and `MH,M2:CP,M5:GO:BP` for mouse, which uses the mouse
+  MSigDB. Output: `*_PathwayGSEA.xlsx`, `.pdf` and `.rds`;
+  `deliverResults.sh` delivers the xlsx and PDF to `atacSeq/diff`
+  with an email section (`tmpldeliveryEmail_03.txt`).
+- `diffAnalysisPairwise.R` also writes `*_DiffPeaksEdgeR_V5.rds`,
+  every tested peak of every comparison (not delivered). Its xlsx
+  and PDF do not change.
+
+#### Internal
+
+- `GENOMES.tsv`: new columns `MSIGDB_DB` and `MSIGDB_SETS`.
+
+### Fixes
+
+- `deliverResults.sh` run through a path that passes through a home
+  directory (e.g. `~/Work/...`, a symlink to `/data1/...`) stopped
+  after copying `atacSeq/`: the service account could not read the
+  client docs, rsync failed with "Permission denied (13)", and the
+  diff files, the email and the database registration were skipped.
+  The script now finds its docs by their physical path. A dry run
+  (`-n`) does not run rsync, so it could not show the error.
+
 ## [v2.0.0] — 2026-10-14
 
 Most outputs change; do not mix the results of a v1.x run with those

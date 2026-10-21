@@ -175,7 +175,50 @@ The results are `<PROJ>_<RUNTAG>_DiffPeaksEdgeR_V5.xlsx` (a summary
 sheet and, per comparison, the significant peaks with their nearest
 gene) and `<PROJ>_<RUNTAG>_DiffPeaks_V5.pdf` (PCA, MA and volcano
 plots). `<PROJ>` is the last `Proj_*` or `B-<digits>` directory in
-the path of the analysis directory, else `ATAC`.
+the path of the analysis directory, else `ATAC`. It also writes
+`<PROJ>_<RUNTAG>_DiffPeaksEdgeR_V5.rds`, every tested peak of every
+comparison, the input of the pathway enrichment; it is not delivered.
+
+### Pathway enrichment (GSEA)
+
+`R/pathwayGSEA.R` runs preranked GSEA (fgsea) of each comparison
+against MSigDB gene sets (msigdbr). Run it from the analysis
+directory after `diffAnalysisPairwise.R`, with the same RUNTAG:
+
+```
+Rscript /path/to/ATAC-seq/R/pathwayGSEA.R [options] [RUNTAG]
+
+  -c, --collections   default MSIGDB_SETS of GENOMES.tsv:
+                      H,C2:CP,-C2:CP:KEGG_LEGACY,C5:GO:BP (human),
+                      MH,M2:CP,M5:GO:BP (mouse)
+  -m, --mode          promoter (default) or distance
+  -w, --tss-window    promoter: |distanceToTSS| <= w (1000)
+  -d, --max-distance  distance: |distanceToTSS| <= d (50000)
+      --min-size, --max-size   gene set size (15, 500)
+  -o, --out-tag       added to the output names
+```
+
+Each tested peak gets its nearest gene (ChIPseeker); peaks farther
+from that TSS than the mode allows are dropped, and each gene takes
+the `sign(logFC) * -log10(PValue)` of its peak with the largest
+absolute value. A collection is `COLL` or `COLL:SUBCOLL` as msigdbr
+names them; `C2:CP` matches `CP` and every `CP:*`, and an item with
+a leading `-` removes those sets from the others. A name msigdbr
+does not have stops the run and lists the valid ones. Each item is
+its own fgsea run, so `padj` is BH within it. A positive NES means
+more accessible in Group2.
+
+Human builds use the human MSigDB and mouse the mouse MSigDB
+(`MSIGDB_DB`), so the collection names differ (`H` vs `MH`, `C5` vs
+`M5`). The output is `<PROJ>_<RUNTAG>_PathwayGSEA.xlsx` (summary, a
+sheet per comparison, parameters), `.pdf` (NES of the top sets) and
+`.rds` (the gene ranks and full results; not delivered). Two runs
+with different options need different `--out-tag`s, or the second
+overwrites the first.
+
+msigdbr (CRAN, 26.1.1 here) downloads MSigDB 2026.1 (md5 checked)
+on first use into `tools::R_user_dir("msigdbr", "cache")`
+(`~/.cache/R/msigdbr`); it downloads to `tempdir()` first.
 
 ## Delivery
 
@@ -199,8 +242,9 @@ the run `COMPLETED` and you can read the delivery folder, then:
   `Proj_<no>`;
 - copies, as `svc_core001_bot01`, `atacSeq/` to `r_NNN/atacSeq`,
   `docs/output` and `docs/methods` of this checkout (PDF and HTML)
-  to `atacSeq/docs`, and the project's `*_DiffPeaksEdgeR_V5.xlsx` and
-  `*_DiffPeaks_V5.pdf` (any RUNTAG) to `atacSeq/diff`;
+  to `atacSeq/docs`, and the project's `*_DiffPeaksEdgeR_V5.xlsx`,
+  `*_DiffPeaks_V5.pdf`, `*_PathwayGSEA.xlsx` and `*_PathwayGSEA.pdf`
+  (any RUNTAG) to `atacSeq/diff`;
 - writes the email, from `tmpldeliveryEmail_*.txt`, to
   `deliveryEmail_<no>_r_NNN_<yymmdd>.txt`;
 - registers the run with the bicdelivery permissions database
@@ -210,8 +254,8 @@ the run `COMPLETED` and you can read the delivery folder, then:
 
 The email gives the release in `VERSION.md` of the checkout the
 script is run from (see "Releases") and links to the docs at that tag.
-Diff files with a RUNTAG (the email names the untagged files) give a
-`WARNING`: edit the email before sending it. A delivery folder other
+Diff or GSEA files with a RUNTAG (the email names the untagged
+files) give a `WARNING`: edit the email before sending it. A delivery folder other
 than `<pi>/<invest>/Proj_<no>` for the PI and investigator of
 `README.txt`, the users the database is given, also gives a
 `WARNING`.

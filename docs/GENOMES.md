@@ -38,11 +38,13 @@ supported genome is a row of it. Shell scripts read it through
 | Column | Use |
 | --- | --- |
 | `TAG` | the build tag; `genomeInfo.sh TAG TAG` is the supported-genome check |
-| `SPECIES` | reports only; no code branches on it |
+| `SPECIES` | reports, and msigdbr's `species` in `pathwayGSEA.R`; no code branches on it |
 | `MACS_GSIZE` | MACS2 `-g` |
-| `TXDB`, `ORGDB` | annotation packages for `diffAnalysisPairwise.R` |
+| `TXDB`, `ORGDB` | annotation packages for `diffAnalysisPairwise.R` and `pathwayGSEA.R` |
 | `ADD_CHR` | `yes` if peak contigs need `chr` added to match the UCSC TxDb (b37 only) |
 | `MITO` | the mitochondrial contig, for the `___MITO.txt` metric |
+| `MSIGDB_DB` | msigdbr's `db_species` for `pathwayGSEA.R`: `HS` (human MSigDB) or `MM` (mouse MSigDB) |
+| `MSIGDB_SETS` | the default `--collections` of `pathwayGSEA.R`, in that MSigDB's names |
 
 The column names match ChIP-seq's where they overlap (ChIP also has
 `HOMER`; ATAC has `MITO`).
