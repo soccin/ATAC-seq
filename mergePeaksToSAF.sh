@@ -7,7 +7,7 @@ SDIR="$( cd "$( dirname "$0" )" && pwd )"
 set -o pipefail
 
 if [ "$#" != "2" ]; then
-    echo "usage: mergePeaksToSAF.sh GENOME MACS_OUTDIR >macsPeaksMerged.saf" >&2
+    echo "usage: mergePeaksToSAF.sh GENOME MACS_OUTDIR >atacSeq/atlas/macsPeaksMerged.saf" >&2
     exit 1
 fi
 

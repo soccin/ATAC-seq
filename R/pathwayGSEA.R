@@ -8,7 +8,7 @@ of R/diffAnalysisPairwise.R against MSigDB gene sets (msigdbr).
 
 Run from the analysis directory, after diffAnalysisPairwise.R with the
 same RUNTAG (default: none). Its input is that script's
-<PROJ>_<RUNTAG>_DiffPeaksEdgeR_V5.rds, which holds every tested peak
+atacSeq/diff/<PROJ>_<RUNTAG>_DiffPeaksEdgeR_V5.rds, which holds every tested peak
 of every comparison. The genome is GENOME= in 00.RUNSTATUS.txt; the
 annotation, the MSigDB species and the default collections come from
 lib/genomes/GENOMES.tsv.
@@ -28,7 +28,7 @@ matches the ones below it: C2:CP is CP and every CP:*. An item
 starting with - removes those sets from every other item, e.g.
 -C2:CP:KEGG_LEGACY. Each item without - is one fgsea run.
 
-OUTPUT FILES (in the current directory):
+OUTPUT FILES (in atacSeq/diff):
   <PROJ>_<RUNTAG>_PathwayGSEA.xlsx  Summary, one sheet per comparison,
                                     Parameters
   <PROJ>_<RUNTAG>_PathwayGSEA.pdf   NES of the top sets, per comparison
@@ -112,7 +112,8 @@ if (len(project_id) == 0) {
   project_id <- "ATAC"
 }
 
-input_rds <- cc(project_id, RUNTAG, "DiffPeaksEdgeR_V5.rds")
+out_dir <- "atacSeq/diff"
+input_rds <- path(out_dir, cc(project_id, RUNTAG, "DiffPeaksEdgeR_V5.rds"))
 if (!file_exists(input_rds)) {
   stop(str_glue(
     "no {input_rds} in {getwd()}; run R/diffAnalysisPairwise.R with ",
@@ -128,9 +129,9 @@ if (diff_results$genome != GENOME) {
 out_prefix <- c(RUNTAG, opts$out_tag) |>
   keep(nzchar) |>
   str_c(collapse = "_")
-output_xlsx <- cc(project_id, out_prefix, "PathwayGSEA.xlsx")
-output_pdf <- cc(project_id, out_prefix, "PathwayGSEA.pdf")
-output_rds <- cc(project_id, out_prefix, "PathwayGSEA.rds")
+output_xlsx <- path(out_dir, cc(project_id, out_prefix, "PathwayGSEA.xlsx"))
+output_pdf <- path(out_dir, cc(project_id, out_prefix, "PathwayGSEA.pdf"))
+output_rds <- path(out_dir, cc(project_id, out_prefix, "PathwayGSEA.rds"))
 
 #' Parse the --collections list
 #'
