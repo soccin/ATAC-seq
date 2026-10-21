@@ -1,5 +1,27 @@
 # ATAC-Seq pipeline
 
+## Quick Start
+
+Run every command from the analysis directory. Details are in the
+sections below.
+
+```
+# Run the pipeline (Slurm control job; MACS2 venv must exist)
+sbatch /path/to/ATAC-seq/pipe.sh [-q MAPQ] BAM1 [BAM2 ...]
+
+# After editing sampleManifest.csv, redo the QC reports
+# (atacSeq/metrics); pipe.sh runs both once
+Rscript /path/to/ATAC-seq/plotINSStats.R
+Rscript /path/to/ATAC-seq/R/analyzeATAC.R sampleManifest.csv [RUNTAG]
+
+# Differential peaks (needs replicates; writes atacSeq/diff)
+Rscript /path/to/ATAC-seq/R/diffAnalysisPairwise.R \
+    sampleManifest.csv Comparisons.csv [RUNTAG]
+
+# Pathway GSEA of the diff results (same RUNTAG; writes atacSeq/diff)
+Rscript /path/to/ATAC-seq/R/pathwayGSEA.R [-c COLLECTIONS] [-m MODE] [RUNTAG]
+```
+
 ## Version 2.0.0 - 2026-10-14
 
 Most outputs differ from those of v1.x; do not mix the two. See
