@@ -23,6 +23,9 @@ OPTIONAL ARGUMENTS:
 OUTPUT FILES (in the current directory):
   - <PROJ>__DiffPeaksEdgeR_V5.xlsx : Excel file with differential peaks
   - <PROJ>__DiffPeaks_V5.pdf       : PDF with PCA and MA/volcano plots
+  - <PROJ>__DiffPeaksEdgeR_V5.rds  : every tested peak of every
+                                     comparison, the input of
+                                     pathwayGSEA.R (not delivered)
   With a RUNTAG: <PROJ>_<RUNTAG>_DiffPeaksEdgeR_V5.xlsx, and so on.
   <PROJ> is the last directory of the current path named Proj_* or
   B-<digits>, else ATAC.
@@ -282,7 +285,9 @@ dge <- estimateDisp(dge, design)
 #' @param group1 Character name of the baseline group (X1 in comparisons file)
 #' @param group2 Character name of the test group (X2 in comparisons file)
 #' @param fdr_cut FDR cutoff for significance (default: 0.05)
-#' @return List with results table, comparison label/tag, MA plot, volcano plot
+#' @return List with the significant peaks annotated (tbl), every tested
+#'   peak (all), the group names, comparison label/tag, MA plot, volcano
+#'   plot
 do_differential_analysis <- function(dge_object, design, contrast,
                                      group1, group2, fdr_cut = 0.05) {
 
@@ -439,6 +444,9 @@ do_differential_analysis <- function(dge_object, design, contrast,
 
   list(
     tbl = final_table,
+    all = results_table |> select(PeakNo, logFC, logCPM, PValue, FDR),
+    group1 = group1,
+    group2 = group2,
     comparison = comp_tag,
     label = comp_label,
     p.ma = ma_plot,
@@ -514,6 +522,21 @@ setColWidths(wb, "Summary", cols = seq_len(ncol(summary_stats)),
              widths = "auto")
 
 saveWorkbook(wb, output_xlsx, overwrite = TRUE)
+
+# Every tested peak of every comparison, for R/pathwayGSEA.R: a ranked
+# gene list needs the statistic of every peak, not only the significant
+output_rds <- cc(project_id, RUNTAG, "DiffPeaksEdgeR_V5.rds")
+saveRDS(
+  list(
+    genome = GENOME,
+    peaks = peak.annote,
+    comparisons = map(results_list, \(res) {
+      list(tag = res$comparison, label = res$label,
+           group1 = res$group1, group2 = res$group2, table = res$all)
+    })
+  ),
+  output_rds
+)
 
 # Generate PDF with PCA and differential analysis plots
 output_pdf <- cc(project_id, RUNTAG, "DiffPeaks_V5.pdf")
