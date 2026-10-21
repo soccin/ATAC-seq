@@ -16,7 +16,8 @@
 #   - copies atacSeq/ to DELIVERY/r_NNN/, with the client docs
 #     (docs/output and docs/methods of this checkout, PDF and HTML)
 #     in atacSeq/docs and the differential analysis files of the project
-#     (Proj_<no>_*_DiffPeaksEdgeR_V5.xlsx, Proj_<no>_*_DiffPeaks_V5.pdf),
+#     (Proj_<no>_*_DiffPeaksEdgeR_V5.xlsx, Proj_<no>_*_DiffPeaks_V5.pdf)
+#     and their pathway enrichment (Proj_<no>_*_PathwayGSEA.xlsx/.pdf),
 #     if any, in atacSeq/diff;
 #   - writes the delivery email to deliveryEmail_<no>_r_NNN_<yymmdd>.txt,
 #     with the release of VERSION.md of this checkout;
@@ -227,6 +228,27 @@ for f in "${DIFF_FILES[@]}"; do
     fi
 done
 
+#
+# Pathway enrichment (R/pathwayGSEA.R), every RUNTAG, also to atacSeq/diff
+#
+shopt -s nullglob
+GSEA_XLSX=("${PROJ}"_*_PathwayGSEA.xlsx)
+GSEA_PDF=("${PROJ}"_*_PathwayGSEA.pdf)
+shopt -u nullglob
+GSEA_FILES=("${GSEA_XLSX[@]}" "${GSEA_PDF[@]}")
+
+if [[ ${#GSEA_XLSX[@]} -ne ${#GSEA_PDF[@]} ]]; then
+    warn "${#GSEA_XLSX[@]} PathwayGSEA.xlsx but ${#GSEA_PDF[@]} PathwayGSEA.pdf files"
+fi
+if [[ ${#GSEA_FILES[@]} -gt 0 && ${#DIFF_FILES[@]} -eq 0 ]]; then
+    warn "PathwayGSEA files but no DiffPeaks files"
+fi
+for f in "${GSEA_FILES[@]}"; do
+    if [[ "$f" != "${PROJ}__PathwayGSEA.xlsx" && "$f" != "${PROJ}__PathwayGSEA.pdf" ]]; then
+        warn "GSEA file $f has a run tag; the email names the untagged files, edit it"
+    fi
+done
+
 ##
 # Run folder: a trailing r_NNN as given, else the next one in ODIR
 
@@ -298,9 +320,9 @@ fi
 asbot mkdir -p "$DEST/atacSeq/docs"
 asbot rsync -aP atacSeq "$DEST"
 asbot rsync -aP "${DOCS[@]}" "$DEST/atacSeq/docs/"
-if [[ ${#DIFF_FILES[@]} -gt 0 ]]; then
+if [[ $((${#DIFF_FILES[@]} + ${#GSEA_FILES[@]})) -gt 0 ]]; then
     asbot mkdir -p "$DEST/atacSeq/diff"
-    asbot rsync -aP "${DIFF_FILES[@]}" "$DEST/atacSeq/diff/"
+    asbot rsync -aP "${DIFF_FILES[@]}" "${GSEA_FILES[@]}" "$DEST/atacSeq/diff/"
 fi
 
 ##
@@ -331,6 +353,9 @@ echo
     fillTemplate tmpldeliveryEmail_01.txt
     if [[ ${#DIFF_FILES[@]} -gt 0 ]]; then
         fillTemplate tmpldeliveryEmail_02.txt
+    fi
+    if [[ ${#GSEA_FILES[@]} -gt 0 ]]; then
+        fillTemplate tmpldeliveryEmail_03.txt
     fi
     fillTemplate tmpldeliveryEmail_99.txt
 } | tee "$EMAIL"
