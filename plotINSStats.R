@@ -58,7 +58,8 @@ pp2=ggplot(dd,aes(insert_size,1000*Density,color=Group,group=SampleID)) + theme_
 pw=pp2 + facet_wrap_paginate(~SampleID,nrow=2,ncol=3) + theme(legend.position="none")
 nPages=n_pages(pw)
 
-pdf(file=cc(projNo,"_postInsDistribution.pdf"),width=11,height=8.5)
+dir_create("atacSeq/metrics")
+pdf(file=file.path("atacSeq/metrics",cc(projNo,"_postInsDistribution.pdf")),width=11,height=8.5)
 print(pg1)
 print(pg2)
 for(ii in seq(nPages)) {

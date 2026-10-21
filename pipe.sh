@@ -190,7 +190,7 @@ and rerun
 
     Rscript $SDIR/R/analyzeATAC.R sampleManifest.csv
 
-and copy output to atacSeq/metrics
+Both write to atacSeq/metrics.
 EOF
 }
 
@@ -571,6 +571,14 @@ waitStage() {
 
 setStage SUBMIT
 
+#
+# The stages write the run's results straight into atacSeq/; only the
+# per-sample work (out/, callpeaks/), the run records and the
+# hand-edited sampleManifest.csv are in the analysis directory itself.
+#
+ATLAS=atacSeq/atlas
+mkdir -p $ATLAS atacSeq/bigwig atacSeq/macs atacSeq/metrics
+
 for BAM in $BAMS; do
     CLASS=$(runClass $RATE_POST $BAM)
     atacSub POST2 $(getSMTag $BAM) SLURM.01.POST $CLASS "-M 32G" \
@@ -583,7 +591,7 @@ for BEDZ in out/*/*.bed.gz; do
     SID=$(basename $(dirname $BEDZ))
     CLASS=$(runClass $RATE_BW $BEDZ)
     atacSub BW2 $SID SLURM.02.BW $CLASS "-M 24G" \
-        $SDIR/makeBigWigFromBEDZ.sh $GENOME $BEDZ
+        $SDIR/makeBigWigFromBEDZ.sh $GENOME $BEDZ atacSeq/bigwig
     CLASS=$(runClass $RATE_CALLP $BEDZ)
     atacSub CALLP2 $SID SLURM.03.CALLP $CLASS "-n 3 -M 18G" \
         $SDIR/callPeaks_ATACSeq.sh $GENOME $BEDZ
@@ -604,7 +612,7 @@ waitStage CALLP2
 # DependencyNeverSatisfied.
 #
 atacSub MergePeaks all SLURM.04a.CALLP SHORT "-n 3 -M 24G" \
-    $SDIR/mergePeaksToSAF.sh $GENOME callpeaks \>macsPeaksMerged.saf
+    $SDIR/mergePeaksToSAF.sh $GENOME callpeaks \>$ATLAS/macsPeaksMerged.saf
 
 waitStage MergePeaks
 
@@ -626,19 +634,19 @@ waitStage Index
 PBAMS=$(ls out/*/*_postProcess.bam)
 CLASS=$(runClass $RATE_COUNT $PBAMS)
 atacSub Count all SLURM.04b.CALLP $CLASS "-n 8 -M 24G" \
-    $SDIR/bin/countPeaks.sh $MAPQ macsPeaksMerged.saf peaks_raw_fcCounts.txt \
+    $SDIR/bin/countPeaks.sh $MAPQ $ATLAS/macsPeaksMerged.saf $ATLAS/peaks_raw_fcCounts.txt \
         $PBAMS
 
 for PBAM in $PBAMS; do
     CLASS=$(runClass $RATE_CCHECK $PBAM)
     atacSub CountCheck $(basename $(dirname $PBAM)) SLURM.04d.CHECK $CLASS "-n 2 -M 12G" \
-        $SDIR/bin/assignedCheck.sh $PBAM macsPeaksMerged.saf ${PBAM%.bam}.atlasFragments.txt
+        $SDIR/bin/assignedCheck.sh $PBAM $ATLAS/macsPeaksMerged.saf ${PBAM%.bam}.atlasFragments.txt
 done
 
 waitStage Count
 waitStage CountCheck
 
-if ! CHECK_OUT=$($SDIR/bin/checkCounts.sh peaks_raw_fcCounts.txt.summary \
+if ! CHECK_OUT=$($SDIR/bin/checkCounts.sh $ATLAS/peaks_raw_fcCounts.txt.summary \
                      out/*/*_postProcess.atlasFragments.txt); then
     echo "$CHECK_OUT"
     RUN_MESSAGE="count check failed: $(echo "$CHECK_OUT" | grep -m1 FAIL || true)"
@@ -648,19 +656,23 @@ if ! CHECK_OUT=$($SDIR/bin/checkCounts.sh peaks_raw_fcCounts.txt.summary \
     exit 1
 fi
 echo "$CHECK_OUT"
-echo "$CHECK_OUT" >peaks_raw_fcCounts.checks.txt
+echo "$CHECK_OUT" >$ATLAS/peaks_raw_fcCounts.checks.txt
 
 atacSub DESEQ all SLURM.05.DESEQ SHORT "-M 24G" \
     Rscript --no-save $SDIR/R/getDESeqScaleFactors.R
 
 setStage MANIFEST
 
+#
+# MapID is the SM tag, SampleID the tag without a leading s_, Group the
+# SampleID without a trailing [-_]<digits>.
+#
 if [ ! -e "sampleManifest.csv" ]; then
     echo "MapID,SampleID,Group" > sampleManifest.csv
-    for file in out/*/*bam; do getSMTag $file; done | sort >mapid
-    cat mapid | sed 's/^s_//' >sid
-    cat sid | perl -pe 's/(-|_)\d+$//' >gid
-    paste mapid sid gid | tr '\t' ',' >> sampleManifest.csv
+    for file in out/*/*bam; do getSMTag $file; done \
+        | sort \
+        | perl -ne 'chomp; ($s = $_) =~ s/^s_//; ($g = $s) =~ s/(-|_)\d+$//; print "$_,$s,$g\n"' \
+        >> sampleManifest.csv
 fi
 
 waitStage DESEQ
@@ -683,8 +695,6 @@ postRunNotes
 
 setStage STAGING
 
-mkdir -p atacSeq/atlas atacSeq/bigwig atacSeq/macs atacSeq/metrics
-
 FAILED_JOBS=$(bCheckAll "$RUNRE")
 
 if [ "$FAILED_JOBS" != "" ]; then
@@ -695,12 +705,11 @@ if [ "$FAILED_JOBS" != "" ]; then
   exit 1
 fi
 
-mv macsPeaksMerged* atacSeq/atlas
-cp peaks_raw_fcCounts.txt* atacSeq/atlas/
-mv *_postProcess.shifted.10mNorm.bw atacSeq/bigwig
+#
+# The atlas, counts, bigWigs and reports are already in atacSeq/; only
+# the per-sample peak calls and metrics are copied there.
+#
 cp -val callpeaks/* atacSeq/macs
-cp *__postInsDistribution.pdf *__ATACSeqQC.pdf *__ATACSeqDepth.csv atacSeq/metrics
-
 cp -val out/*/*___INS.* out/*/*___MITO.txt atacSeq/metrics
 cp -val out/*/*enrich* atacSeq/metrics
 
@@ -719,11 +728,11 @@ checkFile() {
     fi
 }
 
-checkFile atacSeq/atlas/macsPeaksMerged.saf
-checkFile atacSeq/atlas/peaks_raw_fcCounts.txt
-checkFile atacSeq/atlas/peaks_raw_fcCounts.txt.summary
-checkFile peaks_raw_fcCounts.checks.txt
-checkFile scaleFactorsDESeq2.csv
+checkFile $ATLAS/macsPeaksMerged.saf
+checkFile $ATLAS/peaks_raw_fcCounts.txt
+checkFile $ATLAS/peaks_raw_fcCounts.txt.summary
+checkFile $ATLAS/peaks_raw_fcCounts.checks.txt
+checkFile $ATLAS/scaleFactorsDESeq2.csv
 
 for PATTERN in "atacSeq/metrics/*__postInsDistribution.pdf" "atacSeq/metrics/*__ATACSeqQC.pdf" \
                "atacSeq/metrics/*__ATACSeqDepth.csv"; do
