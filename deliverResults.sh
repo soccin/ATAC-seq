@@ -18,8 +18,8 @@
 #     of this checkout, PDF and HTML) in atacSeq/docs. atacSeq/diff
 #     holds the differential analysis files of the project
 #     (Proj_<no>_*_DiffPeaksEdgeR_V5.xlsx, Proj_<no>_*_DiffPeaks_V5.pdf)
-#     and their pathway enrichment (Proj_<no>_*_PathwayGSEA.xlsx/.pdf),
-#     if any;
+#     and their pathway enrichment (Proj_<no>_*_PathwayGSEA.xlsx, and
+#     the .pdf with its _Dot, _Heatmap and _Enrichment PDFs), if any;
 #   - writes the delivery email to deliveryEmail_<no>_r_NNN_<yymmdd>.txt,
 #     with the release of VERSION.md of this checkout;
 #   - registers the run with the permissions database.
@@ -372,6 +372,10 @@ echo
     fi
     if [[ ${#GSEA_FILES[@]} -gt 0 ]]; then
         fillTemplate tmpldeliveryEmail_03.txt
+        # Only with two or more comparisons (R/pathwayGSEA.R)
+        if [[ -e "$DIFF/${PROJ}__PathwayGSEA_Heatmap.pdf" ]]; then
+            fillTemplate tmpldeliveryEmail_04.txt
+        fi
     fi
     fillTemplate tmpldeliveryEmail_99.txt
 } | tee "$EMAIL"
