@@ -6,7 +6,7 @@
 
    - Proj_{PROJNO}__PathwayGSEA.pdf
 
-      - For each comparison and collection the normalized enrichment score of the significant gene sets (adjusted p < 0.05), positive where the set is more accessible in the second group of the comparison; no page where no set is significant. Overlapping sets explained by a more significant one are left out of all plots
+      - For each comparison and collection the normalized enrichment score of the significant gene sets (adjusted p < 0.05), positive where the genes of the set are more accessible in the first group of the comparison name (A in A_v_B); no page where no set is significant. Overlapping sets explained by a more significant one are left out of all plots
 
    - Proj_{PROJNO}__PathwayGSEA_Dot.pdf
 
