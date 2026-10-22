@@ -101,6 +101,12 @@ and results are written to `atacSeq/` directly (below).
   diff files, the email and the database registration were skipped.
   The script now finds its docs by their physical path. A dry run
   (`-n`) does not run rsync, so it could not show the error.
+- A POST job could reach `TIMEOUT`: on the Proj_18143 v2.1-rc1 run
+  BD6-2 (8.4 GB, estimate 50 min) ran over the 1:59 `SHORT` walltime
+  on a node running five POST jobs. POST now uses a new walltime
+  class, `MID`: `-W 3:00:00` on `cmobic_short` only, no qos, for an
+  estimate of up to 90 min (`runClass -m`, `ATAC_MID_MAX_MIN`); above
+  that it is `LONG` as before. The other stages are unchanged.
 
 ### Not tested
 

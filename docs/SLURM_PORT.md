@@ -44,7 +44,7 @@ script rather than passed with `--export` because any non-`ALL` entry in
 | `-R "rusage[mem=24]"` with `-n 1` | `-M 24G` | The shim has no `-R`. LSF `rusage` was per slot and advisory; `--mem` is the job total and a hard cgroup cap. |
 | `-n 3 -R "rusage[mem=6]"` | `-n 3 -M 18G` | Same total, written out. |
 | `-n 16 -R "rusage[mem=8]"` (TSS) | `-n 2 -M 32G` | `tss_enrich.R` is single-threaded and reads the BAM in chunks; 128G was never used. |
-| `-W 359` / `-W 59` | class `SHORT` (`-W 1:59:00`) or `LONG` (`-W 12:00:00` and qos priority) | See "Walltime classes" below. The shim sends anything under two hours to `cmobic_short,cpushort`, the rest to `cmobic_cpu`. `-W` is sbatch format, so `-W 59` means 59 minutes in both, but `-W 5:00` would be five minutes. |
+| `-W 359` / `-W 59` | class `SHORT` (`-W 1:59:00`), `MID` (`-W 3:00:00 -q cmobic_short`, POST) or `LONG` (`-W 12:00:00` and qos priority) | See "Walltime classes" below. The shim sends anything under two hours to `cmobic_short,cpushort`, the rest to `cmobic_cpu`. `-W` is sbatch format, so `-W 59` means 59 minutes in both, but `-W 5:00` would be five minutes. |
 | `-o LSF.01.POST/` | `-o SLURM.01.POST/` | Trailing slash: the shim creates the directory and writes `%j.out`. |
 | `-w "post_done(NAME)"` | removed | The shim maps it to `afterok:NAME`, but Slurm needs numeric ids, and an `afterok` whose parent failed pends forever (`kill_invalid_depend` is off). `MergePeaks -> Count -> DESEQ` now runs in sequence with `bSync`. |
 | `-q control` | `#SBATCH -p cmobic_cpu` and `#SBATCH --qos=priority` | Control job only; directives in `pipe.sh`. |
@@ -64,7 +64,16 @@ Every stage job is passed a class by `atacSub`:
 | Class | `-W` | Partition (chosen by the shim) | qos |
 | --- | --- | --- | --- |
 | `SHORT` | `1:59:00` | `cmobic_short,cpushort` | none (`normal`) |
+| `MID` | `3:00:00` | `cmobic_short`, given as `-q` | none (`normal`) |
 | `LONG` | `12:00:00` | `cmobic_cpu` | `priority`, as `SBATCH_QOS=priority` on that one `bsub` call |
+
+`MID` is for POST only. `cmobic_short` allows 3:00:00 (`MaxTime`),
+`cpushort` less, and the shim sends a job of two hours or more to
+`cmobic_cpu` unless it is given `-q`. On the Proj_18143 v2.1-rc1 run
+(2026-10-22) the BD6-2 POST job (8.4 GB, estimate 50 min, `SHORT`)
+reached `TIMEOUT` at 1:59 on isca007, which ran five POST jobs at
+once; the others there took 0:36 to 1:16, and the three `LONG` POST
+jobs on `cmobic_cpu` took about 17 min.
 
 The qos cannot be set for the whole run. `cpushort` allows only
 `qos=normal` and `EnforcePartLimits=ALL` is set, so a job sent to
@@ -80,7 +89,10 @@ start within minutes. So the stages whose run time grows with their input
 choose a class per job: `runClass MIN_PER_GB FILE...` multiplies the
 input size by a measured rate and picks `SHORT` if the estimate is at
 most 60 min (half the `SHORT` walltime; `ATAC_SHORT_MAX_MIN` overrides
-it), `LONG` otherwise. The estimate is logged in the control log.
+it), `LONG` otherwise. POST calls `runClass -m`, which picks `MID` up to
+90 min (half the `MID` walltime; `ATAC_MID_MAX_MIN`) in place of
+`SHORT`, so POST goes `LONG` only above 15 GB. The estimate is logged
+in the control log. The tables below predate `MID`.
 
 Rates and results from the first full-size run (`Proj_18143_B`, 12 b38
 samples, input BAMs 4.6 to 14.1 GB, control job 18335688, 2026-10-09,
