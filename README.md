@@ -204,7 +204,8 @@ gene) and `<PROJ>_<RUNTAG>_DiffPeaks_V5.pdf` (PCA, MA and volcano
 plots). `<PROJ>` is the last `Proj_*` or `B-<digits>` directory in
 the path of the analysis directory, else `ATAC`. It also writes
 `<PROJ>_<RUNTAG>_DiffPeaksEdgeR_V5.rds`, every tested peak of every
-comparison, the input of the pathway enrichment; it is not delivered.
+comparison with the logCPM of its samples, the input of the pathway
+enrichment; it is not delivered.
 
 ### Pathway enrichment (GSEA)
 
@@ -219,16 +220,22 @@ Rscript /path/to/ATAC-seq/R/pathwayGSEA.R [options] [RUNTAG]
                       H,C2:CP,-C2:CP:KEGG_LEGACY,C5:GO:BP (human),
                       MH,M2:CP,M5:GO:BP (mouse)
   -m, --mode          promoter (default) or distance
-  -w, --tss-window    promoter: |distanceToTSS| <= w (1000)
-  -d, --max-distance  distance: |distanceToTSS| <= d (50000)
+  -w, --tss-window    promoter: every gene with a TSS within w (1000)
+  -d, --max-distance  distance: nearest-TSS gene(s) within d (50000)
       --min-size, --max-size   gene set size (15, 500)
   -o, --out-tag       added to the output names
 ```
 
-Each tested peak gets its nearest gene (ChIPseeker); peaks farther
-from that TSS than the mode allows are dropped, and each gene takes
-the `sign(logFC) * -log10(PValue)` of its peak with the largest
-absolute value. A collection is `COLL` or `COLL:SUBCOLL` as msigdbr
+Each atlas peak is assigned to genes by their TSSs (every transcript
+start of the knownGene TxDb, with GenomicRanges): in promoter mode to
+every gene with a TSS within `w`, so a promoter shared by two genes
+counts for both, in distance mode to the gene with the nearest TSS
+(all of them on a tie) within `d`. Each gene takes the
+`sign(logFC) * -log10(PValue)` of its tested peak with the largest
+absolute value. (Until this, ChIPseeker gave each peak one nearest
+gene and broke ties depending on the other peaks it annotated, so a
+comparison's results changed with the other comparisons run with
+it.) A collection is `COLL` or `COLL:SUBCOLL` as msigdbr
 names them; `C2:CP` matches `CP` and every `CP:*`, and an item with
 a leading `-` removes those sets from the others. A name msigdbr
 does not have stops the run and lists the valid ones. Each item is
@@ -237,10 +244,25 @@ more accessible in Group2.
 
 Human builds use the human MSigDB and mouse the mouse MSigDB
 (`MSIGDB_DB`), so the collection names differ (`H` vs `MH`, `C5` vs
-`M5`). The output, in `atacSeq/diff` beside its input, is
-`<PROJ>_<RUNTAG>_PathwayGSEA.xlsx` (summary, a
-sheet per comparison, parameters), `.pdf` (NES of the top sets) and
-`.rds` (the gene ranks and full results; not delivered). Two runs
+`M5`). The significant sets (padj < 0.05) of each comparison and
+collection are collapsed to independent ones (`collapsePathways`;
+`CollapsedInto` in the xlsx), and every plot shows only those. The
+output, in `atacSeq/diff` beside its input, is, all starting
+`<PROJ>_<RUNTAG>_PathwayGSEA`:
+
+| File | Contents |
+| --- | --- |
+| `.xlsx` | summary, a sheet per comparison with every tested set (not filtered by padj), parameters |
+| `.pdf` | NES bar chart, at most 15 sets per side; no page for a comparison and collection with no significant set |
+| `_Dot.pdf` | the same sets as a dot plot (size: genes in set; color: padj) |
+| `_Heatmap.pdf` | NES across comparisons, per collection, at most 50 sets; only with 2+ comparisons |
+| `_Enrichment.pdf` | running-score plots of the top 3 sets per side, and a leading-edge heatmap (logCPM z-score per sample, at most 50 genes) for each |
+| `.rds` | the gene ranks and full results; not delivered |
+
+The leading-edge heatmaps use the logCPM that
+`diffAnalysisPairwise.R` saves in its `.rds`; an `.rds` written
+before they were added has none, and they are left out with a
+warning (rerun `diffAnalysisPairwise.R`). Two runs
 with different options need different `--out-tag`s, or the second
 overwrites the first.
 

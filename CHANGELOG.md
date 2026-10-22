@@ -46,22 +46,46 @@ v2.0.0. Two files are newly delivered, and results are written to
   (fgsea 1.36.2, `fgseaMultilevel`) of each comparison of
   `diffAnalysisPairwise.R` against MSigDB 2026.1 (msigdbr 26.1.1).
   Genes are ranked by `sign(logFC) * -log10(PValue)` of their peak
-  with the largest absolute value, among the peaks within 1 kb of
-  their nearest TSS (`--mode promoter`, the default) or within
-  `--max-distance` (`--mode distance`). `--collections` selects the
+  with the largest absolute value. A peak belongs to every gene with
+  a TSS within 1 kb of it (`--mode promoter`, the default), so a
+  promoter shared by two genes counts for both, or to the gene(s)
+  with the nearest TSS within `--max-distance` (`--mode distance`).
+  It is not ChIPseeker's single nearest gene: `annotatePeak` broke
+  ties at a shared TSS depending on the other peaks it was given, so
+  a comparison's results changed with the other comparisons run with
+  it, and 5-7% of the ranked genes depended on the tie. `--collections` selects the
   gene sets (`H`, `C2:CP:REACTOME`, `C5:GO:BP`, ...; `-` removes a
   set); the default is `H,C2:CP,-C2:CP:KEGG_LEGACY,C5:GO:BP` for
   human and `MH,M2:CP,M5:GO:BP` for mouse, which uses the mouse
-  MSigDB. Output: `*_PathwayGSEA.xlsx`, `.pdf` and `.rds`;
-  `deliverResults.sh` delivers the xlsx and PDF in `atacSeq/diff`
-  with an email section (`tmpldeliveryEmail_03.txt`).
+  MSigDB. The significant sets (padj < 0.05) are collapsed to
+  independent ones (`collapsePathways`, column `CollapsedInto`), and
+  the plots show only significant, independent sets; a comparison and
+  collection with none has no page. Output, all `*_PathwayGSEA`:
+  `.xlsx` (every tested set, not filtered by padj), `.pdf` (NES bar
+  chart, at most 15 sets per side, never thicker than 10 bars),
+  `_Dot.pdf` (the same sets as a dot plot), `_Heatmap.pdf` (NES
+  across comparisons, at most 50 sets per collection; only with two
+  or more comparisons), `_Enrichment.pdf` (running enrichment score
+  of the top 3 sets per side, and a heatmap of each one's leading-edge
+  genes, the logCPM z-score per sample) and `.rds`. `deliverResults.sh`
+  delivers the xlsx and PDFs in `atacSeq/diff` with an email section
+  (`tmpldeliveryEmail_03.txt`, and `_04.txt` for the heatmap PDF).
 - `diffAnalysisPairwise.R` also writes `*_DiffPeaksEdgeR_V5.rds`,
-  every tested peak of every comparison (not delivered). Its xlsx
-  and PDF do not change.
+  every tested peak of every comparison with each comparison's TMM
+  logCPM (not delivered). Its xlsx and PDF do not change. With an
+  `.rds` written before the logCPM was added, `pathwayGSEA.R` leaves
+  out the leading-edge heatmaps and says so.
 
 #### Internal
 
 - `GENOMES.tsv`: new columns `MSIGDB_DB` and `MSIGDB_SETS`.
+- `R/palettes.R`: the color palettes and scales, as hex values; only
+  `pathwayGSEA.R` uses it so far. Signed values (NES, z-scores) are
+  drawn with ColorBrewer RdBu with symmetric limits at the 95th
+  percentile of |value|; the dot plot's -log10(padj) with a sequential
+  scale from grey to deep purple clipped to its 5th-95th percentile
+  (no viridis); grey only for "not significant". The running score is
+  redrawn from fgsea's `plotEnrichmentData` without its green and red.
 
 ### Fixes
 
