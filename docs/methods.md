@@ -122,14 +122,15 @@ independent checks before use: each sample's fragment total must be
 half its mapped reads, within 5%, and the number of fragments in the atlas,
 counted a second time with samtools alone, must equal featureCounts'
 assigned total exactly. A run whose counts fail either check is
-stopped.
+stopped. The result of both checks for each sample is delivered with
+the counts.
 
 **Normalization.** Size factors were computed from the raw count
 matrix with DESeq2 (Love 2014; median-of-ratios method, Anders 2010)
 and written as scale factors, the reciprocal of the DESeq2 size
 factor, so that a normalized count is the raw count multiplied by the
-sample's scale factor. They are not applied to any delivered file and
-are not part of the standard delivery; they are available on request.
+sample's scale factor. They are delivered with the counts but are not
+applied to any delivered file.
 
 **QC.** The insert-size distribution of the filtered BAM was computed
 with Picard CollectInsertSizeMetrics over a fixed range of 0 to 1000
@@ -186,6 +187,35 @@ a volcano plot (log fold change against p-value, on a log scale),
 with the significant regions colored by the group they are more
 accessible in.
 
+**Pathway enrichment.** When requested, each comparison was tested
+for pathway enrichment by preranked gene set enrichment analysis
+(Subramanian 2005) with fgsea (Korotkevich 2021). Each region of the
+atlas was assigned to every gene with a TSS (the start of any of its
+transcripts in the UCSC knownGene annotation of the build) within 1
+kb of it, i.e. to the genes whose promoter it is in; a region at a
+promoter shared by two genes was assigned to both, rather than to one
+of them chosen arbitrarily. Regions with no TSS within 1 kb were not
+used. (An alternative mode instead assigns each region to the gene,
+or genes on a tie, with the nearest TSS within a set distance.) Each
+tested region was scored as the sign of its log fold change times
+-log10 of its p-value, and each gene took the score of its region
+with the largest absolute score. The genes ranked by
+this score were tested against MSigDB (Liberzon 2015) gene sets of 15
+to 500 ranked genes, from msigdbr, with fgseaMultilevel (no lower
+bound on the p-value, fixed seed); p-values were adjusted with the
+Benjamini-Hochberg method within each collection of each comparison.
+Human data used the human MSigDB collections, mouse data the mouse
+MSigDB (Castanza 2023). A positive normalized enrichment score means
+the set's genes are more accessible in group 2. The significant sets
+(adjusted p < 0.05) of each collection and comparison were reduced to
+independent ones with fgsea's collapsePathways (fixed seed): in order
+of p-value, a set was redundant when its enrichment was no longer
+significant (p > 0.05) given a more significant set. The plots show
+only the independent significant sets. The leading-edge heatmaps show,
+for each gene, the edgeR log2 CPM (TMM-normalized) of the region that
+gave the gene its score, in the samples of the comparison, centered
+and scaled to unit variance across those samples.
+
 ## Tool versions
 
 | Tool | Version |
@@ -206,6 +236,9 @@ accessible in.
 | TxDb.Hsapiens.UCSC.hg38.knownGene (hg38) | 3.22.0 |
 | TxDb.Hsapiens.UCSC.hg19.knownGene (b37) | 3.22.1 |
 | TxDb.Mmusculus.UCSC.mm10.knownGene (mm10) | 3.10.0 |
+| fgsea | 1.36.2 |
+| msigdbr | 26.1.1 |
+| MSigDB | 2026.1 (Hs, Mm) |
 | ENCODE ATAC-seq pipeline (settings followed) | 2.2.3 |
 
 ## References
@@ -226,6 +259,10 @@ of native chromatin for fast and sensitive epigenomic profiling of open
 chromatin, DNA-binding proteins and nucleosome position. Nat Methods
 2013;10:1213-1218. doi:10.1038/nmeth.2688
 
+Castanza AS, Recla JM, Eby D, Thorvaldsdottir H, Bult CJ, Mesirov JP.
+Extending support for mouse data in the Molecular Signatures Database
+(MSigDB). Nat Methods 2023;20:1619-1620. doi:10.1038/s41592-023-02014-7
+
 Danecek P, et al. Twelve years of SAMtools and BCFtools. GigaScience
 2021;10:giab008. doi:10.1093/gigascience/giab008
 
@@ -237,12 +274,20 @@ Kent WJ, Zweig AS, Barber G, Hinrichs AS, Karolchik D. BigWig and
 BigBed: enabling browsing of large distributed datasets. Bioinformatics
 2010;26:2204-2207. doi:10.1093/bioinformatics/btq351
 
+Korotkevich G, Sukhov V, Budin N, Shpak B, Artyomov MN, Sergushichev A.
+Fast gene set enrichment analysis. bioRxiv 2021;060012.
+doi:10.1101/060012
+
 Li H. Aligning sequence reads, clone sequences and assembly contigs with
 BWA-MEM. arXiv 2013;1303.3997.
 
 Liao Y, Smyth GK, Shi W. featureCounts: an efficient general purpose
 program for assigning sequence reads to genomic features.
 Bioinformatics 2014;30:923-930. doi:10.1093/bioinformatics/btt656
+
+Liberzon A, Birger C, Thorvaldsdottir H, Ghandi M, Mesirov JP, Tamayo
+P. The Molecular Signatures Database (MSigDB) hallmark gene set
+collection. Cell Syst 2015;1:417-425. doi:10.1016/j.cels.2015.12.004
 
 Love MI, Huber W, Anders S. Moderated estimation of fold change and
 dispersion for RNA-seq data with DESeq2. Genome Biol 2014;15:550.
@@ -262,6 +307,11 @@ doi:10.1093/bioinformatics/btq033
 Robinson MD, McCarthy DJ, Smyth GK. edgeR: a Bioconductor package for
 differential expression analysis of digital gene expression data.
 Bioinformatics 2010;26:139-140. doi:10.1093/bioinformatics/btp616
+
+Subramanian A, Tamayo P, Mootha VK, et al. Gene set enrichment
+analysis: a knowledge-based approach for interpreting genome-wide
+expression profiles. Proc Natl Acad Sci USA 2005;102:15545-15550.
+doi:10.1073/pnas.0506580102
 
 Yu G, Wang LG, He QY. ChIPseeker: an R/Bioconductor package for ChIP
 peak annotation, comparison and visualization. Bioinformatics

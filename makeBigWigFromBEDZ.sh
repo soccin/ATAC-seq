@@ -1,12 +1,31 @@
 #!/bin/bash
+#
+# makeBigWigFromBEDZ.sh GENOME BEDZ OUTDIR [SCALEFACTOR]
+#
+# Writes OUTDIR/<BEDZ name>.10mNorm.bw, or .sizeFactorNorm.bw with
+# SCALEFACTOR.
+#
 SDIR="$( cd "$( dirname "$0" )" && pwd )"
 
 . $SDIR/bin/loadTools.sh
 
 set -o pipefail
 
+if [ "$#" -lt "3" ]; then
+    echo
+    echo "    usage: makeBigWigFromBEDZ.sh GENOME BEDZ OUTDIR [SCALEFACTOR]"
+    echo
+    exit 1
+fi
+
 GENOMEBUILD=$1
 BEDZ=$2
+OUTDIR=$3
+
+if [ ! -d "$OUTDIR" ]; then
+    echo "FATAL ERROR: no output directory $OUTDIR"
+    exit 1
+fi
 
 $SDIR/bin/genomeInfo.sh "$GENOMEBUILD" TAG >/dev/null || exit 1
 GENOME=$SDIR/lib/genomes/$GENOMEBUILD.genome
@@ -35,10 +54,10 @@ if [ "$checkMD5" != "OK" ]; then
 fi
 
 
-if [ "$#" == "3" ]; then
-    scaleFactor=$2
+if [ "$#" == "4" ]; then
+    scaleFactor=$4
     echo "$BEDZ sizeFactorNorm scaleFactor "$scaleFactor
-    OUT=$(basename $BEDZ | sed 's/.bed.gz/.sizeFactorNorm.bw/')
+    OUT=$OUTDIR/$(basename $BEDZ | sed 's/.bed.gz/.sizeFactorNorm.bw/')
 else
     count=$(zcat $BEDZ | cut -f4 | sort -S20g -T "$TMPDIR" | uniq | wc -l) \
         || { echo "FATAL ERROR: read count of $BEDZ failed"; exit 1; }
@@ -48,7 +67,7 @@ else
     fi
     scaleFactor=$(bc -l <<< "10000000/$count")
     echo "$BEDZ 10mNorm scaleFactor "$scaleFactor
-    OUT=$(basename $BEDZ | sed 's/.bed.gz/.10mNorm.bw/')
+    OUT=$OUTDIR/$(basename $BEDZ | sed 's/.bed.gz/.10mNorm.bw/')
 fi
 
 GENOME_BED=$(mktemp -p "$TMPDIR" genome.XXXXXX.bed) \

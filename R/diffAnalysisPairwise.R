@@ -20,9 +20,15 @@ REQUIRED ARGUMENTS:
 OPTIONAL ARGUMENTS:
   RUNTAG        Tag to append to output filenames (default: none)
 
-OUTPUT FILES (in the current directory):
+INPUT: atacSeq/atlas/peaks_raw_fcCounts.txt, the counts of pipe.sh
+
+OUTPUT FILES (in atacSeq/diff):
   - <PROJ>__DiffPeaksEdgeR_V5.xlsx : Excel file with differential peaks
   - <PROJ>__DiffPeaks_V5.pdf       : PDF with PCA and MA/volcano plots
+  - <PROJ>__DiffPeaksEdgeR_V5.rds  : every tested peak of every
+                                     comparison, with its samples'
+                                     logCPM, the input of
+                                     pathwayGSEA.R (not delivered)
   With a RUNTAG: <PROJ>_<RUNTAG>_DiffPeaksEdgeR_V5.xlsx, and so on.
   <PROJ> is the last directory of the current path named Proj_* or
   B-<digits>, else ATAC.
@@ -139,14 +145,14 @@ SDIR <- commandArgs(trailingOnly = FALSE) |>
   dirname()
 source(file.path(SDIR, "R", "genomeInfo.R"))
 
-# Locate feature counts summary file
-# Works with both ATACseq and ChIPSeq pipeline structures
-peak_counts_file <- fs::dir_ls(regex = "peaks_raw_fcCounts.txt.summary")
-
-if (len(peak_counts_file) == 0) {
-  peak_counts_file <- fs::dir_ls("out/macs",
-                                 regex = "peaks_raw_fcCounts.txt.summary")
+# Counts of pipe.sh in, results out, both under atacSeq/
+peak_counts_file <- "atacSeq/atlas/peaks_raw_fcCounts.txt"
+if (!file_exists(peak_counts_file)) {
+  stop(str_glue("no {peak_counts_file} in {getwd()}; run from the ",
+                "analysis directory of a pipe.sh run"), call. = FALSE)
 }
+out_dir <- "atacSeq/diff"
+dir_create(out_dir)
 
 # Parse command line arguments
 MANIFEST_FILE <- args[1]
@@ -166,8 +172,7 @@ mito_contig <- genomeInfo(GENOME, "MITO", SDIR)
 manifest <- read_csv(MANIFEST_FILE,show_col_types = FALSE) |> arrange(SampleID)
 
 # Load raw feature counts matrix
-raw_counts <- read_tsv(gsub(".txt.summary$", ".txt", peak_counts_file),
-                       comment = "#", show_col_types = FALSE)
+raw_counts <- read_tsv(peak_counts_file, comment = "#", show_col_types = FALSE)
 
 # Extract peak annotation
 peak.annote <- raw_counts |>
@@ -282,7 +287,9 @@ dge <- estimateDisp(dge, design)
 #' @param group1 Character name of the baseline group (X1 in comparisons file)
 #' @param group2 Character name of the test group (X2 in comparisons file)
 #' @param fdr_cut FDR cutoff for significance (default: 0.05)
-#' @return List with results table, comparison label/tag, MA plot, volcano plot
+#' @return List with the significant peaks annotated (tbl), every tested
+#'   peak (all), the group names, comparison label/tag, MA plot, volcano
+#'   plot
 do_differential_analysis <- function(dge_object, design, contrast,
                                      group1, group2, fdr_cut = 0.05) {
 
@@ -437,8 +444,19 @@ do_differential_analysis <- function(dge_object, design, contrast,
     final_table <- sig_results
   }
 
+  # The TMM log-CPM of every tested peak in each sample of the comparison,
+  # the values edgeR tested, for the leading-edge heatmaps of
+  # R/pathwayGSEA.R; 4 decimals keep the RDS small
+  log_cpm <- round(cpm(dge_comp, log = TRUE), 4)
+
   list(
     tbl = final_table,
+    all = results_table |> select(PeakNo, logFC, logCPM, PValue, FDR),
+    log_cpm = log_cpm,
+    samples = tibble(SampleID = colnames(comp_counts),
+                     Group = as.character(comp_group)),
+    group1 = group1,
+    group2 = group2,
     comparison = comp_tag,
     label = comp_label,
     p.ma = ma_plot,
@@ -502,7 +520,7 @@ summary_stats <- map(result_tables, nrow) |>
 # Built sheet-by-sheet rather than with write.xlsx() because zoom can only be
 # set when the worksheet is created; the Summary sheet gets 150% zoom and
 # auto-fitted column widths.
-output_xlsx <- cc(project_id, RUNTAG, "DiffPeaksEdgeR_V5.xlsx")
+output_xlsx <- path(out_dir, cc(project_id, RUNTAG, "DiffPeaksEdgeR_V5.xlsx"))
 xlsx_sheets <- c(list(Summary = summary_stats), result_tables)
 
 wb <- createWorkbook()
@@ -515,8 +533,26 @@ setColWidths(wb, "Summary", cols = seq_len(ncol(summary_stats)),
 
 saveWorkbook(wb, output_xlsx, overwrite = TRUE)
 
+# Every tested peak of every comparison, for R/pathwayGSEA.R: a ranked
+# gene list needs the statistic of every peak, not only the significant.
+# log_cpm (peaks x samples) and samples (SampleID, Group) are the
+# per-sample values of the comparison
+output_rds <- path(out_dir, cc(project_id, RUNTAG, "DiffPeaksEdgeR_V5.rds"))
+saveRDS(
+  list(
+    genome = GENOME,
+    peaks = peak.annote,
+    comparisons = map(results_list, \(res) {
+      list(tag = res$comparison, label = res$label,
+           group1 = res$group1, group2 = res$group2, table = res$all,
+           log_cpm = res$log_cpm, samples = res$samples)
+    })
+  ),
+  output_rds
+)
+
 # Generate PDF with PCA and differential analysis plots
-output_pdf <- cc(project_id, RUNTAG, "DiffPeaks_V5.pdf")
+output_pdf <- path(out_dir, cc(project_id, RUNTAG, "DiffPeaks_V5.pdf"))
 pdf(output_pdf, width = 11, height = 8.5)
 
 print(pca_plot)

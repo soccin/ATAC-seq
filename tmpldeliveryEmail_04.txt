@@ -1,0 +1,4 @@
+   - Proj_{PROJNO}__PathwayGSEA_Heatmap.pdf
+
+      - For each collection the normalized enrichment score of the significant gene sets across all comparisons
+

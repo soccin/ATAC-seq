@@ -13,11 +13,13 @@
 #   - writes project.yaml for the bicdelivery permissions database,
 #     from the run and the first README.txt found going up from here
 #     to Proj_<no> (bin/readme2yaml.R);
-#   - copies atacSeq/ to DELIVERY/r_NNN/, with the client docs
-#     (docs/output and docs/methods of this checkout, PDF and HTML)
-#     in atacSeq/docs and the differential analysis files of the project
-#     (Proj_<no>_*_DiffPeaksEdgeR_V5.xlsx, Proj_<no>_*_DiffPeaks_V5.pdf),
-#     if any, in atacSeq/diff;
+#   - copies atacSeq/ to DELIVERY/r_NNN/, but for the .rds files of
+#     atacSeq/diff, with the client docs (docs/output and docs/methods
+#     of this checkout, PDF and HTML) in atacSeq/docs. atacSeq/diff
+#     holds the differential analysis files of the project
+#     (Proj_<no>_*_DiffPeaksEdgeR_V5.xlsx, Proj_<no>_*_DiffPeaks_V5.pdf)
+#     and their pathway enrichment (Proj_<no>_*_PathwayGSEA.xlsx, and
+#     the .pdf with its _Dot, _Heatmap and _Enrichment PDFs), if any;
 #   - writes the delivery email to deliveryEmail_<no>_r_NNN_<yymmdd>.txt,
 #     with the release of VERSION.md of this checkout;
 #   - registers the run with the permissions database.
@@ -209,12 +211,16 @@ for f in "${DOCS[@]}"; do
 done
 
 #
-# Differential analysis: every RUNTAG of this project, untagged
-# (Proj_<no>__...) or tagged (Proj_<no>_<tag>_...).
+# Differential analysis in atacSeq/diff: every RUNTAG of this project,
+# untagged (Proj_<no>__...) or tagged (Proj_<no>_<tag>_...). They are
+# delivered with atacSeq/; the lists only check them and pick the
+# email sections.
 #
+DIFF=atacSeq/diff
+
 shopt -s nullglob
-DIFF_XLSX=("${PROJ}"_*_DiffPeaksEdgeR_V5.xlsx)
-DIFF_PDF=("${PROJ}"_*_DiffPeaks_V5.pdf)
+DIFF_XLSX=("$DIFF/${PROJ}"_*_DiffPeaksEdgeR_V5.xlsx)
+DIFF_PDF=("$DIFF/${PROJ}"_*_DiffPeaks_V5.pdf)
 shopt -u nullglob
 DIFF_FILES=("${DIFF_XLSX[@]}" "${DIFF_PDF[@]}")
 
@@ -222,10 +228,42 @@ if [[ ${#DIFF_XLSX[@]} -ne ${#DIFF_PDF[@]} ]]; then
     warn "${#DIFF_XLSX[@]} DiffPeaksEdgeR_V5.xlsx but ${#DIFF_PDF[@]} DiffPeaks_V5.pdf files"
 fi
 for f in "${DIFF_FILES[@]}"; do
-    if [[ "$f" != "${PROJ}__DiffPeaksEdgeR_V5.xlsx" && "$f" != "${PROJ}__DiffPeaks_V5.pdf" ]]; then
+    if [[ "$f" != "$DIFF/${PROJ}__DiffPeaksEdgeR_V5.xlsx" && "$f" != "$DIFF/${PROJ}__DiffPeaks_V5.pdf" ]]; then
         warn "diff file $f has a run tag; the email names the untagged files, edit it"
     fi
 done
+
+#
+# Pathway enrichment (R/pathwayGSEA.R), every RUNTAG
+#
+shopt -s nullglob
+GSEA_XLSX=("$DIFF/${PROJ}"_*_PathwayGSEA.xlsx)
+GSEA_PDF=("$DIFF/${PROJ}"_*_PathwayGSEA.pdf)
+shopt -u nullglob
+GSEA_FILES=("${GSEA_XLSX[@]}" "${GSEA_PDF[@]}")
+
+if [[ ${#GSEA_XLSX[@]} -ne ${#GSEA_PDF[@]} ]]; then
+    warn "${#GSEA_XLSX[@]} PathwayGSEA.xlsx but ${#GSEA_PDF[@]} PathwayGSEA.pdf files"
+fi
+if [[ ${#GSEA_FILES[@]} -gt 0 && ${#DIFF_FILES[@]} -eq 0 ]]; then
+    warn "PathwayGSEA files but no DiffPeaks files"
+fi
+for f in "${GSEA_FILES[@]}"; do
+    if [[ "$f" != "$DIFF/${PROJ}__PathwayGSEA.xlsx" && "$f" != "$DIFF/${PROJ}__PathwayGSEA.pdf" ]]; then
+        warn "GSEA file $f has a run tag; the email names the untagged files, edit it"
+    fi
+done
+
+#
+# Before this layout the diff files were written to the analysis
+# directory and copied from there; such files are no longer delivered.
+#
+shopt -s nullglob
+OLD_DIFF=("${PROJ}"_*_DiffPeaks*_V5.* "${PROJ}"_*_PathwayGSEA.*)
+shopt -u nullglob
+if [[ ${#OLD_DIFF[@]} -gt 0 ]]; then
+    warn "${OLD_DIFF[*]} in the analysis directory are not delivered; move them to $DIFF"
+fi
 
 ##
 # Run folder: a trailing r_NNN as given, else the next one in ODIR
@@ -295,13 +333,13 @@ fi
 ##
 # Copy
 
+#
+# The .rds files of atacSeq/diff are the inputs of pathwayGSEA.R and
+# its full results, for reruns here; they are not delivered.
+#
 asbot mkdir -p "$DEST/atacSeq/docs"
-asbot rsync -aP atacSeq "$DEST"
+asbot rsync -aP --exclude='/atacSeq/diff/*.rds' atacSeq "$DEST"
 asbot rsync -aP "${DOCS[@]}" "$DEST/atacSeq/docs/"
-if [[ ${#DIFF_FILES[@]} -gt 0 ]]; then
-    asbot mkdir -p "$DEST/atacSeq/diff"
-    asbot rsync -aP "${DIFF_FILES[@]}" "$DEST/atacSeq/diff/"
-fi
 
 ##
 # Email
@@ -331,6 +369,13 @@ echo
     fillTemplate tmpldeliveryEmail_01.txt
     if [[ ${#DIFF_FILES[@]} -gt 0 ]]; then
         fillTemplate tmpldeliveryEmail_02.txt
+    fi
+    if [[ ${#GSEA_FILES[@]} -gt 0 ]]; then
+        fillTemplate tmpldeliveryEmail_03.txt
+        # Only with two or more comparisons (R/pathwayGSEA.R)
+        if [[ -e "$DIFF/${PROJ}__PathwayGSEA_Heatmap.pdf" ]]; then
+            fillTemplate tmpldeliveryEmail_04.txt
+        fi
     fi
     fillTemplate tmpldeliveryEmail_99.txt
 } | tee "$EMAIL"

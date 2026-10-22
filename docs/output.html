@@ -53,7 +53,9 @@ mitochondrial, unplaced and other contigs are left out.</p>
 ├── atlas
 │   ├── macsPeaksMerged.saf
 │   ├── peaks_raw_fcCounts.txt
-│   └── peaks_raw_fcCounts.txt.summary
+│   ├── peaks_raw_fcCounts.txt.summary
+│   ├── peaks_raw_fcCounts.checks.txt
+│   └── scaleFactorsDESeq2.csv
 ├── bigwig
 │   └── &lt;sample&gt;_postProcess.shifted.10mNorm.bw
 ├── macs
@@ -80,7 +82,12 @@ mitochondrial, unplaced and other contigs are left out.</p>
 │   └── methods.html
 └── diff                      (projects with replicates only)
     ├── Proj_&lt;no&gt;__DiffPeaksEdgeR_V5.xlsx
-    └── Proj_&lt;no&gt;__DiffPeaks_V5.pdf</code></pre>
+    ├── Proj_&lt;no&gt;__DiffPeaks_V5.pdf
+    ├── Proj_&lt;no&gt;__PathwayGSEA.xlsx    (when requested)
+    ├── Proj_&lt;no&gt;__PathwayGSEA.pdf     (when requested)
+    ├── Proj_&lt;no&gt;__PathwayGSEA_Dot.pdf         (when requested)
+    ├── Proj_&lt;no&gt;__PathwayGSEA_Heatmap.pdf     (when requested, 2+ comparisons)
+    └── Proj_&lt;no&gt;__PathwayGSEA_Enrichment.pdf  (when requested)</code></pre>
 <p>The filtered BAM files (<code>&lt;sample&gt;_postProcess.bam</code>)
 are not delivered. If you need them, please contact us.</p>
 <h2 id="peaks-macs">Peaks (<code>macs</code>)</h2>
@@ -190,6 +197,31 @@ analysis, and are what to use for any analysis that needs counts.</p>
 <code>Unassigned_*</code> rows; <code>Unassigned_NoFeatures</code> is
 fragments that overlap no atlas region). The sum of the column is the
 number of fragments in the filtered BAM.</p>
+<h3 id="count-checks-peaks_raw_fccounts.checks.txt">Count checks
+(<code>peaks_raw_fcCounts.checks.txt</code>)</h3>
+<p>The two checks the counts passed before they were used (see
+<code>methods.pdf</code>), two lines per sample:</p>
+<ul>
+<li><code>CHECK_A</code>: the sample’s fragment total in the count
+summary (<code>frag</code>) against half its mapped reads
+(<code>pairs</code>). The <code>ratio</code> must be between 0.95 and
+1.05.</li>
+<li><code>CHECK_B</code>: the fragments featureCounts assigned to the
+atlas (<code>assigned</code>) against the same number counted with
+samtools (<code>samtools</code>). The difference (<code>diff</code>)
+must be 0.</li>
+</ul>
+<p>The last line is the overall result. A run is delivered only if every
+line is <code>OK</code>.</p>
+<h3 id="scale-factors-scalefactorsdeseq2.csv">Scale factors
+(<code>scaleFactorsDESeq2.csv</code>)</h3>
+<p>One row per sample, named by the path of its filtered BAM as in the
+count matrix (with <code>/</code> and <code>-</code> replaced by
+<code>.</code>), and one column, <code>scaleFactor</code>: the
+reciprocal of the DESeq2 size factor computed from the raw counts. A
+normalized count is the raw count multiplied by the sample’s scale
+factor. No delivered file has them applied; the signal tracks are scaled
+to 10 million reads instead.</p>
 <h2 id="signal-tracks-bigwig">Signal Tracks (<code>bigwig</code>)</h2>
 <p><code>&lt;sample&gt;_postProcess.shifted.10mNorm.bw</code> is the
 coverage of the filtered, Tn5-shifted reads of the sample, scaled to 10
@@ -405,5 +437,92 @@ the differential analysis.</p>
 <p>In our deliveries made before October 2026 the <code>FDR</code>
 column was a Holm correction, which is much stricter; the same data now
 give more regions at FDR &lt; 0.05.</p>
+<h3 id="pathway-enrichment-proj_no__pathwaygsea.xlsx">Pathway enrichment
+(<code>Proj_&lt;no&gt;__PathwayGSEA.xlsx</code>)</h3>
+<p>When requested, each comparison is also tested for pathway enrichment
+(GSEA) against MSigDB gene sets. Every tested region is assigned to each
+gene with a TSS within a set distance of it (by default 1 kb, i.e. the
+genes whose promoter it is in; a region at a promoter shared by two
+genes counts for both), and each gene is scored by its region with the
+strongest change: sign(log fold change) x -log10(p-value). The
+<code>Parameters</code> sheet gives the distance and the collections
+used. The genes ranked by this score are tested against each
+collection:</p>
+<ul>
+<li><code>Summary</code>: per comparison and collection,
+<code>GenesRanked</code>, <code>SetsTested</code> (sets of 15 to 500
+ranked genes), and the number of sets with adjusted p &lt; 0.05 and a
+positive (<code>SigPositiveNES</code>) or negative
+(<code>SigNegativeNES</code>) enrichment score, and how many of those
+are independent (<code>SigIndependent</code>, below).</li>
+<li>One sheet per comparison, named as in the differential analysis,
+with every gene set tested, sorted by p-value. <strong>These sheets are
+NOT filtered for adjusted p &lt; 0.05</strong>: most rows are not
+significant. Filter on <code>padj</code> to find the significant sets
+(the differential analysis sheets, by contrast, list only significant
+regions). Columns: <code>Collection</code> (e.g. <code>H</code>,
+<code>C2:CP</code>, <code>C5:GO:BP</code>), <code>Subcollection</code>
+(e.g. <code>CP:REACTOME</code>), <code>pathway</code> (the MSigDB set
+name), <code>NES</code> (normalized enrichment score: positive means the
+set’s genes are more accessible in group 2, negative in group 1),
+<code>pval</code>, <code>padj</code> (Benjamini-Hochberg within the
+collection), <code>log2err</code> (the error of the p-value estimate),
+<code>ES</code> (enrichment score), <code>size</code> (ranked genes in
+the set), <code>CollapsedInto</code> (below) and
+<code>leadingEdge</code> (the genes that drive the enrichment). A few
+sets may have no <code>NES</code>, <code>pval</code> or
+<code>padj</code>: the p-value could not be estimated for them.</li>
+<li><code>Parameters</code>: the settings and the MSigDB and software
+versions.</li>
+</ul>
+<p>Gene sets overlap, and one strong set makes its overlapping sets
+significant too. The significant sets of each comparison and collection
+are therefore reduced to independent ones (fgsea’s
+<code>collapsePathways</code>): going from the smallest p-value, a set
+that is no longer significant once the genes of a more significant set
+are taken into account is redundant, and <code>CollapsedInto</code>
+names that set. <code>CollapsedInto</code> is empty for an independent
+set and for a set that is not significant. <strong>The plots show only
+independent sets</strong>; the sheets keep every set.</p>
+<p>The plots, each in its own PDF, show only sets with adjusted p &lt;
+0.05. A comparison and collection with no such set has no page; the
+<code>Summary</code> sheet gives 0 for it.</p>
+<ul>
+<li><code>Proj_&lt;no&gt;__PathwayGSEA.pdf</code>: one page per
+comparison and collection, a bar chart of the NES of the independent
+sets, at most the 15 with the smallest p-value on each side of 0,
+colored by the group they are more accessible in.</li>
+<li><code>Proj_&lt;no&gt;__PathwayGSEA_Dot.pdf</code>: the same sets as
+a dot plot; the dot size is the number of genes in the set, its color
+the adjusted p-value as -log10(padj), from light to dark, with the scale
+clipped to the 5th-95th percentile of the page.</li>
+<li><code>Proj_&lt;no&gt;__PathwayGSEA_Heatmap.pdf</code> (with two or
+more comparisons): one page per collection, the NES of each set in every
+comparison. The rows are the sets independent and significant in at
+least one comparison (at most 50, those with the smallest adjusted
+p-value), clustered on their NES; a cell is grey where the set is not
+significant in that comparison, or was not tested. A positive NES means
+more accessible in the first group of the comparison’s name. Blue is
+negative and red positive; the color scale ends at the 95th percentile
+of |NES|, and larger values have the end color.</li>
+<li><code>Proj_&lt;no&gt;__PathwayGSEA_Enrichment.pdf</code>: for each
+comparison and collection, the running enrichment score of the top
+independent sets (at most 3 per side of 0), then one page per set with a
+heatmap of its leading-edge genes: each row is a gene, by the region
+that gave it its score (at most 50 genes, those with the largest score),
+each column a sample of the comparison, and the color the region’s
+normalized accessibility (log2 CPM, as tested by edgeR), centered and
+scaled across the samples (blue below the mean, red above, with the
+scale ending at the 95th percentile of |z|). Two genes that share a
+promoter region have the same row values.</li>
+</ul>
+<p>Human data use the human MSigDB collections; the default is Hallmark
+(<code>H</code>), the canonical pathways (<code>C2:CP</code>: Reactome,
+WikiPathways, KEGG MEDICUS, BioCarta, PID; not the legacy KEGG sets) and
+GO biological process (<code>C5:GO:BP</code>). Mouse data use the mouse
+MSigDB (<code>MH</code>, <code>M2:CP</code>, <code>M5:GO:BP</code>). As
+for the differential analysis, a run tag <code>&lt;tag&gt;</code> gives
+<code>Proj_&lt;no&gt;_&lt;tag&gt;_PathwayGSEA.xlsx</code>, and so
+on.</p>
 </body>
 </html>
