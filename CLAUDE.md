@@ -199,18 +199,33 @@ Rscript /path/to/ATAC-seq/R/pathwayGSEA.R [-c COLLECTIONS] [-m MODE] [RUNTAG]
 
 Both write to `atacSeq/diff`. `diffAnalysisPairwise.R` reads
 `atacSeq/atlas/peaks_raw_fcCounts.txt` and saves every tested peak of every comparison
-in `*_DiffPeaksEdgeR_V5.rds`; `pathwayGSEA.R` reads only that file,
+in `*_DiffPeaksEdgeR_V5.rds`, with each comparison's TMM logCPM matrix
+(`log_cpm`, `samples`) for the leading-edge heatmaps; `pathwayGSEA.R` reads only that file,
 so it can be rerun with other options without edgeR. It ranks genes
-(nearest gene by ChIPseeker, per gene the peak with the largest
-`|sign(logFC) * -log10(P)|`) and runs `fgseaMultilevel` per
-collection item (BH within it). Gene sets come from msigdbr; the
+(a peak belongs to every gene with a TSS within `--tss-window`, or in
+distance mode to all genes tied for the nearest TSS; per gene the
+peak with the largest `|sign(logFC) * -log10(P)|`) and runs `fgseaMultilevel` per
+collection item (BH within it). The significant sets are collapsed
+with `collapsePathways` (`CollapsedInto`); every plot shows only
+significant, independent sets, never a non-significant one, while
+the xlsx keeps every tested set. Plots are one PDF per type:
+`_PathwayGSEA.pdf` (bars), `_Dot`, `_Heatmap` (2+ comparisons) and
+`_Enrichment` (running score and leading-edge heatmap). Gene sets come from msigdbr; the
 MSigDB species (`MSIGDB_DB`) and the default collections
 (`MSIGDB_SETS`) are columns of `GENOMES.tsv`, so mouse uses the
 native mouse MSigDB (`MH`, `M2`, `M5`), not human orthologs. Match
-genes by Entrez ID (the knownGene `geneId`), never by symbol.
+genes by Entrez ID (the knownGene `geneId`), never by symbol. Do not
+go back to ChIPseeker's `annotatePeak` for the GSEA genes: it gives a
+peak one gene and breaks ties at a shared TSS in a way that depends
+on the other peaks it is given, which made a comparison's results
+depend on the other comparisons and put 5-7% of ranked genes (mostly
+a protein-coding gene and an ncRNA at one promoter) on an arbitrary
+choice. The same kind of tie affects the gene named in the diff
+xlsx (`00.FIXME.md` #35).
 `deliverResults.sh` delivers `atacSeq/diff` with the rest of
 `atacSeq/` (not the `.rds` files) and adds `tmpldeliveryEmail_02.txt`
-and `_03.txt` to the email when it finds the diff and GSEA files there.
+and `_03.txt` to the email when it finds the diff and GSEA files there,
+and `_04.txt` when it finds `_PathwayGSEA_Heatmap.pdf`.
 
 ## Genome handling — read this before touching any genome code
 
@@ -326,6 +341,12 @@ The standalone subread binary is not Bioconductor.
   `edgeR::thinCounts(target.size=)`: it subtracts a multinomial draw
   made with replacement and clips at 0, so a sample thinned 10-fold
   gets about 10 times the variance of a real shallow library.
+- Colors come from `R/palettes.R` (hex palettes and the
+  `scale_sequential`/`scale_signed` helpers; its header has the
+  rules): no viridis, no ggplot default hue palette, grey only for
+  "none", no color written in a figure. Only `pathwayGSEA.R` uses it
+  so far; the other scripts still take colors from ggsci, pals and
+  ColorBrewer at run time.
 - `R/attic/` and `attic/` hold superseded versions kept for reference. Do not
   edit them; do not treat them as live code.
 

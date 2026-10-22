@@ -26,7 +26,8 @@ OUTPUT FILES (in atacSeq/diff):
   - <PROJ>__DiffPeaksEdgeR_V5.xlsx : Excel file with differential peaks
   - <PROJ>__DiffPeaks_V5.pdf       : PDF with PCA and MA/volcano plots
   - <PROJ>__DiffPeaksEdgeR_V5.rds  : every tested peak of every
-                                     comparison, the input of
+                                     comparison, with its samples'
+                                     logCPM, the input of
                                      pathwayGSEA.R (not delivered)
   With a RUNTAG: <PROJ>_<RUNTAG>_DiffPeaksEdgeR_V5.xlsx, and so on.
   <PROJ> is the last directory of the current path named Proj_* or
@@ -443,9 +444,17 @@ do_differential_analysis <- function(dge_object, design, contrast,
     final_table <- sig_results
   }
 
+  # The TMM log-CPM of every tested peak in each sample of the comparison,
+  # the values edgeR tested, for the leading-edge heatmaps of
+  # R/pathwayGSEA.R; 4 decimals keep the RDS small
+  log_cpm <- round(cpm(dge_comp, log = TRUE), 4)
+
   list(
     tbl = final_table,
     all = results_table |> select(PeakNo, logFC, logCPM, PValue, FDR),
+    log_cpm = log_cpm,
+    samples = tibble(SampleID = colnames(comp_counts),
+                     Group = as.character(comp_group)),
     group1 = group1,
     group2 = group2,
     comparison = comp_tag,
@@ -525,7 +534,9 @@ setColWidths(wb, "Summary", cols = seq_len(ncol(summary_stats)),
 saveWorkbook(wb, output_xlsx, overwrite = TRUE)
 
 # Every tested peak of every comparison, for R/pathwayGSEA.R: a ranked
-# gene list needs the statistic of every peak, not only the significant
+# gene list needs the statistic of every peak, not only the significant.
+# log_cpm (peaks x samples) and samples (SampleID, Group) are the
+# per-sample values of the comparison
 output_rds <- path(out_dir, cc(project_id, RUNTAG, "DiffPeaksEdgeR_V5.rds"))
 saveRDS(
   list(
@@ -533,7 +544,8 @@ saveRDS(
     peaks = peak.annote,
     comparisons = map(results_list, \(res) {
       list(tag = res$comparison, label = res$label,
-           group1 = res$group1, group2 = res$group2, table = res$all)
+           group1 = res$group1, group2 = res$group2, table = res$all,
+           log_cpm = res$log_cpm, samples = res$samples)
     })
   ),
   output_rds

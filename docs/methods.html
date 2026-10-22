@@ -201,20 +201,32 @@ change against p-value, on a log scale), with the significant regions
 colored by the group they are more accessible in.</p>
 <p><strong>Pathway enrichment.</strong> When requested, each comparison
 was tested for pathway enrichment by preranked gene set enrichment
-analysis (Subramanian 2005) with fgsea (Korotkevich 2021). Every tested
-region was assigned to the gene with the nearest TSS with ChIPseeker and
-the UCSC knownGene annotation of the build, and regions farther from
-that TSS than a set distance (by default 1 kb on either side, the
-promoter) were dropped. Each region was scored as the sign of its log
-fold change times -log10 of its p-value, and each gene took the score of
-its region with the largest absolute score. The genes ranked by this
-score were tested against MSigDB (Liberzon 2015) gene sets of 15 to 500
-ranked genes, from msigdbr, with fgseaMultilevel (no lower bound on the
-p-value, fixed seed); p-values were adjusted with the Benjamini-Hochberg
-method within each collection of each comparison. Human data used the
-human MSigDB collections, mouse data the mouse MSigDB (Castanza 2023). A
-positive normalized enrichment score means the set’s genes are more
-accessible in group 2.</p>
+analysis (Subramanian 2005) with fgsea (Korotkevich 2021). Each region
+of the atlas was assigned to every gene with a TSS (the start of any of
+its transcripts in the UCSC knownGene annotation of the build) within 1
+kb of it, i.e. to the genes whose promoter it is in; a region at a
+promoter shared by two genes was assigned to both, rather than to one of
+them chosen arbitrarily. Regions with no TSS within 1 kb were not used.
+(An alternative mode instead assigns each region to the gene, or genes
+on a tie, with the nearest TSS within a set distance.) Each tested
+region was scored as the sign of its log fold change times -log10 of its
+p-value, and each gene took the score of its region with the largest
+absolute score. The genes ranked by this score were tested against
+MSigDB (Liberzon 2015) gene sets of 15 to 500 ranked genes, from
+msigdbr, with fgseaMultilevel (no lower bound on the p-value, fixed
+seed); p-values were adjusted with the Benjamini-Hochberg method within
+each collection of each comparison. Human data used the human MSigDB
+collections, mouse data the mouse MSigDB (Castanza 2023). A positive
+normalized enrichment score means the set’s genes are more accessible in
+group 2. The significant sets (adjusted p &lt; 0.05) of each collection
+and comparison were reduced to independent ones with fgsea’s
+collapsePathways (fixed seed): in order of p-value, a set was redundant
+when its enrichment was no longer significant (p &gt; 0.05) given a more
+significant set. The plots show only the independent significant sets.
+The leading-edge heatmaps show, for each gene, the edgeR log2 CPM
+(TMM-normalized) of the region that gave the gene its score, in the
+samples of the comparison, centered and scaled to unit variance across
+those samples.</p>
 <h2 id="tool-versions">Tool versions</h2>
 <table>
 <thead>
