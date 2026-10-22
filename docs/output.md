@@ -1,4 +1,4 @@
-# BIC ATAC-seq Pipeline (v2.0.0)
+# BIC ATAC-seq Pipeline (v2.1.0)
 
 ## Introduction
 
@@ -8,7 +8,8 @@ the project and the raw count matrix over it, which is the input to
 any normalization or differential analysis. `bigwig` holds a
 normalized signal track per sample for a genome browser. `metrics`
 holds the QC metrics and plots. Projects with replicates have a
-`diff` folder with the differential accessibility analysis. `docs`
+`diff` folder with the differential accessibility analysis and,
+when requested, its pathway enrichment (GSEA). `docs`
 holds this document (`output.pdf`, `output.html`) and the methods
 document (`methods.pdf`, `methods.html`), which describes how each
 file was made.
