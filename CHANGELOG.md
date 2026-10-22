@@ -2,11 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [v2.1.0] — 2026-10-22
 
-No change to the content of any existing result; the version stays
-v2.0.0. Two files are newly delivered, and results are written to
-`atacSeq/` directly (below).
+New: pathway enrichment (GSEA) of the differential analysis, with
+its own email sections. The results v2.0.0 made do not change: the
+same BAMs give the same peaks, atlas, counts, scale factors, QC
+reports and differential analysis. Two files are newly delivered,
+and results are written to `atacSeq/` directly (below).
 
 ### Changed
 
@@ -99,6 +101,19 @@ v2.0.0. Two files are newly delivered, and results are written to
   diff files, the email and the database registration were skipped.
   The script now finds its docs by their physical path. A dry run
   (`-n`) does not run rsync, so it could not show the error.
+
+### Not tested
+
+- `pathwayGSEA.R` was run on hg38 only (Proj_18143, 7 comparisons);
+  not on b37 or on mm10 with the mouse MSigDB (`00.FIXME.md` #4).
+- The pipeline with the `atacSeq/` layout was run once, at full size,
+  on Proj_18143 (`v2.0.0-18-g43d55e5`, the pipeline code of this
+  version). `diffAnalysisPairwise.R` with the logCPM in its `.rds`
+  and the current `pathwayGSEA.R` were run by hand on a scratch copy
+  of its counts.
+- `deliverResults.sh` was run only with `-n`; the copy as
+  `svc_core001_bot01` and the permissions database step have not
+  been run on this version.
 
 ## [v2.0.0] — 2026-10-14
 

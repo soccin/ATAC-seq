@@ -22,10 +22,12 @@ Rscript /path/to/ATAC-seq/R/diffAnalysisPairwise.R \
 Rscript /path/to/ATAC-seq/R/pathwayGSEA.R [-c COLLECTIONS] [-m MODE] [RUNTAG]
 ```
 
-## Version 2.0.0 - 2026-10-14
+## Version 2.1.0 - 2026-10-22
 
-Most outputs differ from those of v1.x; do not mix the two. See
-`CHANGELOG.md` for what changed and why.
+v2.1.0 adds pathway enrichment (GSEA) of the differential analysis
+and writes every result to `atacSeq/` directly; the results v2.0.0
+made do not change. Most outputs differ from those of v1.x; do not
+mix the two. See `CHANGELOG.md` for what changed and why.
 
 Input: paired-end BAMs aligned with PEMapper, duplicates marked. Peak
 calling and bigWigs use each read of a pair as a single read; the
