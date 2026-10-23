@@ -22,10 +22,10 @@ Rscript /path/to/ATAC-seq/R/diffAnalysisPairwise.R \
 Rscript /path/to/ATAC-seq/R/pathwayGSEA.R [-c COLLECTIONS] [-m MODE] [RUNTAG]
 
 # Motif enrichment of the diff results (same RUNTAG; writes
-# atacSeq/diff); run as a job, the motif scan uses -n cores, and
-# loadTools.sh keeps R's temp files out of /tmp
-bsub -n 8 -M 128G -W 6:00:00 -J motifs -o SLURM.MOTIF/ bash -c \
-    ". /path/to/ATAC-seq/bin/loadTools.sh; Rscript /path/to/ATAC-seq/R/motifEnrich.R [-w WIDTH] [-m MINPEAKS] [RUNTAG]"
+# atacSeq/diff), as a job. How to choose WIDTH, MINPEAKS and the
+# job size: motifEnrich.sh -h, or "Motif enrichment" below
+bsub -n 8 -M 128G -W 6:00:00 -J motifs -o SLURM.MOTIF/ \
+    /path/to/ATAC-seq/motifEnrich.sh [-w WIDTH] [-m MINPEAKS] [RUNTAG]
 ```
 
 ## Version 2.1.0 - 2026-10-22
@@ -284,16 +284,24 @@ on first use into `tools::R_user_dir("msigdbr", "cache")`
 enriched transcription factor motifs with monaLisa, against the
 JASPAR 2024 CORE vertebrate non-redundant profiles in `lib/motifs`
 (`lib/motifs/getJaspar.sh` downloads them again and checks the md5).
-Run it from the analysis directory after `diffAnalysisPairwise.R`,
-with the same RUNTAG:
+Run it as a job from the analysis directory after
+`diffAnalysisPairwise.R`, with the same RUNTAG, through
+`motifEnrich.sh`, which loads the tools (`bin/loadTools.sh`, which
+keeps R's temp files out of `/tmp`) and runs the R script with the
+job's cores:
 
 ```
-Rscript /path/to/ATAC-seq/R/motifEnrich.R [options] [RUNTAG]
+bsub -n 8 -M 128G -W 6:00:00 -J motifs -o SLURM.MOTIF/ \
+    /path/to/ATAC-seq/motifEnrich.sh [-w WIDTH] [-m MINPEAKS] [RUNTAG]
 
-  -w, --width      region around each peak's strongest summit, odd (501)
-  -m, --min-peaks  smallest set tested (50)
-  -c, --cores      cores for the motif scan (SLURM_CPUS_PER_TASK, else 1)
+  -w WIDTH     bp around each peak's strongest summit, odd, >= 51 (501)
+  -m MINPEAKS  smallest up or down set tested (50)
 ```
+
+`motifEnrich.sh -h`, or the script run outside a job, prints this
+line and the notes below. `Rscript R/motifEnrich.R --help` describes
+the method and output; its `-c CORES` defaults to the job's
+`SLURM_CPUS_PER_TASK`, which `bsub -n` sets.
 
 Each tested peak is the `--width` bp centered on its strongest summit
 (the largest MACS2 -log10 p of the `*_summits.blacklistFiltered.bed`
@@ -301,15 +309,44 @@ of all samples in `atacSeq/macs`), read from the `FASTA` of the build
 in `GENOMES.tsv`. For each comparison the up (FDR < 0.05, logFC > 0)
 and down (FDR < 0.05, logFC < 0) sets are tested against the
 comparison's other tested peaks, which monaLisa weights to each set's
-G+C and k-mer composition; `padj` is BH within the set. The motif scan
-takes most of the time, about 26 sequences per second per core on a
-cmobic_cpu node, and every tested peak of every comparison is scanned
-(the background too), so give the job cores. Proj_18143 (7
-comparisons, 1.14 million sequences scanned) took 80 min with 8 cores
-and reached the 64G it was given (sacct MaxRSS 64.0G, which counts
-the pages the forked workers share once per worker); ask for 128G
-(the nodes have about 1 TB). The output, in `atacSeq/diff`, all
-starting `<PROJ>_<RUNTAG>_MotifEnrichment`:
+G+C and k-mer composition; `padj` is BH within the set.
+
+#### Choosing the options and the job size
+
+- **`-w WIDTH`** (501): the sequence scanned around each summit, the
+  same for the up, down and background peaks. 501 (summit ± 250) is
+  ArchR's fixed peak width and within chromVAR's recommended 250-500
+  bp for ATAC; chromVAR's vignette calls the method "fairly robust to
+  the exact choice of peak width". HOMER's default `-size 200` comes
+  from TF ChIP-seq. Keep 501 unless you have a reason: 201 (± 100)
+  keeps closer to the summit, a wider window adds more flanking
+  sequence. It must be odd so the summit is the center base. The scan
+  time grows with the width.
+- **`-m MINPEAKS`** (50): an up or down set with fewer peaks is not
+  tested, and the Summary sheet says so. 50 is a judgment, not a
+  published value: each set is tested for 879 motifs with BH. In
+  Proj_18143 ED1 vs EV (33 up, 17 down) was not tested; of the sets
+  tested, the smallest (244 peaks) gave no motif with padj < 0.05 and
+  the next (441) gave 92. Lower it to try a weak comparison and read
+  its hits with care; raising it only skips more sets.
+- **`-n` cores**: the motif scan takes most of the time, about 26
+  sequences per second per core on a cmobic_cpu node. A comparison
+  with at least one set tested scans all its tested peaks (the
+  background too); one with none is skipped. The time is about (sum
+  of tested peaks over those comparisons) / (26 × cores) seconds. A
+  comparison's tested peaks are the "N peaks" on its MA and volcano
+  plots in `<PROJ>_<RUNTAG>_DiffPeaks_V5.pdf`. Proj_18143 (6
+  comparisons scanned, 64,000 to 240,000 peaks each, 1.04 million in
+  all) took 80 min with 8 cores.
+- **`-M` memory**: Proj_18143 reached the 64G it was given with 8
+  cores (sacct MaxRSS 64.0G, which counts the pages the forked workers
+  share once per worker); ask for 128G (the nodes have about 1 TB).
+  More cores need more; how much has not been measured.
+- **`-W` walltime**: the time above with room; 6:00:00 for a run the
+  size of Proj_18143.
+
+The output, in `atacSeq/diff`, all starting
+`<PROJ>_<RUNTAG>_MotifEnrichment`:
 
 | File | Contents |
 | --- | --- |

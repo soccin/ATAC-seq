@@ -200,7 +200,8 @@ from the analysis directory, which gives it the genome
 Rscript /path/to/ATAC-seq/R/diffAnalysisPairwise.R \
     sampleManifest.csv Comparisons.csv [RUNTAG]
 Rscript /path/to/ATAC-seq/R/pathwayGSEA.R [-c COLLECTIONS] [-m MODE] [RUNTAG]
-Rscript /path/to/ATAC-seq/R/motifEnrich.R [-w WIDTH] [-m MINPEAKS] [-c CORES] [RUNTAG]
+bsub -n 8 -M 128G -W 6:00:00 -J motifs -o SLURM.MOTIF/ \
+    /path/to/ATAC-seq/motifEnrich.sh [-w WIDTH] [-m MINPEAKS] [RUNTAG]
 ```
 
 All three write to `atacSeq/diff`. `diffAnalysisPairwise.R` reads
@@ -237,9 +238,15 @@ comparison's non-significant peaks as its zero bin (one scan per
 comparison; the background-vs-itself column is dropped and padj is
 recomputed with BH per set). The motifs are the JASPAR 2024 file in
 `lib/motifs` (`getJaspar.sh`), not the JASPAR2024 package. The scan
-is the cost, about 26 sequences per second per core; run it as a
-job with `-n` cores (`--cores` defaults to `SLURM_CPUS_PER_TASK`).
-Proj_18143 took 80 min on 8 cores and reached its 64G cap (MaxRSS);
+is the cost, about 26 sequences per second per core, for every
+tested peak of each comparison with a set tested; run it as a job
+with `-n` cores (`--cores` defaults to `SLURM_CPUS_PER_TASK`).
+`motifEnrich.sh` is that job: it sources `bin/loadTools.sh`, runs
+the R script with its arguments, and outside a job or with `-h`
+prints the `bsub` line and how to choose `-w`, `-m` and the job size.
+Keep those notes and README's "Choosing the options and the job
+size" the same. Proj_18143 scanned 1.04 million sequences (6
+comparisons) in 80 min on 8 cores and reached its 64G cap (MaxRSS);
 the README asks for 128G.
 `deliverResults.sh` delivers `atacSeq/diff` with the rest of
 `atacSeq/` (not the `.rds` files) and adds `tmpldeliveryEmail_02.txt`
