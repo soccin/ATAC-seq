@@ -91,14 +91,19 @@ step as `COMPLETED`.
 
 Every stage job has a walltime class, the `CLASS` argument of `atacSub`,
 and `-M` as a hard total-memory cap. `SHORT` is `-W 1:59:00` with no qos;
-the shim sends it to `cmobic_short,cpushort`. `LONG` is `-W 12:00:00` with
+the shim sends it to `cmobic_short,cpushort`. `MID` is `-W 3:00:00` with
+`-q cmobic_short` and no qos (the partition allows 3:00:00, `cpushort`
+less, and the shim would send a job of two hours or more to
+`cmobic_cpu`); only POST uses it. `LONG` is `-W 12:00:00` with
 `SBATCH_QOS=priority` set on that one `bsub` call; the shim sends it to
 `cmobic_cpu`. Never give a `SHORT` job a qos: `cpushort` allows only
 `normal` and rejects the job. Never export `SBATCH_QOS` (`pipe.sh` unsets
 every `SBATCH_*` variable it inherits). POST, BW, CALLP, TSSE, Count and
-CountCheck choose their class per job with `runClass MIN_PER_GB FILE...`, which
+CountCheck choose their class per job with `runClass [-m] MIN_PER_GB FILE...`, which
 estimates the run time from the input size using the `RATE_*` values
-measured on a full-size run; the other stages are always `SHORT`. A new
+measured on a full-size run and picks `SHORT` (`MID` with `-m`, POST)
+up to half that class's walltime, `LONG` above; the other stages are
+always `SHORT`. A new
 stage whose run time grows with its input needs a measured `RATE_*`.
 
 `deliverResults.sh [-n] -d|DELIVERY_DIR[/r_NNN]`, run from the

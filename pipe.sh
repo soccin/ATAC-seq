@@ -2,7 +2,7 @@
 
 #
 # Control job for IRIS/Slurm. Run it from the analysis directory; every
-# stage is fanned out with ~/bin/bsub, onto the short partitions unless
+# stage is fanned out with ~/bin/bsub, onto the short partitions (POST with up to 3 h) unless
 # its input is too large (see runClass), and the control job blocks
 # between stages with bSync/bCheck. The control job
 # itself can run for hours on full-size BAMs, so the directives below put
@@ -423,12 +423,16 @@ for V in ${!SBATCH_@}; do
 done
 
 #
-# Walltime classes. Every stage job is SHORT or LONG.
+# Walltime classes. Every stage job is SHORT, MID or LONG.
 #
 #   SHORT  -W 1:59:00, no qos. ~/bin/bsub sends anything under two hours
 #          to cmobic_short,cpushort. cpushort allows only qos=normal and
 #          EnforcePartLimits=ALL is set, so a SHORT job must not carry
 #          a qos or it is rejected ("Invalid qos specification").
+#   MID    -W 3:00:00 and -q cmobic_short, no qos. cmobic_short allows
+#          3:00:00, cpushort less; bsub would send a job of two hours
+#          or more to cmobic_cpu, hence the explicit -q. Used by POST
+#          only (runClass -m).
 #   LONG   -W 12:00:00 and qos priority. bsub sends it to cmobic_cpu;
 #          SBATCH_QOS=priority is set on that one bsub call only.
 #
@@ -440,6 +444,8 @@ done
 # scheduling hint.
 #
 SHORT_W=1:59:00
+MID_W=3:00:00
+MID_Q=cmobic_short
 LONG_W=12:00:00
 
 #
@@ -469,20 +475,32 @@ RATE_CCHECK=1.5    # postProcess BAM               0.79 to 1.02
 # A job is SHORT if its estimated run time is at most SHORT_MAX_MIN, half
 # the SHORT walltime, to leave room for slower nodes and a loaded shared
 # filesystem. ATAC_SHORT_MAX_MIN overrides it (0 makes every estimated
-# stage LONG).
+# stage LONG). With runClass -m the same rule picks MID up to
+# MID_MAX_MIN, half the MID walltime (ATAC_MID_MAX_MIN). POST uses -m:
+# on 2026-10-22 a POST job estimated at 50 min ran over 1:59 on a node
+# running five POST jobs.
 #
 SHORT_MAX_MIN=${ATAC_SHORT_MAX_MIN:-60}
+MID_MAX_MIN=${ATAC_MID_MAX_MIN:-90}
 
 #
-# runClass MIN_PER_GB FILE [FILE ...]
+# runClass [-m] MIN_PER_GB FILE [FILE ...]
 #
-# Print SHORT or LONG for a job whose input is FILE..., and log the
-# estimate on stderr.
+# Print SHORT (MID with -m) or LONG for a job whose input is FILE...,
+# and log the estimate on stderr.
 #
 runClass() {
-    local rate=$1
+    local fast=SHORT
+    local max=$SHORT_MAX_MIN
     local bytes=0
-    local f size
+    local rate f size
+
+    if [ "$1" == "-m" ]; then
+        fast=MID
+        max=$MID_MAX_MIN
+        shift
+    fi
+    rate=$1
     shift
 
     for f in "$@"; do
@@ -490,9 +508,9 @@ runClass() {
         bytes=$((bytes + size))
     done
 
-    awk -v b=$bytes -v r=$rate -v m=$SHORT_MAX_MIN 'BEGIN {
+    awk -v b=$bytes -v r=$rate -v m=$max -v f=$fast 'BEGIN {
         est = b / 1e9 * r
-        class = (est <= m) ? "SHORT" : "LONG"
+        class = (est <= m) ? f : "LONG"
         printf "    runClass %.1f GB x %s min/GB = %.0f min -> %s\n", \
             b / 1e9, r, est, class >"/dev/stderr"
         print class
@@ -502,9 +520,9 @@ runClass() {
 #
 # atacSub STAGE SAMPLE LOGDIR CLASS "BSUB_OPTS" CMD [ARG ...]
 #
-# Submit one stage job as ${TAG}_STAGE_$$ in walltime class CLASS (SHORT
-# or LONG) through bin/runStage.sh, which appends #ATAC_EXIT=<rc> to the
-# job log, and record it in $JOBS.
+# Submit one stage job as ${TAG}_STAGE_$$ in walltime class CLASS (SHORT,
+# MID or LONG) through bin/runStage.sh, which appends #ATAC_EXIT=<rc> to
+# the job log, and record it in $JOBS.
 #
 atacSub() {
     local stage=$1
@@ -519,6 +537,10 @@ atacSub() {
     case $class in
         SHORT)
             runtime=$SHORT_W
+            ;;
+        MID)
+            runtime=$MID_W
+            opts="-q $MID_Q $opts"
             ;;
         LONG)
             runtime=$LONG_W
@@ -580,7 +602,7 @@ ATLAS=atacSeq/atlas
 mkdir -p $ATLAS atacSeq/bigwig atacSeq/macs atacSeq/metrics
 
 for BAM in $BAMS; do
-    CLASS=$(runClass $RATE_POST $BAM)
+    CLASS=$(runClass -m $RATE_POST $BAM)
     atacSub POST2 $(getSMTag $BAM) SLURM.01.POST $CLASS "-M 32G" \
         $SDIR/postMapBamProcessing_ATACSeq.sh -q $MAPQ $GENOME $BAM
 done

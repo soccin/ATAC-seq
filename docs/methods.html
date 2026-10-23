@@ -29,15 +29,15 @@
 <h1 class="title">ATAC-seq Methods</h1>
 </header>
 <h1 id="atac-seq-pipeline">ATAC-seq Pipeline</h1>
-<h3 id="version-2.0.0">Version 2.0.0</h3>
+<h3 id="version-2.1.0">Version 2.1.0</h3>
 <h2 id="overview">Overview</h2>
 <p>Samples were processed with the BIC ATAC-seq pipeline, which takes
 aligned, duplicate-marked BAM files and produces filtered alignments,
 normalized signal tracks (bigWig), MACS2 peak calls for each sample, a
 merged peak atlas with a raw fragment count matrix, QC metrics and, when
-the design has replicates, a differential accessibility analysis. The
-code is at <a
-href="https://github.com/soccin/ATAC-seq/releases/tag/v2.0.0">https://github.com/soccin/ATAC-seq/releases/tag/v2.0.0</a>.</p>
+the design has replicates, a differential accessibility analysis and,
+when requested, a pathway enrichment analysis of it. The code is at <a
+href="https://github.com/soccin/ATAC-seq/releases/tag/v2.1.0">https://github.com/soccin/ATAC-seq/releases/tag/v2.1.0</a>.</p>
 <p>Read filtering, the Tn5 shift and peak calling follow the ENCODE
 ATAC-seq pipeline (ENCODE-DCC/atac-seq-pipeline v2.2.3) with four
 differences, described below: the mapping quality cutoff, where
@@ -204,29 +204,29 @@ was tested for pathway enrichment by preranked gene set enrichment
 analysis (Subramanian 2005) with fgsea (Korotkevich 2021). Each region
 of the atlas was assigned to every gene with a TSS (the start of any of
 its transcripts in the UCSC knownGene annotation of the build) within 1
-kb of it, i.e. to the genes whose promoter it is in; a region at a
-promoter shared by two genes was assigned to both, rather than to one of
-them chosen arbitrarily. Regions with no TSS within 1 kb were not used.
-(An alternative mode instead assigns each region to the gene, or genes
-on a tie, with the nearest TSS within a set distance.) Each tested
-region was scored as the sign of its log fold change times -log10 of its
-p-value, and each gene took the score of its region with the largest
-absolute score. The genes ranked by this score were tested against
-MSigDB (Liberzon 2015) gene sets of 15 to 500 ranked genes, from
-msigdbr, with fgseaMultilevel (no lower bound on the p-value, fixed
-seed); p-values were adjusted with the Benjamini-Hochberg method within
-each collection of each comparison. Human data used the human MSigDB
-collections, mouse data the mouse MSigDB (Castanza 2023). A positive
-normalized enrichment score means the set’s genes are more accessible in
-group 2. The significant sets (adjusted p &lt; 0.05) of each collection
-and comparison were reduced to independent ones with fgsea’s
-collapsePathways (fixed seed): in order of p-value, a set was redundant
-when its enrichment was no longer significant (p &gt; 0.05) given a more
-significant set. The plots show only the independent significant sets.
-The leading-edge heatmaps show, for each gene, the edgeR log2 CPM
-(TMM-normalized) of the region that gave the gene its score, in the
-samples of the comparison, centered and scaled to unit variance across
-those samples.</p>
+kb of it, found with GenomicRanges (Lawrence 2013), i.e. to the genes
+whose promoter it is in; a region at a promoter shared by two genes was
+assigned to both, rather than to one of them chosen arbitrarily. Regions
+with no TSS within 1 kb were not used. (An alternative mode instead
+assigns each region to the gene, or genes on a tie, with the nearest TSS
+within a set distance.) Each tested region was scored as the sign of its
+log fold change times -log10 of its p-value, and each gene took the
+score of its region with the largest absolute score. The genes ranked by
+this score were tested against MSigDB (Liberzon 2015) gene sets of 15 to
+500 ranked genes, from msigdbr, with fgseaMultilevel (no lower bound on
+the p-value, fixed seed); p-values were adjusted with the
+Benjamini-Hochberg method within each collection of each comparison.
+Human data used the human MSigDB collections, mouse data the mouse
+MSigDB (Castanza 2023). A positive normalized enrichment score means the
+set’s genes are more accessible in group 2. The significant sets
+(adjusted p &lt; 0.05) of each collection and comparison were reduced to
+independent ones with fgsea’s collapsePathways (fixed seed): in order of
+p-value, a set was redundant when its enrichment was no longer
+significant (p &gt; 0.05) given a more significant set. The plots show
+only the independent significant sets. The leading-edge heatmaps show,
+for each gene, the edgeR log2 CPM (TMM-normalized) of the region that
+gave the gene its score, in the samples of the comparison, centered and
+scaled to unit variance across those samples.</p>
 <h2 id="tool-versions">Tool versions</h2>
 <table>
 <thead>
@@ -301,6 +301,10 @@ those samples.</p>
 <td>3.10.0</td>
 </tr>
 <tr>
+<td>GenomicRanges</td>
+<td>1.62.1</td>
+</tr>
+<tr>
 <td>fgsea</td>
 <td>1.36.2</td>
 </tr>
@@ -347,6 +351,10 @@ BigBed: enabling browsing of large distributed datasets. Bioinformatics
 <p>Korotkevich G, Sukhov V, Budin N, Shpak B, Artyomov MN, Sergushichev
 A. Fast gene set enrichment analysis. bioRxiv 2021;060012.
 doi:10.1101/060012</p>
+<p>Lawrence M, Huber W, Pages H, Aboyoun P, Carlson M, Gentleman R,
+Morgan MT, Carey VJ. Software for computing and annotating genomic
+ranges. PLoS Comput Biol 2013;9:e1003118.
+doi:10.1371/journal.pcbi.1003118</p>
 <p>Li H. Aligning sequence reads, clone sequences and assembly contigs
 with BWA-MEM. arXiv 2013;1303.3997.</p>
 <p>Liao Y, Smyth GK, Shi W. featureCounts: an efficient general purpose

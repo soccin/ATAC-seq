@@ -28,8 +28,8 @@
 <header id="title-block-header">
 <h1 class="title">ATAC-seq Output</h1>
 </header>
-<h1 id="bic-atac-seq-pipeline-v2.0.0">BIC ATAC-seq Pipeline
-(v2.0.0)</h1>
+<h1 id="bic-atac-seq-pipeline-v2.1.0">BIC ATAC-seq Pipeline
+(v2.1.0)</h1>
 <h2 id="introduction">Introduction</h2>
 <p>The results are delivered in one folder, <code>atacSeq</code>.
 <code>macs</code> holds the peaks called for each sample.
@@ -38,10 +38,11 @@ raw count matrix over it, which is the input to any normalization or
 differential analysis. <code>bigwig</code> holds a normalized signal
 track per sample for a genome browser. <code>metrics</code> holds the QC
 metrics and plots. Projects with replicates have a <code>diff</code>
-folder with the differential accessibility analysis. <code>docs</code>
-holds this document (<code>output.pdf</code>, <code>output.html</code>)
-and the methods document (<code>methods.pdf</code>,
-<code>methods.html</code>), which describes how each file was made.</p>
+folder with the differential accessibility analysis and, when requested,
+its pathway enrichment (GSEA). <code>docs</code> holds this document
+(<code>output.pdf</code>, <code>output.html</code>) and the methods
+document (<code>methods.pdf</code>, <code>methods.html</code>), which
+describes how each file was made.</p>
 <p>In the names below, <code>&lt;sample&gt;</code> is the sample ID of
 the BAM and <code>&lt;no&gt;</code> is the project number (for example
 <code>18143</code>). Coordinates are 0-based with an exclusive end (BED

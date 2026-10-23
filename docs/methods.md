@@ -1,6 +1,6 @@
 # ATAC-seq Pipeline
 
-### Version 2.0.0
+### Version 2.1.0
 
 ## Overview
 
@@ -8,9 +8,10 @@ Samples were processed with the BIC ATAC-seq pipeline, which takes
 aligned, duplicate-marked BAM files and produces filtered alignments,
 normalized signal tracks (bigWig), MACS2 peak calls for each sample, a
 merged peak atlas with a raw fragment count matrix, QC metrics and,
-when the design has replicates, a differential accessibility analysis.
-The code is at
-[https://github.com/soccin/ATAC-seq/releases/tag/v2.0.0](https://github.com/soccin/ATAC-seq/releases/tag/v2.0.0).
+when the design has replicates, a differential accessibility analysis
+and, when requested, a pathway enrichment analysis of it. The code
+is at
+[https://github.com/soccin/ATAC-seq/releases/tag/v2.1.0](https://github.com/soccin/ATAC-seq/releases/tag/v2.1.0).
 
 Read filtering, the Tn5 shift and peak calling follow the ENCODE
 ATAC-seq pipeline (ENCODE-DCC/atac-seq-pipeline v2.2.3) with four
@@ -192,7 +193,7 @@ for pathway enrichment by preranked gene set enrichment analysis
 (Subramanian 2005) with fgsea (Korotkevich 2021). Each region of the
 atlas was assigned to every gene with a TSS (the start of any of its
 transcripts in the UCSC knownGene annotation of the build) within 1
-kb of it, i.e. to the genes whose promoter it is in; a region at a
+kb of it, found with GenomicRanges (Lawrence 2013), i.e. to the genes whose promoter it is in; a region at a
 promoter shared by two genes was assigned to both, rather than to one
 of them chosen arbitrarily. Regions with no TSS within 1 kb were not
 used. (An alternative mode instead assigns each region to the gene,
@@ -236,6 +237,7 @@ and scaled to unit variance across those samples.
 | TxDb.Hsapiens.UCSC.hg38.knownGene (hg38) | 3.22.0 |
 | TxDb.Hsapiens.UCSC.hg19.knownGene (b37) | 3.22.1 |
 | TxDb.Mmusculus.UCSC.mm10.knownGene (mm10) | 3.10.0 |
+| GenomicRanges | 1.62.1 |
 | fgsea | 1.36.2 |
 | msigdbr | 26.1.1 |
 | MSigDB | 2026.1 (Hs, Mm) |
@@ -277,6 +279,11 @@ BigBed: enabling browsing of large distributed datasets. Bioinformatics
 Korotkevich G, Sukhov V, Budin N, Shpak B, Artyomov MN, Sergushichev A.
 Fast gene set enrichment analysis. bioRxiv 2021;060012.
 doi:10.1101/060012
+
+Lawrence M, Huber W, Pages H, Aboyoun P, Carlson M, Gentleman R,
+Morgan MT, Carey VJ. Software for computing and annotating genomic
+ranges. PLoS Comput Biol 2013;9:e1003118.
+doi:10.1371/journal.pcbi.1003118
 
 Li H. Aligning sequence reads, clone sequences and assembly contigs with
 BWA-MEM. arXiv 2013;1303.3997.
