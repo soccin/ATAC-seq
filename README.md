@@ -24,8 +24,7 @@ Rscript /path/to/ATAC-seq/R/pathwayGSEA.R [-c COLLECTIONS] [-m MODE] [RUNTAG]
 # Motif enrichment of the diff results (same RUNTAG; writes
 # atacSeq/diff), as a job. How to choose WIDTH, MINPEAKS and the
 # job size: motifEnrich.sh -h, or "Motif enrichment" below
-bsub -n 8 -M 128G -W 6:00:00 -J motifs -o SLURM.MOTIF/ \
-    /path/to/ATAC-seq/motifEnrich.sh [-w WIDTH] [-m MINPEAKS] [RUNTAG]
+sbatch /path/to/ATAC-seq/motifEnrich.sh [-w WIDTH] [-m MINPEAKS] [RUNTAG]
 ```
 
 ## Version 2.1.0 - 2026-10-22
@@ -291,17 +290,22 @@ keeps R's temp files out of `/tmp`) and runs the R script with the
 job's cores:
 
 ```
-bsub -n 8 -M 128G -W 6:00:00 -J motifs -o SLURM.MOTIF/ \
-    /path/to/ATAC-seq/motifEnrich.sh [-w WIDTH] [-m MINPEAKS] [RUNTAG]
+sbatch /path/to/ATAC-seq/motifEnrich.sh [-w WIDTH] [-m MINPEAKS] [RUNTAG]
 
   -w WIDTH     bp around each peak's strongest summit, odd, >= 51 (501)
   -m MINPEAKS  smallest up or down set tested (50)
 ```
 
+Its `#SBATCH` lines ask for 8 cores, 128G and 6 h on `cmobic_cpu`
+with `--qos=priority`, named `MOTIF.ATAC`, with the log in
+`SLURM.MOTIF/<jobid>.out`; flags given to `sbatch` before the script
+override them, e.g. `sbatch -c 16 --mem=256G -t 12:00:00
+/path/to/ATAC-seq/motifEnrich.sh`. As for `pipe.sh`, `sbatch` is the
+`~/bin` wrapper, which tells the job where the checkout is.
 `motifEnrich.sh -h`, or the script run outside a job, prints this
 line and the notes below. `Rscript R/motifEnrich.R --help` describes
 the method and output; its `-c CORES` defaults to the job's
-`SLURM_CPUS_PER_TASK`, which `bsub -n` sets.
+`SLURM_CPUS_PER_TASK`, which `sbatch -c` sets.
 
 Each tested peak is the `--width` bp centered on its strongest summit
 (the largest MACS2 -log10 p of the `*_summits.blacklistFiltered.bed`
@@ -329,7 +333,7 @@ G+C and k-mer composition; `padj` is BH within the set.
   tested, the smallest (244 peaks) gave no motif with padj < 0.05 and
   the next (441) gave 92. Lower it to try a weak comparison and read
   its hits with care; raising it only skips more sets.
-- **`-n` cores**: the motif scan takes most of the time, about 26
+- **`-c` cores** (8): the motif scan takes most of the time, about 26
   sequences per second per core on a cmobic_cpu node. A comparison
   with at least one set tested scans all its tested peaks (the
   background too); one with none is skipped. The time is about (sum
@@ -338,12 +342,12 @@ G+C and k-mer composition; `padj` is BH within the set.
   plots in `<PROJ>_<RUNTAG>_DiffPeaks_V5.pdf`. Proj_18143 (6
   comparisons scanned, 64,000 to 240,000 peaks each, 1.04 million in
   all) took 80 min with 8 cores.
-- **`-M` memory**: Proj_18143 reached the 64G it was given with 8
+- **`--mem`** (128G): Proj_18143 reached the 64G it was given with 8
   cores (sacct MaxRSS 64.0G, which counts the pages the forked workers
-  share once per worker); ask for 128G (the nodes have about 1 TB).
-  More cores need more; how much has not been measured.
-- **`-W` walltime**: the time above with room; 6:00:00 for a run the
-  size of Proj_18143.
+  share once per worker); 128G leaves room (the nodes have about
+  1 TB). More cores need more; how much has not been measured.
+- **`-t` walltime** (6:00:00): the time above with room; 6 h covers a
+  run the size of Proj_18143.
 
 The output, in `atacSeq/diff`, all starting
 `<PROJ>_<RUNTAG>_MotifEnrichment`:
