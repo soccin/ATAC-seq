@@ -9,7 +9,8 @@ any normalization or differential analysis. `bigwig` holds a
 normalized signal track per sample for a genome browser. `metrics`
 holds the QC metrics and plots. Projects with replicates have a
 `diff` folder with the differential accessibility analysis and,
-when requested, its pathway enrichment (GSEA). `docs`
+when requested, its pathway enrichment (GSEA) and the enrichment of
+transcription factor motifs in its regions. `docs`
 holds this document (`output.pdf`, `output.html`) and the methods
 document (`methods.pdf`, `methods.html`), which describes how each
 file was made.
@@ -62,7 +63,9 @@ atacSeq
     ├── Proj_<no>__PathwayGSEA.pdf     (when requested)
     ├── Proj_<no>__PathwayGSEA_Dot.pdf         (when requested)
     ├── Proj_<no>__PathwayGSEA_Heatmap.pdf     (when requested, 2+ comparisons)
-    └── Proj_<no>__PathwayGSEA_Enrichment.pdf  (when requested)
+    ├── Proj_<no>__PathwayGSEA_Enrichment.pdf  (when requested)
+    ├── Proj_<no>__MotifEnrichment.xlsx        (when requested)
+    └── Proj_<no>__MotifEnrichment.pdf         (when requested)
 ```
 
 The filtered BAM files (`<sample>_postProcess.bam`) are not delivered.
@@ -425,3 +428,60 @@ KEGG MEDICUS, BioCarta, PID; not the legacy KEGG sets) and GO
 biological process (`C5:GO:BP`). Mouse data use the mouse MSigDB
 (`MH`, `M2:CP`, `M5:GO:BP`). As for the differential analysis, a run
 tag `<tag>` gives `Proj_<no>_<tag>_PathwayGSEA.xlsx`, and so on.
+
+### Motif enrichment (`Proj_<no>__MotifEnrichment.xlsx`)
+
+When requested, the regions of each comparison are also tested for
+enriched transcription factor binding motifs, the 879 vertebrate
+profiles of JASPAR 2024 (CORE, non-redundant). Each region is
+represented by 501 bp centered on its strongest peak summit, the
+summit with the smallest MACS2 p-value of all the samples' peaks in
+the region. Two sets of regions are tested per comparison: those
+significantly more accessible (FDR < 0.05, as in the differential
+analysis) in group 2 (`up`) and those more accessible in group 1
+(`down`). The background of both is the other regions tested in the
+comparison (FDR >= 0.05), weighted to match the set's G+C content
+and short-sequence (k-mer) composition, so that a motif is not found
+enriched only because the set is GC-rich, as promoters are. A set of
+fewer than 50 regions is not tested. The width and the smallest set
+are defaults; the `Parameters` sheet gives the values used.
+
+- `Summary`: per comparison and direction, `HigherIn` (the group the
+  set is more accessible in), `Peaks` (regions in the set),
+  `Background` (regions in the background), `Status` (`tested`, or
+  why not), `MotifsTested` and the number of motifs enriched with
+  adjusted p < 0.05.
+- One sheet per comparison with a tested set, named as in the
+  differential analysis, with every motif tested for each set, first
+  `up`, then `down`, each sorted by p-value. **These sheets are NOT
+  filtered for adjusted p < 0.05**: filter on `padj` to find the
+  enriched motifs. Columns: `Direction`, `HigherIn`, `MotifID` (the
+  JASPAR ID, e.g. `MA0099.4`; look it up at
+  [https://jaspar.elixir.no](https://jaspar.elixir.no)), `Motif` (the
+  transcription factor, or two for a heterodimer such as
+  `FOS::JUN`), `log2enr` (log2 of the fraction of set regions with a
+  motif hit over that of the weighted background), `pval` (one-sided:
+  more set regions with a hit than expected), `padj`
+  (Benjamini-Hochberg within the set), `FgWithHit` and `BgWithHit`
+  (percent of set and of weighted background regions with a hit) and
+  `MotifGC` (percent G+C of the motif).
+- `Parameters`: the settings and the software versions.
+
+Related transcription factors bind similar motifs, so one change is
+often seen as a family of enriched motifs: for example AP-1 (FOS,
+JUN, ATF, BATF and their dimers) usually appear together. The test
+cannot tell which member of a family is the one binding.
+
+- `Proj_<no>__MotifEnrichment.pdf`: one page per comparison with at
+  least one enriched motif, a heatmap of the log2 enrichment of the
+  top motifs (at most 20 per set, those with the smallest p-value), a
+  column for each set; then a page with the top motifs of all
+  comparisons (at most 50, those with the smallest adjusted p-value),
+  a column for each tested set. The rows are clustered on the
+  enrichment; a cell is grey where the motif has adjusted p >= 0.05
+  in that set, or the set was not tested. The color scale runs from
+  light to dark and is clipped to the 5th-95th percentile of the
+  page.
+
+A run tag `<tag>` gives `Proj_<no>_<tag>_MotifEnrichment.xlsx` and
+`.pdf`.

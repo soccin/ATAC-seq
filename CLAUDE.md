@@ -200,9 +200,10 @@ from the analysis directory, which gives it the genome
 Rscript /path/to/ATAC-seq/R/diffAnalysisPairwise.R \
     sampleManifest.csv Comparisons.csv [RUNTAG]
 Rscript /path/to/ATAC-seq/R/pathwayGSEA.R [-c COLLECTIONS] [-m MODE] [RUNTAG]
+Rscript /path/to/ATAC-seq/R/motifEnrich.R [-w WIDTH] [-m MINPEAKS] [-c CORES] [RUNTAG]
 ```
 
-Both write to `atacSeq/diff`. `diffAnalysisPairwise.R` reads
+All three write to `atacSeq/diff`. `diffAnalysisPairwise.R` reads
 `atacSeq/atlas/peaks_raw_fcCounts.txt` and saves every tested peak of every comparison
 in `*_DiffPeaksEdgeR_V5.rds`, with each comparison's TMM logCPM matrix
 (`log_cpm`, `samples`) for the leading-edge heatmaps; `pathwayGSEA.R` reads only that file,
@@ -227,10 +228,24 @@ depend on the other comparisons and put 5-7% of ranked genes (mostly
 a protein-coding gene and an ncRNA at one promoter) on an arbitrary
 choice. The same kind of tie affects the gene named in the diff
 xlsx (`00.FIXME.md` #35).
+`motifEnrich.R` also reads only that file, plus the per-sample
+summits in `atacSeq/macs` and the build's `FASTA` (`GENOMES.tsv`,
+checked against `<TAG>.genome`). Each peak is `--width` bp around its
+strongest summit; the up and down sets (FDR < 0.05, sign of logFC)
+are tested with monaLisa `calcBinnedMotifEnrR` against the
+comparison's non-significant peaks as its zero bin (one scan per
+comparison; the background-vs-itself column is dropped and padj is
+recomputed with BH per set). The motifs are the JASPAR 2024 file in
+`lib/motifs` (`getJaspar.sh`), not the JASPAR2024 package. The scan
+is the cost, about 26 sequences per second per core; run it as a
+job with `-n` cores (`--cores` defaults to `SLURM_CPUS_PER_TASK`).
+Proj_18143 took 80 min on 8 cores and reached its 64G cap (MaxRSS);
+the README asks for 128G.
 `deliverResults.sh` delivers `atacSeq/diff` with the rest of
 `atacSeq/` (not the `.rds` files) and adds `tmpldeliveryEmail_02.txt`
 and `_03.txt` to the email when it finds the diff and GSEA files there,
-and `_04.txt` when it finds `_PathwayGSEA_Heatmap.pdf`.
+`_04.txt` when it finds `_PathwayGSEA_Heatmap.pdf`, and `_05.txt` when
+it finds the `_MotifEnrichment` files.
 
 ## Genome handling — read this before touching any genome code
 
@@ -349,8 +364,8 @@ The standalone subread binary is not Bioconductor.
 - Colors come from `R/palettes.R` (hex palettes and the
   `scale_sequential`/`scale_signed` helpers; its header has the
   rules): no viridis, no ggplot default hue palette, grey only for
-  "none", no color written in a figure. Only `pathwayGSEA.R` uses it
-  so far; the other scripts still take colors from ggsci, pals and
+  "none", no color written in a figure. Only `pathwayGSEA.R` and
+  `motifEnrich.R` use it so far; the other scripts still take colors from ggsci, pals and
   ColorBrewer at run time.
 - `R/attic/` and `attic/` hold superseded versions kept for reference. Do not
   edit them; do not treat them as live code.

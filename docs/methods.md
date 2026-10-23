@@ -217,6 +217,32 @@ for each gene, the edgeR log2 CPM (TMM-normalized) of the region that
 gave the gene its score, in the samples of the comparison, centered
 and scaled to unit variance across those samples.
 
+**Motif enrichment.** When requested, the differentially accessible
+regions were tested for enriched transcription factor binding motifs
+with monaLisa (Machlab 2022), using the 879 vertebrate profiles of
+JASPAR 2024 CORE, non-redundant (Rauluseviciute 2024). Each atlas
+region was represented by a fixed-width sequence of 501 bp centered on
+its strongest summit: of the MACS2 summits of every sample's
+blacklist-filtered peaks within the region, the one with the largest
+-log10 p-value (the middle of the region where it held no summit).
+Sequences were read from the genome FASTA of the build with Rsamtools.
+For each comparison the regions with FDR < 0.05 and a positive log
+fold change (more accessible in group 2) and those with FDR < 0.05 and
+a negative one (group 1) were tested separately, each against the
+comparison's other tested regions (FDR >= 0.05) as background; a set
+of fewer than 50 regions was not tested. The position frequency
+matrices were converted to log2-odds weight matrices against a uniform
+base background with TFBSTools (Tan 2016; pseudocount 0.8), and a
+sequence had a hit for a motif when it scored at least 10 on either
+strand. monaLisa's calcBinnedMotifEnrR weighted the background
+sequences to match the G+C content of the set (in bins), then their
+k-mer composition up to 3-mers, and tested each motif for more set
+sequences with a hit than in the weighted background with a one-sided
+Fisher's exact test. P-values were adjusted with the
+Benjamini-Hochberg method over the motifs of each set. The log2
+enrichment is that of the fraction of sequences with a hit, set over
+weighted background, with monaLisa's pseudocount of 8.
+
 ## Tool versions
 
 | Tool | Version |
@@ -241,6 +267,10 @@ and scaled to unit variance across those samples.
 | fgsea | 1.36.2 |
 | msigdbr | 26.1.1 |
 | MSigDB | 2026.1 (Hs, Mm) |
+| monaLisa | 1.16.0 |
+| TFBSTools | 1.48.0 |
+| Rsamtools | 2.26.0 |
+| JASPAR CORE vertebrates non-redundant | 2024 |
 | ENCODE ATAC-seq pipeline (settings followed) | 2.2.3 |
 
 ## References
@@ -300,6 +330,10 @@ Love MI, Huber W, Anders S. Moderated estimation of fold change and
 dispersion for RNA-seq data with DESeq2. Genome Biol 2014;15:550.
 doi:10.1186/s13059-014-0550-8
 
+Machlab D, Burger L, Soneson C, Rijli FM, Schubeler D, Stadler MB.
+monaLisa: an R/Bioconductor package for identifying regulatory motifs.
+Bioinformatics 2022;38:2624-2625. doi:10.1093/bioinformatics/btac102
+
 McCarthy DJ, Chen Y, Smyth GK. Differential expression analysis of
 multifactor RNA-Seq experiments with respect to biological variation.
 Nucleic Acids Res 2012;40:4288-4297. doi:10.1093/nar/gks042
@@ -311,6 +345,11 @@ Quinlan AR, Hall IM. BEDTools: a flexible suite of utilities for
 comparing genomic features. Bioinformatics 2010;26:841-842.
 doi:10.1093/bioinformatics/btq033
 
+Rauluseviciute I, Riudavets-Puig R, Blanc-Mathieu R, et al. JASPAR
+2024: 20th anniversary of the open-access database of transcription
+factor binding profiles. Nucleic Acids Res 2024;52:D174-D182.
+doi:10.1093/nar/gkad1059
+
 Robinson MD, McCarthy DJ, Smyth GK. edgeR: a Bioconductor package for
 differential expression analysis of digital gene expression data.
 Bioinformatics 2010;26:139-140. doi:10.1093/bioinformatics/btp616
@@ -319,6 +358,10 @@ Subramanian A, Tamayo P, Mootha VK, et al. Gene set enrichment
 analysis: a knowledge-based approach for interpreting genome-wide
 expression profiles. Proc Natl Acad Sci USA 2005;102:15545-15550.
 doi:10.1073/pnas.0506580102
+
+Tan G, Lenhard B. TFBSTools: an R/Bioconductor package for
+transcription factor binding site analysis. Bioinformatics
+2016;32:1555-1556. doi:10.1093/bioinformatics/btw024
 
 Yu G, Wang LG, He QY. ChIPseeker: an R/Bioconductor package for ChIP
 peak annotation, comparison and visualization. Bioinformatics
