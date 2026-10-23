@@ -8,7 +8,7 @@ R/diffAnalysisPairwise.R.
 
 Run from the analysis directory, after diffAnalysisPairwise.R with the
 same RUNTAG (default: none), as a job through motifEnrich.sh at the
-top of this repo; motifEnrich.sh -h gives the bsub line and how to
+top of this repo; motifEnrich.sh -h gives the sbatch line and how to
 choose --width, --min-peaks and the job size. Its input is
 diffAnalysisPairwise.R's atacSeq/diff/<PROJ>_<RUNTAG>_DiffPeaksEdgeR_V5.rds, which holds every tested peak
 of every comparison, and the per-sample MACS2 summits in atacSeq/macs.
