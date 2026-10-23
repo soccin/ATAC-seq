@@ -19,7 +19,8 @@
 #     holds the differential analysis files of the project
 #     (Proj_<no>_*_DiffPeaksEdgeR_V5.xlsx, Proj_<no>_*_DiffPeaks_V5.pdf)
 #     and their pathway enrichment (Proj_<no>_*_PathwayGSEA.xlsx, and
-#     the .pdf with its _Dot, _Heatmap and _Enrichment PDFs), if any;
+#     the .pdf with its _Dot, _Heatmap and _Enrichment PDFs) and motif
+#     enrichment (Proj_<no>_*_MotifEnrichment.xlsx and .pdf), if any;
 #   - writes the delivery email to deliveryEmail_<no>_r_NNN_<yymmdd>.txt,
 #     with the release of VERSION.md of this checkout;
 #   - registers the run with the permissions database.
@@ -255,11 +256,32 @@ for f in "${GSEA_FILES[@]}"; do
 done
 
 #
+# Motif enrichment (R/motifEnrich.R), every RUNTAG
+#
+shopt -s nullglob
+MOTIF_XLSX=("$DIFF/${PROJ}"_*_MotifEnrichment.xlsx)
+MOTIF_PDF=("$DIFF/${PROJ}"_*_MotifEnrichment.pdf)
+shopt -u nullglob
+MOTIF_FILES=("${MOTIF_XLSX[@]}" "${MOTIF_PDF[@]}")
+
+if [[ ${#MOTIF_XLSX[@]} -ne ${#MOTIF_PDF[@]} ]]; then
+    warn "${#MOTIF_XLSX[@]} MotifEnrichment.xlsx but ${#MOTIF_PDF[@]} MotifEnrichment.pdf files"
+fi
+if [[ ${#MOTIF_FILES[@]} -gt 0 && ${#DIFF_FILES[@]} -eq 0 ]]; then
+    warn "MotifEnrichment files but no DiffPeaks files"
+fi
+for f in "${MOTIF_FILES[@]}"; do
+    if [[ "$f" != "$DIFF/${PROJ}__MotifEnrichment.xlsx" && "$f" != "$DIFF/${PROJ}__MotifEnrichment.pdf" ]]; then
+        warn "motif file $f has a run tag; the email names the untagged files, edit it"
+    fi
+done
+
+#
 # Before this layout the diff files were written to the analysis
 # directory and copied from there; such files are no longer delivered.
 #
 shopt -s nullglob
-OLD_DIFF=("${PROJ}"_*_DiffPeaks*_V5.* "${PROJ}"_*_PathwayGSEA.*)
+OLD_DIFF=("${PROJ}"_*_DiffPeaks*_V5.* "${PROJ}"_*_PathwayGSEA.* "${PROJ}"_*_MotifEnrichment.*)
 shopt -u nullglob
 if [[ ${#OLD_DIFF[@]} -gt 0 ]]; then
     warn "${OLD_DIFF[*]} in the analysis directory are not delivered; move them to $DIFF"
@@ -335,7 +357,8 @@ fi
 
 #
 # The .rds files of atacSeq/diff are the inputs of pathwayGSEA.R and
-# its full results, for reruns here; they are not delivered.
+# motifEnrich.R and their full results, for reruns here; they are not
+# delivered.
 #
 asbot mkdir -p "$DEST/atacSeq/docs"
 asbot rsync -aP --exclude='/atacSeq/diff/*.rds' atacSeq "$DEST"
@@ -376,6 +399,9 @@ echo
         if [[ -e "$DIFF/${PROJ}__PathwayGSEA_Heatmap.pdf" ]]; then
             fillTemplate tmpldeliveryEmail_04.txt
         fi
+    fi
+    if [[ ${#MOTIF_FILES[@]} -gt 0 ]]; then
+        fillTemplate tmpldeliveryEmail_05.txt
     fi
     fillTemplate tmpldeliveryEmail_99.txt
 } | tee "$EMAIL"
