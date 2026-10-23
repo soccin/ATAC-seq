@@ -92,10 +92,11 @@ and results are written to `atacSeq/` directly (below).
   padj), `.pdf` (heatmap of the top 20 motifs per set of each
   comparison, and of the top 50 across comparisons) and `.rds`.
   `--cores` (default `SLURM_CPUS_PER_TASK`) parallelizes the motif
-  scan. It is run as a job through `motifEnrich.sh` (`bsub ...
-  motifEnrich.sh [-w WIDTH] [-m MINPEAKS] [RUNTAG]`), which loads the
-  tools; its `-h` prints the `bsub` line and how to choose the
-  options and the job size (also in README.md, "Motif enrichment").
+  scan. It is run as a job with `sbatch motifEnrich.sh [-w WIDTH]
+  [-m MINPEAKS] [RUNTAG]`, whose `#SBATCH` lines ask for 8 cores,
+  128G and 6 h on `cmobic_cpu`, and which loads the tools; its `-h`
+  prints the `sbatch` line and how to choose the options and the job
+  size (also in README.md, "Motif enrichment").
   `deliverResults.sh` delivers the xlsx and PDF with an email
   section (`tmpldeliveryEmail_05.txt`). Proj_18143 (7 comparisons,
   12 sets tested, ED1 vs EV's 33 and 17 peaks not; 1.04 million
