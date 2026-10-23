@@ -39,7 +39,8 @@ differential analysis. <code>bigwig</code> holds a normalized signal
 track per sample for a genome browser. <code>metrics</code> holds the QC
 metrics and plots. Projects with replicates have a <code>diff</code>
 folder with the differential accessibility analysis and, when requested,
-its pathway enrichment (GSEA). <code>docs</code> holds this document
+its pathway enrichment (GSEA) and the enrichment of transcription factor
+motifs in its regions. <code>docs</code> holds this document
 (<code>output.pdf</code>, <code>output.html</code>) and the methods
 document (<code>methods.pdf</code>, <code>methods.html</code>), which
 describes how each file was made.</p>
@@ -88,7 +89,9 @@ mitochondrial, unplaced and other contigs are left out.</p>
     ├── Proj_&lt;no&gt;__PathwayGSEA.pdf     (when requested)
     ├── Proj_&lt;no&gt;__PathwayGSEA_Dot.pdf         (when requested)
     ├── Proj_&lt;no&gt;__PathwayGSEA_Heatmap.pdf     (when requested, 2+ comparisons)
-    └── Proj_&lt;no&gt;__PathwayGSEA_Enrichment.pdf  (when requested)</code></pre>
+    ├── Proj_&lt;no&gt;__PathwayGSEA_Enrichment.pdf  (when requested)
+    ├── Proj_&lt;no&gt;__MotifEnrichment.xlsx        (when requested)
+    └── Proj_&lt;no&gt;__MotifEnrichment.pdf         (when requested)</code></pre>
 <p>The filtered BAM files (<code>&lt;sample&gt;_postProcess.bam</code>)
 are not delivered. If you need them, please contact us.</p>
 <h2 id="peaks-macs">Peaks (<code>macs</code>)</h2>
@@ -525,5 +528,66 @@ MSigDB (<code>MH</code>, <code>M2:CP</code>, <code>M5:GO:BP</code>). As
 for the differential analysis, a run tag <code>&lt;tag&gt;</code> gives
 <code>Proj_&lt;no&gt;_&lt;tag&gt;_PathwayGSEA.xlsx</code>, and so
 on.</p>
+<h3 id="motif-enrichment-proj_no__motifenrichment.xlsx">Motif enrichment
+(<code>Proj_&lt;no&gt;__MotifEnrichment.xlsx</code>)</h3>
+<p>When requested, the regions of each comparison are also tested for
+enriched transcription factor binding motifs, the 879 vertebrate
+profiles of JASPAR 2024 (CORE, non-redundant). Each region is
+represented by 501 bp centered on its strongest peak summit, the summit
+with the smallest MACS2 p-value of all the samples’ peaks in the region.
+Two sets of regions are tested per comparison: those significantly more
+accessible (FDR &lt; 0.05, as in the differential analysis) in group 2
+(<code>up</code>) and those more accessible in group 1
+(<code>down</code>). The background of both is the other regions tested
+in the comparison (FDR &gt;= 0.05), weighted to match the set’s G+C
+content and short-sequence (k-mer) composition, so that a motif is not
+found enriched only because the set is GC-rich, as promoters are. A set
+of fewer than 50 regions is not tested. The width and the smallest set
+are defaults; the <code>Parameters</code> sheet gives the values
+used.</p>
+<ul>
+<li><code>Summary</code>: per comparison and direction,
+<code>HigherIn</code> (the group the set is more accessible in),
+<code>Peaks</code> (regions in the set), <code>Background</code>
+(regions in the background), <code>Status</code> (<code>tested</code>,
+or why not), <code>MotifsTested</code> and the number of motifs enriched
+with adjusted p &lt; 0.05.</li>
+<li>One sheet per comparison with a tested set, named as in the
+differential analysis, with every motif tested for each set, first
+<code>up</code>, then <code>down</code>, each sorted by p-value.
+<strong>These sheets are NOT filtered for adjusted p &lt; 0.05</strong>:
+filter on <code>padj</code> to find the enriched motifs. Columns:
+<code>Direction</code>, <code>HigherIn</code>, <code>MotifID</code> (the
+JASPAR ID, e.g. <code>MA0099.4</code>; look it up at <a
+href="https://jaspar.elixir.no">https://jaspar.elixir.no</a>),
+<code>Motif</code> (the transcription factor, or two for a heterodimer
+such as <code>FOS::JUN</code>), <code>log2enr</code> (log2 of the
+fraction of set regions with a motif hit over that of the weighted
+background), <code>pval</code> (one-sided: more set regions with a hit
+than expected), <code>padj</code> (Benjamini-Hochberg within the set),
+<code>FgWithHit</code> and <code>BgWithHit</code> (percent of set and of
+weighted background regions with a hit) and <code>MotifGC</code>
+(percent G+C of the motif).</li>
+<li><code>Parameters</code>: the settings and the software
+versions.</li>
+</ul>
+<p>Related transcription factors bind similar motifs, so one change is
+often seen as a family of enriched motifs: for example AP-1 (FOS, JUN,
+ATF, BATF and their dimers) usually appear together. The test cannot
+tell which member of a family is the one binding.</p>
+<ul>
+<li><code>Proj_&lt;no&gt;__MotifEnrichment.pdf</code>: one page per
+comparison with at least one enriched motif, a heatmap of the log2
+enrichment of the top motifs (at most 20 per set, those with the
+smallest p-value), a column for each set; then a page with the top
+motifs of all comparisons (at most 50, those with the smallest adjusted
+p-value), a column for each tested set. The rows are clustered on the
+enrichment; a cell is grey where the motif has adjusted p &gt;= 0.05 in
+that set, or the set was not tested. The color scale runs from light to
+dark and is clipped to the 5th-95th percentile of the page.</li>
+</ul>
+<p>A run tag <code>&lt;tag&gt;</code> gives
+<code>Proj_&lt;no&gt;_&lt;tag&gt;_MotifEnrichment.xlsx</code> and
+<code>.pdf</code>.</p>
 </body>
 </html>
