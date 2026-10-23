@@ -14,7 +14,7 @@
 #'   default hue palette.
 #' - Grey means "none" only: NA, not significant, unassigned.
 #'
-#' So far only R/pathwayGSEA.R uses this file.
+#' So far only R/pathwayGSEA.R and R/motifEnrich.R use this file.
 
 ## Sequential, positive biology: grey -> yellow -> orange -> brown-red
 PAL_EXPR <- c("#EDEDED", "#FEE391", "#FEC44F", "#FE9929",
