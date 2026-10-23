@@ -77,17 +77,20 @@ Job size
     The script asks for -c 8 --mem=128G -t 6:00:00 (cmobic_cpu,
     --qos=priority). To change them, give the flags to sbatch before
     the script, e.g.
-      sbatch -c 16 --mem=256G -t 12:00:00 $SDIR/motifEnrich.sh
-    -c      cores for the motif scan, about 26 sequences per second per
-            core. Each comparison with a set tested scans all its
-            tested peaks, so the time is about
-              (sum of tested peaks over those comparisons) / (26 * c) s.
+      sbatch -t 12:00:00 $SDIR/motifEnrich.sh
+    -c      more cores do not shorten the run: Proj_18143 took 80 min
+            with -c 8 and 78 min with -c 24 (fewer than 8 has not been
+            measured). The time grows with the sequences scanned,
+            about 220 per second in all (195 to 290 per comparison).
+            Each comparison with a set tested scans all its tested
+            peaks, so the time is about
+              (sum of tested peaks over those comparisons) / 220 s.
             A comparison's tested peaks are the "N peaks" on its MA and
             volcano plots in <PROJ>_<RUNTAG>_DiffPeaks_V5.pdf.
             Proj_18143: 6 comparisons scanned, 64,000 to 240,000 peaks
-            each, 1.04 million in all, 80 min with -c 8.
-    --mem   Proj_18143 reached 64G with -c 8; 128G leaves room. With
-            more cores give more; how much has not been measured.
+            each, 1.04 million in all.
+    --mem   Proj_18143 reached 64G with -c 8 and 121G with -c 24 (it
+            grows with the cores); 128G leaves room with -c 8.
     -t      the time above, with room; 6:00:00 covers a run like
             Proj_18143.
 

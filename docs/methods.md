@@ -9,7 +9,8 @@ aligned, duplicate-marked BAM files and produces filtered alignments,
 normalized signal tracks (bigWig), MACS2 peak calls for each sample, a
 merged peak atlas with a raw fragment count matrix, QC metrics and,
 when the design has replicates, a differential accessibility analysis
-and, when requested, a pathway enrichment analysis of it. The code
+and, when requested, a pathway enrichment analysis and a motif
+enrichment analysis of it. The code
 is at
 [https://github.com/soccin/ATAC-seq/releases/tag/v2.1.0](https://github.com/soccin/ATAC-seq/releases/tag/v2.1.0).
 
