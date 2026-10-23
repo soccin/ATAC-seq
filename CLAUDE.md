@@ -236,10 +236,11 @@ are tested with monaLisa `calcBinnedMotifEnrR` against the
 comparison's non-significant peaks as its zero bin (one scan per
 comparison; the background-vs-itself column is dropped and padj is
 recomputed with BH per set). The motifs are the JASPAR 2024 file in
-`lib/motifs` (`getJaspar.sh`), not the JASPAR2024 package. The scan
-is the cost, about 26 sequences per second per core, for every
-tested peak of each comparison with a set tested; run it as a job
-with cores (`--cores` defaults to `SLURM_CPUS_PER_TASK`).
+`lib/motifs` (`getJaspar.sh`), not the JASPAR2024 package. The run
+time grows with the sequences, every tested peak of each comparison
+with a set tested, at about 220 per second in all; more cores do
+not shorten it. Run it as a job (`--cores` defaults to
+`SLURM_CPUS_PER_TASK`).
 `motifEnrich.sh` is that job, submitted with `~/bin/sbatch` as
 `pipe.sh` is (`SDIR` from `SBATCH_SCRIPT_DIR`, else `$0`). Its
 `#SBATCH` lines ask for `-c 8 --mem=128G -t 6:00:00` on
@@ -250,8 +251,8 @@ its arguments, and outside a job or with `-h` prints the `sbatch`
 line and how to choose `-w`, `-m` and the job size. Keep those notes
 and README's "Choosing the options and the job size" the same.
 Proj_18143 scanned 1.04 million sequences (6 comparisons) in 80 min
-on 8 cores and reached its 64G cap (MaxRSS); the script asks for
-128G.
+on 8 cores, reaching its 64G cap (MaxRSS), and in 78 min on 24 cores
+with MaxRSS 121G; the script asks for 8 cores and 128G.
 `deliverResults.sh` delivers `atacSeq/diff` with the rest of
 `atacSeq/` (not the `.rds` files) and adds `tmpldeliveryEmail_02.txt`
 and `_03.txt` to the email when it finds the diff and GSEA files there,

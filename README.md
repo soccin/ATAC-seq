@@ -27,10 +27,11 @@ Rscript /path/to/ATAC-seq/R/pathwayGSEA.R [-c COLLECTIONS] [-m MODE] [RUNTAG]
 sbatch /path/to/ATAC-seq/motifEnrich.sh [-w WIDTH] [-m MINPEAKS] [RUNTAG]
 ```
 
-## Version 2.1.0 - 2026-10-22
+## Version 2.1.0 - 2026-10-23
 
-v2.1.0 adds pathway enrichment (GSEA) of the differential analysis
-and writes every result to `atacSeq/` directly; the results v2.0.0
+v2.1.0 adds pathway enrichment (GSEA) and motif enrichment of the
+differential analysis and writes every result to `atacSeq/`
+directly; the results v2.0.0
 made do not change. Most outputs differ from those of v1.x; do not
 mix the two. See `CHANGELOG.md` for what changed and why.
 
@@ -76,8 +77,8 @@ The genome is detected from the BAM headers and recorded as `GENOME=` in
 must be one of `b37` (GRCh37, contigs `1`, `2`, ...), `hg38` (GRCh38,
 `chr1`, ...; called `b38` before v2.0.0) or `mm10`; otherwise the run
 stops before submitting any job, with the reason in `00.RUNSTATUS.txt`.
-See `docs/GENOMES.md`. hg38 and b37 have been tested on this version;
-no mm10 run has been made yet.
+See `docs/GENOMES.md`. hg38 and b37 were tested on v2.0.0, hg38 on
+this version; no mm10 run has been made yet.
 
 Peaks, bigWigs and the atlas use reads on the autosomes, X and Y only.
 Mitochondrial reads are left out for every build, as in the ENCODE
@@ -152,7 +153,7 @@ to `atacSeq/` in the analysis directory, which is what is delivered:
 | `bigwig/` | `<SID>_postProcess.shifted.10mNorm.bw` |
 | `macs/<SID>_postProcess.shifted/` | MACS2's files and the two `blacklistFiltered` files |
 | `metrics/` | per sample `___INS.txt`/`.pdf`, `___MITO.txt`, `tss_enrich.csv`/`.pdf`, `large_tss_enrich.png`; for the run `*__postInsDistribution.pdf`, `*__ATACSeqQC.pdf` and `*__ATACSeqDepth.csv` |
-| `diff/` | the differential analysis and pathway enrichment, if run (below); the `.rds` files are not delivered |
+| `diff/` | the differential analysis and the pathway and motif enrichment, if run (below); the `.rds` files are not delivered |
 
 The rest of the analysis directory is work and run records:
 `out/<SID>/` and `callpeaks/` (per-sample work; the delivered files
@@ -212,7 +213,7 @@ plots). `<PROJ>` is the last `Proj_*` or `B-<digits>` directory in
 the path of the analysis directory, else `ATAC`. It also writes
 `<PROJ>_<RUNTAG>_DiffPeaksEdgeR_V5.rds`, every tested peak of every
 comparison with the logCPM of its samples, the input of the pathway
-enrichment; it is not delivered.
+and motif enrichment; it is not delivered.
 
 ### Pathway enrichment (GSEA)
 
@@ -299,7 +300,7 @@ sbatch /path/to/ATAC-seq/motifEnrich.sh [-w WIDTH] [-m MINPEAKS] [RUNTAG]
 Its `#SBATCH` lines ask for 8 cores, 128G and 6 h on `cmobic_cpu`
 with `--qos=priority`, named `MOTIF.ATAC`, with the log in
 `SLURM.MOTIF/<jobid>.out`; flags given to `sbatch` before the script
-override them, e.g. `sbatch -c 16 --mem=256G -t 12:00:00
+override them, e.g. `sbatch -t 12:00:00
 /path/to/ATAC-seq/motifEnrich.sh`. As for `pipe.sh`, `sbatch` is the
 `~/bin` wrapper, which tells the job where the checkout is.
 `motifEnrich.sh -h`, or the script run outside a job, prints this
@@ -333,19 +334,20 @@ G+C and k-mer composition; `padj` is BH within the set.
   tested, the smallest (244 peaks) gave no motif with padj < 0.05 and
   the next (441) gave 92. Lower it to try a weak comparison and read
   its hits with care; raising it only skips more sets.
-- **`-c` cores** (8): the motif scan takes most of the time, about 26
-  sequences per second per core on a cmobic_cpu node. A comparison
-  with at least one set tested scans all its tested peaks (the
-  background too); one with none is skipped. The time is about (sum
-  of tested peaks over those comparisons) / (26 × cores) seconds. A
-  comparison's tested peaks are the "N peaks" on its MA and volcano
-  plots in `<PROJ>_<RUNTAG>_DiffPeaks_V5.pdf`. Proj_18143 (6
-  comparisons scanned, 64,000 to 240,000 peaks each, 1.04 million in
-  all) took 80 min with 8 cores.
+- **`-c` cores** (8): more cores do not shorten the run. Proj_18143
+  took 80 min with 8 cores and 78 min with 24; fewer than 8 has not
+  been measured. The time grows with the number of sequences: about
+  220 per second in all (195 to 290 per comparison). A comparison with at least one set tested
+  scans all its tested peaks (the background too); one with none is
+  skipped. The time is about (sum of tested peaks over those
+  comparisons) / 220 seconds. A comparison's tested peaks are the
+  "N peaks" on its MA and volcano plots in
+  `<PROJ>_<RUNTAG>_DiffPeaks_V5.pdf`. Proj_18143 scanned 6
+  comparisons, 64,000 to 240,000 peaks each, 1.04 million in all.
 - **`--mem`** (128G): Proj_18143 reached the 64G it was given with 8
-  cores (sacct MaxRSS 64.0G, which counts the pages the forked workers
-  share once per worker); 128G leaves room (the nodes have about
-  1 TB). More cores need more; how much has not been measured.
+  cores and used 121G with 24 (sacct MaxRSS, which counts the pages
+  the forked workers share once per worker, so it grows with the
+  cores); 128G leaves room with 8 cores (the nodes have about 1 TB).
 - **`-t` walltime** (6:00:00): the time above with room; 6 h covers a
   run the size of Proj_18143.
 
@@ -398,8 +400,8 @@ the run `COMPLETED` and you can read the delivery folder, then:
 
 The email gives the release in `VERSION.md` of the checkout the
 script is run from (see "Releases") and links to the docs at that tag.
-Diff or GSEA files with a RUNTAG (the email names the untagged
-files) give a `WARNING`: edit the email before sending it. A delivery folder other
+Diff, GSEA or motif files with a RUNTAG (the email names the
+untagged files) give a `WARNING`: edit the email before sending it. A delivery folder other
 than `<pi>/<invest>/Proj_<no>` for the PI and investigator of
 `README.txt`, the users the database is given, also gives a
 `WARNING`.
