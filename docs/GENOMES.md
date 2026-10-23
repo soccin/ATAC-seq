@@ -45,6 +45,7 @@ supported genome is a row of it. Shell scripts read it through
 | `MITO` | the mitochondrial contig, for the `___MITO.txt` metric |
 | `MSIGDB_DB` | msigdbr's `db_species` for `pathwayGSEA.R`: `HS` (human MSigDB) or `MM` (mouse MSigDB) |
 | `MSIGDB_SETS` | the default `--collections` of `pathwayGSEA.R`, in that MSigDB's names |
+| `FASTA` | the genome FASTA (with `.fai`) the sequences of `motifEnrich.R` are read from; its contigs of `<TAG>.genome` must have the same lengths, which the script checks |
 
 The column names match ChIP-seq's where they overlap (ChIP also has
 `HOMER`; ATAC has `MITO`).

@@ -20,6 +20,11 @@ Rscript /path/to/ATAC-seq/R/diffAnalysisPairwise.R \
 
 # Pathway GSEA of the diff results (same RUNTAG; writes atacSeq/diff)
 Rscript /path/to/ATAC-seq/R/pathwayGSEA.R [-c COLLECTIONS] [-m MODE] [RUNTAG]
+
+# Motif enrichment of the diff results (same RUNTAG; writes
+# atacSeq/diff), as a job. How to choose WIDTH, MINPEAKS and the
+# job size: motifEnrich.sh -h, or "Motif enrichment" below
+sbatch /path/to/ATAC-seq/motifEnrich.sh [-w WIDTH] [-m MINPEAKS] [RUNTAG]
 ```
 
 ## Version 2.1.0 - 2026-10-22
@@ -271,6 +276,93 @@ overwrites the first.
 msigdbr (CRAN, 26.1.1 here) downloads MSigDB 2026.1 (md5 checked)
 on first use into `tools::R_user_dir("msigdbr", "cache")`
 (`~/.cache/R/msigdbr`); it downloads to `tempdir()` first.
+
+### Motif enrichment
+
+`R/motifEnrich.R` tests the differential peaks of each comparison for
+enriched transcription factor motifs with monaLisa, against the
+JASPAR 2024 CORE vertebrate non-redundant profiles in `lib/motifs`
+(`lib/motifs/getJaspar.sh` downloads them again and checks the md5).
+Run it as a job from the analysis directory after
+`diffAnalysisPairwise.R`, with the same RUNTAG, through
+`motifEnrich.sh`, which loads the tools (`bin/loadTools.sh`, which
+keeps R's temp files out of `/tmp`) and runs the R script with the
+job's cores:
+
+```
+sbatch /path/to/ATAC-seq/motifEnrich.sh [-w WIDTH] [-m MINPEAKS] [RUNTAG]
+
+  -w WIDTH     bp around each peak's strongest summit, odd, >= 51 (501)
+  -m MINPEAKS  smallest up or down set tested (50)
+```
+
+Its `#SBATCH` lines ask for 8 cores, 128G and 6 h on `cmobic_cpu`
+with `--qos=priority`, named `MOTIF.ATAC`, with the log in
+`SLURM.MOTIF/<jobid>.out`; flags given to `sbatch` before the script
+override them, e.g. `sbatch -c 16 --mem=256G -t 12:00:00
+/path/to/ATAC-seq/motifEnrich.sh`. As for `pipe.sh`, `sbatch` is the
+`~/bin` wrapper, which tells the job where the checkout is.
+`motifEnrich.sh -h`, or the script run outside a job, prints this
+line and the notes below. `Rscript R/motifEnrich.R --help` describes
+the method and output; its `-c CORES` defaults to the job's
+`SLURM_CPUS_PER_TASK`, which `sbatch -c` sets.
+
+Each tested peak is the `--width` bp centered on its strongest summit
+(the largest MACS2 -log10 p of the `*_summits.blacklistFiltered.bed`
+of all samples in `atacSeq/macs`), read from the `FASTA` of the build
+in `GENOMES.tsv`. For each comparison the up (FDR < 0.05, logFC > 0)
+and down (FDR < 0.05, logFC < 0) sets are tested against the
+comparison's other tested peaks, which monaLisa weights to each set's
+G+C and k-mer composition; `padj` is BH within the set.
+
+#### Choosing the options and the job size
+
+- **`-w WIDTH`** (501): the sequence scanned around each summit, the
+  same for the up, down and background peaks. 501 (summit ± 250) is
+  ArchR's fixed peak width and within chromVAR's recommended 250-500
+  bp for ATAC; chromVAR's vignette calls the method "fairly robust to
+  the exact choice of peak width". HOMER's default `-size 200` comes
+  from TF ChIP-seq. Keep 501 unless you have a reason: 201 (± 100)
+  keeps closer to the summit, a wider window adds more flanking
+  sequence. It must be odd so the summit is the center base. The scan
+  time grows with the width.
+- **`-m MINPEAKS`** (50): an up or down set with fewer peaks is not
+  tested, and the Summary sheet says so. 50 is a judgment, not a
+  published value: each set is tested for 879 motifs with BH. In
+  Proj_18143 ED1 vs EV (33 up, 17 down) was not tested; of the sets
+  tested, the smallest (244 peaks) gave no motif with padj < 0.05 and
+  the next (441) gave 92. Lower it to try a weak comparison and read
+  its hits with care; raising it only skips more sets.
+- **`-c` cores** (8): the motif scan takes most of the time, about 26
+  sequences per second per core on a cmobic_cpu node. A comparison
+  with at least one set tested scans all its tested peaks (the
+  background too); one with none is skipped. The time is about (sum
+  of tested peaks over those comparisons) / (26 × cores) seconds. A
+  comparison's tested peaks are the "N peaks" on its MA and volcano
+  plots in `<PROJ>_<RUNTAG>_DiffPeaks_V5.pdf`. Proj_18143 (6
+  comparisons scanned, 64,000 to 240,000 peaks each, 1.04 million in
+  all) took 80 min with 8 cores.
+- **`--mem`** (128G): Proj_18143 reached the 64G it was given with 8
+  cores (sacct MaxRSS 64.0G, which counts the pages the forked workers
+  share once per worker); 128G leaves room (the nodes have about
+  1 TB). More cores need more; how much has not been measured.
+- **`-t` walltime** (6:00:00): the time above with room; 6 h covers a
+  run the size of Proj_18143.
+
+The output, in `atacSeq/diff`, all starting
+`<PROJ>_<RUNTAG>_MotifEnrichment`:
+
+| File | Contents |
+| --- | --- |
+| `.xlsx` | summary, a sheet per comparison with every motif tested for each set (not filtered by padj), parameters |
+| `.pdf` | heatmap of the log2 enrichment of the top 20 motifs per set of each comparison, then of the top 50 across comparisons; no page for a comparison with no enriched motif |
+| `.rds` | the regions and full results; not delivered |
+
+monaLisa needs TFBSTools, whose dependency DirichletMultinomial
+compiles against GSL. IRIS has none; a static GSL 2.8 is in
+`/usersoftware/core001/common/RHEL_8/gsl/2.8`, needed only to
+install it:
+`PATH=/usersoftware/core001/common/RHEL_8/gsl/2.8/bin:$PATH Rscript -e 'BiocManager::install(c("monaLisa", "TFBSTools"))'`.
 
 ## Delivery
 

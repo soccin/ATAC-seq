@@ -1,0 +1,10 @@
+   - Proj_{PROJNO}__MotifEnrichment.xlsx
+
+      - Enrichment of transcription factor binding motifs (JASPAR 2024) in the peaks significantly more accessible in each group of a comparison, against the other tested peaks of the comparison
+
+      - A summary sheet of the number of enriched motifs (adjusted p < 0.05) per comparison and group, a sheet per comparison with every motif tested (NOT filtered for adjusted p < 0.05; filter on padj), and a sheet with the parameters
+
+   - Proj_{PROJNO}__MotifEnrichment.pdf
+
+      - For each comparison a heatmap of the enrichment of the top motifs in the peaks more accessible in each group, and one of the top motifs across all comparisons; no page for a comparison where no motif is enriched
+

@@ -4,8 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [v2.1.0] — 2026-10-22
 
-New: pathway enrichment (GSEA) of the differential analysis, with
-its own email sections. The results v2.0.0 made do not change: the
+New: pathway enrichment (GSEA) and motif enrichment of the
+differential analysis, with their own email sections. The results v2.0.0 made do not change: the
 same BAMs give the same peaks, atlas, counts, scale factors, QC
 reports and differential analysis. Two files are newly delivered,
 and results are written to `atacSeq/` directly (below).
@@ -77,10 +77,43 @@ and results are written to `atacSeq/` directly (below).
   logCPM (not delivered). Its xlsx and PDF do not change. With an
   `.rds` written before the logCPM was added, `pathwayGSEA.R` leaves
   out the leading-edge heatmaps and says so.
+- **Motif enrichment**, `R/motifEnrich.R`: transcription factor
+  motifs (JASPAR 2024 CORE vertebrates non-redundant, 879 profiles)
+  enriched in the differential peaks of each comparison, with
+  monaLisa 1.16.0 (`calcBinnedMotifEnrR`). Each atlas peak is the
+  `--width` bp (501) centered on its strongest summit, the largest
+  MACS2 -log10 p of every sample's blacklist-filtered summits in it.
+  The up (FDR < 0.05, logFC > 0) and down (FDR < 0.05, logFC < 0)
+  sets of a comparison are each tested against its other tested
+  peaks, weighted to the set's G+C and k-mer composition (one-sided
+  Fisher test, BH within the set); a set of fewer than
+  `--min-peaks` (50) is not tested and the Summary says why. Output,
+  all `*_MotifEnrichment`: `.xlsx` (every motif, not filtered by
+  padj), `.pdf` (heatmap of the top 20 motifs per set of each
+  comparison, and of the top 50 across comparisons) and `.rds`.
+  `--cores` (default `SLURM_CPUS_PER_TASK`) parallelizes the motif
+  scan. It is run as a job with `sbatch motifEnrich.sh [-w WIDTH]
+  [-m MINPEAKS] [RUNTAG]`, whose `#SBATCH` lines ask for 8 cores,
+  128G and 6 h on `cmobic_cpu`, and which loads the tools; its `-h`
+  prints the `sbatch` line and how to choose the options and the job
+  size (also in README.md, "Motif enrichment").
+  `deliverResults.sh` delivers the xlsx and PDF with an email
+  section (`tmpldeliveryEmail_05.txt`). Proj_18143 (7 comparisons,
+  12 sets tested, ED1 vs EV's 33 and 17 peaks not; 1.04 million
+  sequences scanned) took 80 min on 8 cores, with MaxRSS at the 64G
+  requested; the README asks for 128G.
 
 #### Internal
 
-- `GENOMES.tsv`: new columns `MSIGDB_DB` and `MSIGDB_SETS`.
+- `GENOMES.tsv`: new columns `MSIGDB_DB` and `MSIGDB_SETS`, and
+  `FASTA`, the genome FASTA of each build for `motifEnrich.R`.
+- `lib/motifs/`: the JASPAR file, as downloaded, and
+  `getJaspar.sh`, which downloads it again and checks its md5 and
+  profile count.
+- monaLisa needs TFBSTools, whose dependency DirichletMultinomial
+  compiles against GSL, which IRIS lacks; GSL 2.8 was built static in
+  `/usersoftware/core001/common/RHEL_8/gsl/2.8` and is needed only to
+  install the package (its `bin` on `PATH`).
 - `R/palettes.R`: the color palettes and scales, as hex values; only
   `pathwayGSEA.R` uses it so far. Signed values (NES, z-scores) are
   drawn with ColorBrewer RdBu with symmetric limits at the 95th
@@ -112,6 +145,9 @@ and results are written to `atacSeq/` directly (below).
 
 - `pathwayGSEA.R` was run on hg38 only (Proj_18143, 7 comparisons);
   not on b37 or on mm10 with the mouse MSigDB (`00.FIXME.md` #4).
+- `motifEnrich.R` was run on hg38 only (Proj_18143, 7 comparisons);
+  not on b37 or mm10, whose `FASTA` entries were checked only against
+  the contig lengths of their `.genome` files.
 - The pipeline with the `atacSeq/` layout was run once, at full size,
   on Proj_18143 (`v2.0.0-18-g43d55e5`, the pipeline code of this
   version). `diffAnalysisPairwise.R` with the logCPM in its `.rds`

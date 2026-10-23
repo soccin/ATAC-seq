@@ -227,6 +227,31 @@ only the independent significant sets. The leading-edge heatmaps show,
 for each gene, the edgeR log2 CPM (TMM-normalized) of the region that
 gave the gene its score, in the samples of the comparison, centered and
 scaled to unit variance across those samples.</p>
+<p><strong>Motif enrichment.</strong> When requested, the differentially
+accessible regions were tested for enriched transcription factor binding
+motifs with monaLisa (Machlab 2022), using the 879 vertebrate profiles
+of JASPAR 2024 CORE, non-redundant (Rauluseviciute 2024). Each atlas
+region was represented by a fixed-width sequence of 501 bp centered on
+its strongest summit: of the MACS2 summits of every sample’s
+blacklist-filtered peaks within the region, the one with the largest
+-log10 p-value (the middle of the region where it held no summit).
+Sequences were read from the genome FASTA of the build with Rsamtools.
+For each comparison the regions with FDR &lt; 0.05 and a positive log
+fold change (more accessible in group 2) and those with FDR &lt; 0.05
+and a negative one (group 1) were tested separately, each against the
+comparison’s other tested regions (FDR &gt;= 0.05) as background; a set
+of fewer than 50 regions was not tested. The position frequency matrices
+were converted to log2-odds weight matrices against a uniform base
+background with TFBSTools (Tan 2016; pseudocount 0.8), and a sequence
+had a hit for a motif when it scored at least 10 on either strand.
+monaLisa’s calcBinnedMotifEnrR weighted the background sequences to
+match the G+C content of the set (in bins), then their k-mer composition
+up to 3-mers, and tested each motif for more set sequences with a hit
+than in the weighted background with a one-sided Fisher’s exact test.
+P-values were adjusted with the Benjamini-Hochberg method over the
+motifs of each set. The log2 enrichment is that of the fraction of
+sequences with a hit, set over weighted background, with monaLisa’s
+pseudocount of 8.</p>
 <h2 id="tool-versions">Tool versions</h2>
 <table>
 <thead>
@@ -317,6 +342,22 @@ scaled to unit variance across those samples.</p>
 <td>2026.1 (Hs, Mm)</td>
 </tr>
 <tr>
+<td>monaLisa</td>
+<td>1.16.0</td>
+</tr>
+<tr>
+<td>TFBSTools</td>
+<td>1.48.0</td>
+</tr>
+<tr>
+<td>Rsamtools</td>
+<td>2.26.0</td>
+</tr>
+<tr>
+<td>JASPAR CORE vertebrates non-redundant</td>
+<td>2024</td>
+</tr>
+<tr>
 <td>ENCODE ATAC-seq pipeline (settings followed)</td>
 <td>2.2.3</td>
 </tr>
@@ -366,6 +407,9 @@ collection. Cell Syst 2015;1:417-425. doi:10.1016/j.cels.2015.12.004</p>
 <p>Love MI, Huber W, Anders S. Moderated estimation of fold change and
 dispersion for RNA-seq data with DESeq2. Genome Biol 2014;15:550.
 doi:10.1186/s13059-014-0550-8</p>
+<p>Machlab D, Burger L, Soneson C, Rijli FM, Schubeler D, Stadler MB.
+monaLisa: an R/Bioconductor package for identifying regulatory motifs.
+Bioinformatics 2022;38:2624-2625. doi:10.1093/bioinformatics/btac102</p>
 <p>McCarthy DJ, Chen Y, Smyth GK. Differential expression analysis of
 multifactor RNA-Seq experiments with respect to biological variation.
 Nucleic Acids Res 2012;40:4288-4297. doi:10.1093/nar/gks042</p>
@@ -374,6 +418,10 @@ href="http://broadinstitute.github.io/picard/">http://broadinstitute.github.io/p
 <p>Quinlan AR, Hall IM. BEDTools: a flexible suite of utilities for
 comparing genomic features. Bioinformatics 2010;26:841-842.
 doi:10.1093/bioinformatics/btq033</p>
+<p>Rauluseviciute I, Riudavets-Puig R, Blanc-Mathieu R, et al. JASPAR
+2024: 20th anniversary of the open-access database of transcription
+factor binding profiles. Nucleic Acids Res 2024;52:D174-D182.
+doi:10.1093/nar/gkad1059</p>
 <p>Robinson MD, McCarthy DJ, Smyth GK. edgeR: a Bioconductor package for
 differential expression analysis of digital gene expression data.
 Bioinformatics 2010;26:139-140. doi:10.1093/bioinformatics/btp616</p>
@@ -381,6 +429,9 @@ Bioinformatics 2010;26:139-140. doi:10.1093/bioinformatics/btp616</p>
 analysis: a knowledge-based approach for interpreting genome-wide
 expression profiles. Proc Natl Acad Sci USA 2005;102:15545-15550.
 doi:10.1073/pnas.0506580102</p>
+<p>Tan G, Lenhard B. TFBSTools: an R/Bioconductor package for
+transcription factor binding site analysis. Bioinformatics
+2016;32:1555-1556. doi:10.1093/bioinformatics/btw024</p>
 <p>Yu G, Wang LG, He QY. ChIPseeker: an R/Bioconductor package for ChIP
 peak annotation, comparison and visualization. Bioinformatics
 2015;31:2382-2383. doi:10.1093/bioinformatics/btv145</p>
