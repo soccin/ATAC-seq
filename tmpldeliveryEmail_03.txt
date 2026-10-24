@@ -1,0 +1,18 @@
+   - Proj_{PROJNO}__PathwayGSEA.xlsx
+
+      - Pathway enrichment (GSEA) of each comparison against MSigDB gene sets, with genes ranked by the differential accessibility of their peaks near the TSS
+
+      - A summary sheet of the number of significant gene sets (adjusted p < 0.05) per comparison and collection, a sheet per comparison with every gene set tested (NOT filtered for adjusted p < 0.05; filter on padj), and a sheet with the parameters
+
+   - Proj_{PROJNO}__PathwayGSEA.pdf
+
+      - For each comparison and collection the normalized enrichment score of the significant gene sets (adjusted p < 0.05), positive where the genes of the set are more accessible in the first group of the comparison name (A in A_v_B); no page where no set is significant. Overlapping sets explained by a more significant one are left out of all plots
+
+   - Proj_{PROJNO}__PathwayGSEA_Dot.pdf
+
+      - The same gene sets as a dot plot, with the set size and the adjusted p-value
+
+   - Proj_{PROJNO}__PathwayGSEA_Enrichment.pdf
+
+      - For the top gene sets of each comparison the running enrichment score, and a heatmap of the accessibility of the genes that drive the enrichment in each sample
+

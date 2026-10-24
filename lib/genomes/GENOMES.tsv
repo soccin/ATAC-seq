@@ -1,4 +1,4 @@
-TAG	SPECIES	MACS_GSIZE	TXDB	ORGDB	ADD_CHR	MITO
-b37	human	hs	TxDb.Hsapiens.UCSC.hg19.knownGene	org.Hs.eg.db	yes	MT
-hg38	human	hs	TxDb.Hsapiens.UCSC.hg38.knownGene	org.Hs.eg.db	no	chrM
-mm10	mouse	mm	TxDb.Mmusculus.UCSC.mm10.knownGene	org.Mm.eg.db	no	chrM
+TAG	SPECIES	MACS_GSIZE	TXDB	ORGDB	ADD_CHR	MITO	MSIGDB_DB	MSIGDB_SETS	FASTA
+b37	human	hs	TxDb.Hsapiens.UCSC.hg19.knownGene	org.Hs.eg.db	yes	MT	HS	H,C2:CP,-C2:CP:KEGG_LEGACY,C5:GO:BP	/data1/core001/rsrc/genomic/bic/assemblies/H.sapiens/b37_gatk/b37.fasta
+hg38	human	hs	TxDb.Hsapiens.UCSC.hg38.knownGene	org.Hs.eg.db	no	chrM	HS	H,C2:CP,-C2:CP:KEGG_LEGACY,C5:GO:BP	/data1/core001/rsrc/genomic/bic/assemblies/H.sapiens/hg38/hg38.fasta
+mm10	mouse	mm	TxDb.Mmusculus.UCSC.mm10.knownGene	org.Mm.eg.db	no	chrM	MM	MH,M2:CP,M5:GO:BP	/data1/core001/rsrc/genomic/bic/assemblies/M.musculus/mm10/mm10.fasta

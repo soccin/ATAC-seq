@@ -45,7 +45,10 @@ suppressPackageStartupMessages(require(tidyverse))
 suppressPackageStartupMessages(require(fs))
 suppressPackageStartupMessages(require(openxlsx))
 
-ds=read_tsv("peaks_raw_fcCounts.txt.summary",show_col_types = FALSE)
+ATLAS="atacSeq/atlas"
+METRICS="atacSeq/metrics"
+
+ds=read_tsv(file.path(ATLAS,"peaks_raw_fcCounts.txt.summary"),show_col_types = FALSE)
 
 MANIFEST_FILE=args[1]
 if(len(args)==2) {
@@ -82,7 +85,7 @@ pg2=pg0 + geom_bar(stat="identity",position="fill") +
     scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
     ylab("Percentage")
 
-dd=read_tsv("peaks_raw_fcCounts.txt",comment="#",show_col_types = FALSE)
+dd=read_tsv(file.path(ATLAS,"peaks_raw_fcCounts.txt"),comment="#",show_col_types = FALSE)
 
 peak.annote=dd %>% select(PeakNo=Geneid,Chr,Start,End,Strand,Length)
 
@@ -259,7 +262,8 @@ if(len(projNo)==0) {
     projNo="ATAC"
 }
 
-pfile=cc(projNo,RUNTAG,"ATACSeqQC.pdf")
+dir_create(METRICS)
+pfile=file.path(METRICS,cc(projNo,RUNTAG,"ATACSeqQC.pdf"))
 pdf(file=pfile,width=11,height=8.5)
 print(pg2)
 print(pg1)
@@ -269,7 +273,7 @@ print(pp1)
 print(pp3)
 dev.off()
 
-write_csv(depth,cc(projNo,RUNTAG,"ATACSeqDepth.csv"))
+write_csv(depth,file.path(METRICS,cc(projNo,RUNTAG,"ATACSeqDepth.csv")))
 
 cat("## END: analyzeATAC.R\n")
 

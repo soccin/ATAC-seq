@@ -16,7 +16,8 @@
 # sacct no longer has the job.
 #
 # The trailer goes to stderr. The MergePeaks stage redirects the command's
-# stdout into macsPeaksMerged.saf; stderr still lands in the job log.
+# stdout into atacSeq/atlas/macsPeaksMerged.saf; stderr still lands in
+# the job log.
 #
 # Every temp file of the job goes to a per-job directory on the node's
 # /localscratch, never to /tmp (see bin/loadTools.sh). It is removed when

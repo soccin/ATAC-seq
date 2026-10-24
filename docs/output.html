@@ -28,8 +28,8 @@
 <header id="title-block-header">
 <h1 class="title">ATAC-seq Output</h1>
 </header>
-<h1 id="bic-atac-seq-pipeline-v2.0.0">BIC ATAC-seq Pipeline
-(v2.0.0)</h1>
+<h1 id="bic-atac-seq-pipeline-v2.1.0">BIC ATAC-seq Pipeline
+(v2.1.0)</h1>
 <h2 id="introduction">Introduction</h2>
 <p>The results are delivered in one folder, <code>atacSeq</code>.
 <code>macs</code> holds the peaks called for each sample.
@@ -38,10 +38,12 @@ raw count matrix over it, which is the input to any normalization or
 differential analysis. <code>bigwig</code> holds a normalized signal
 track per sample for a genome browser. <code>metrics</code> holds the QC
 metrics and plots. Projects with replicates have a <code>diff</code>
-folder with the differential accessibility analysis. <code>docs</code>
-holds this document (<code>output.pdf</code>, <code>output.html</code>)
-and the methods document (<code>methods.pdf</code>,
-<code>methods.html</code>), which describes how each file was made.</p>
+folder with the differential accessibility analysis and, when requested,
+its pathway enrichment (GSEA) and the enrichment of transcription factor
+motifs in its regions. <code>docs</code> holds this document
+(<code>output.pdf</code>, <code>output.html</code>) and the methods
+document (<code>methods.pdf</code>, <code>methods.html</code>), which
+describes how each file was made.</p>
 <p>In the names below, <code>&lt;sample&gt;</code> is the sample ID of
 the BAM and <code>&lt;no&gt;</code> is the project number (for example
 <code>18143</code>). Coordinates are 0-based with an exclusive end (BED
@@ -53,7 +55,9 @@ mitochondrial, unplaced and other contigs are left out.</p>
 ├── atlas
 │   ├── macsPeaksMerged.saf
 │   ├── peaks_raw_fcCounts.txt
-│   └── peaks_raw_fcCounts.txt.summary
+│   ├── peaks_raw_fcCounts.txt.summary
+│   ├── peaks_raw_fcCounts.checks.txt
+│   └── scaleFactorsDESeq2.csv
 ├── bigwig
 │   └── &lt;sample&gt;_postProcess.shifted.10mNorm.bw
 ├── macs
@@ -80,7 +84,14 @@ mitochondrial, unplaced and other contigs are left out.</p>
 │   └── methods.html
 └── diff                      (projects with replicates only)
     ├── Proj_&lt;no&gt;__DiffPeaksEdgeR_V5.xlsx
-    └── Proj_&lt;no&gt;__DiffPeaks_V5.pdf</code></pre>
+    ├── Proj_&lt;no&gt;__DiffPeaks_V5.pdf
+    ├── Proj_&lt;no&gt;__PathwayGSEA.xlsx    (when requested)
+    ├── Proj_&lt;no&gt;__PathwayGSEA.pdf     (when requested)
+    ├── Proj_&lt;no&gt;__PathwayGSEA_Dot.pdf         (when requested)
+    ├── Proj_&lt;no&gt;__PathwayGSEA_Heatmap.pdf     (when requested, 2+ comparisons)
+    ├── Proj_&lt;no&gt;__PathwayGSEA_Enrichment.pdf  (when requested)
+    ├── Proj_&lt;no&gt;__MotifEnrichment.xlsx        (when requested)
+    └── Proj_&lt;no&gt;__MotifEnrichment.pdf         (when requested)</code></pre>
 <p>The filtered BAM files (<code>&lt;sample&gt;_postProcess.bam</code>)
 are not delivered. If you need them, please contact us.</p>
 <h2 id="peaks-macs">Peaks (<code>macs</code>)</h2>
@@ -190,6 +201,31 @@ analysis, and are what to use for any analysis that needs counts.</p>
 <code>Unassigned_*</code> rows; <code>Unassigned_NoFeatures</code> is
 fragments that overlap no atlas region). The sum of the column is the
 number of fragments in the filtered BAM.</p>
+<h3 id="count-checks-peaks_raw_fccounts.checks.txt">Count checks
+(<code>peaks_raw_fcCounts.checks.txt</code>)</h3>
+<p>The two checks the counts passed before they were used (see
+<code>methods.pdf</code>), two lines per sample:</p>
+<ul>
+<li><code>CHECK_A</code>: the sample’s fragment total in the count
+summary (<code>frag</code>) against half its mapped reads
+(<code>pairs</code>). The <code>ratio</code> must be between 0.95 and
+1.05.</li>
+<li><code>CHECK_B</code>: the fragments featureCounts assigned to the
+atlas (<code>assigned</code>) against the same number counted with
+samtools (<code>samtools</code>). The difference (<code>diff</code>)
+must be 0.</li>
+</ul>
+<p>The last line is the overall result. A run is delivered only if every
+line is <code>OK</code>.</p>
+<h3 id="scale-factors-scalefactorsdeseq2.csv">Scale factors
+(<code>scaleFactorsDESeq2.csv</code>)</h3>
+<p>One row per sample, named by the path of its filtered BAM as in the
+count matrix (with <code>/</code> and <code>-</code> replaced by
+<code>.</code>), and one column, <code>scaleFactor</code>: the
+reciprocal of the DESeq2 size factor computed from the raw counts. A
+normalized count is the raw count multiplied by the sample’s scale
+factor. No delivered file has them applied; the signal tracks are scaled
+to 10 million reads instead.</p>
 <h2 id="signal-tracks-bigwig">Signal Tracks (<code>bigwig</code>)</h2>
 <p><code>&lt;sample&gt;_postProcess.shifted.10mNorm.bw</code> is the
 coverage of the filtered, Tn5-shifted reads of the sample, scaled to 10
@@ -405,5 +441,155 @@ the differential analysis.</p>
 <p>In our deliveries made before October 2026 the <code>FDR</code>
 column was a Holm correction, which is much stricter; the same data now
 give more regions at FDR &lt; 0.05.</p>
+<h3 id="pathway-enrichment-proj_no__pathwaygsea.xlsx">Pathway enrichment
+(<code>Proj_&lt;no&gt;__PathwayGSEA.xlsx</code>)</h3>
+<p>When requested, each comparison is also tested for pathway enrichment
+(GSEA) against MSigDB gene sets. Every tested region is assigned to each
+gene with a TSS within a set distance of it (by default 1 kb, i.e. the
+genes whose promoter it is in; a region at a promoter shared by two
+genes counts for both), and each gene is scored by its region with the
+strongest change: sign(log fold change) x -log10(p-value). The
+<code>Parameters</code> sheet gives the distance and the collections
+used. The genes ranked by this score are tested against each
+collection:</p>
+<ul>
+<li><code>Summary</code>: per comparison and collection,
+<code>GenesRanked</code>, <code>SetsTested</code> (sets of 15 to 500
+ranked genes), and the number of sets with adjusted p &lt; 0.05 and a
+positive (<code>SigPositiveNES</code>) or negative
+(<code>SigNegativeNES</code>) enrichment score, and how many of those
+are independent (<code>SigIndependent</code>, below).</li>
+<li>One sheet per comparison, named as in the differential analysis,
+with every gene set tested, sorted by p-value. <strong>These sheets are
+NOT filtered for adjusted p &lt; 0.05</strong>: most rows are not
+significant. Filter on <code>padj</code> to find the significant sets
+(the differential analysis sheets, by contrast, list only significant
+regions). Columns: <code>Collection</code> (e.g. <code>H</code>,
+<code>C2:CP</code>, <code>C5:GO:BP</code>), <code>Subcollection</code>
+(e.g. <code>CP:REACTOME</code>), <code>pathway</code> (the MSigDB set
+name), <code>NES</code> (normalized enrichment score: positive means the
+set’s genes are more accessible in group 2, negative in group 1),
+<code>pval</code>, <code>padj</code> (Benjamini-Hochberg within the
+collection), <code>log2err</code> (the error of the p-value estimate),
+<code>ES</code> (enrichment score), <code>size</code> (ranked genes in
+the set), <code>CollapsedInto</code> (below) and
+<code>leadingEdge</code> (the genes that drive the enrichment). A few
+sets may have no <code>NES</code>, <code>pval</code> or
+<code>padj</code>: the p-value could not be estimated for them.</li>
+<li><code>Parameters</code>: the settings and the MSigDB and software
+versions.</li>
+</ul>
+<p>Gene sets overlap, and one strong set makes its overlapping sets
+significant too. The significant sets of each comparison and collection
+are therefore reduced to independent ones (fgsea’s
+<code>collapsePathways</code>): going from the smallest p-value, a set
+that is no longer significant once the genes of a more significant set
+are taken into account is redundant, and <code>CollapsedInto</code>
+names that set. <code>CollapsedInto</code> is empty for an independent
+set and for a set that is not significant. <strong>The plots show only
+independent sets</strong>; the sheets keep every set.</p>
+<p>The plots, each in its own PDF, show only sets with adjusted p &lt;
+0.05. A comparison and collection with no such set has no page; the
+<code>Summary</code> sheet gives 0 for it.</p>
+<ul>
+<li><code>Proj_&lt;no&gt;__PathwayGSEA.pdf</code>: one page per
+comparison and collection, a bar chart of the NES of the independent
+sets, at most the 15 with the smallest p-value on each side of 0,
+colored by the group they are more accessible in.</li>
+<li><code>Proj_&lt;no&gt;__PathwayGSEA_Dot.pdf</code>: the same sets as
+a dot plot; the dot size is the number of genes in the set, its color
+the adjusted p-value as -log10(padj), from light to dark, with the scale
+clipped to the 5th-95th percentile of the page.</li>
+<li><code>Proj_&lt;no&gt;__PathwayGSEA_Heatmap.pdf</code> (with two or
+more comparisons): one page per collection, the NES of each set in every
+comparison. The rows are the sets independent and significant in at
+least one comparison (at most 50, those with the smallest adjusted
+p-value), clustered on their NES; a cell is grey where the set is not
+significant in that comparison, or was not tested. A positive NES means
+more accessible in the first group of the comparison’s name. Blue is
+negative and red positive; the color scale ends at the 95th percentile
+of |NES|, and larger values have the end color.</li>
+<li><code>Proj_&lt;no&gt;__PathwayGSEA_Enrichment.pdf</code>: for each
+comparison and collection, the running enrichment score of the top
+independent sets (at most 3 per side of 0), then one page per set with a
+heatmap of its leading-edge genes: each row is a gene, by the region
+that gave it its score (at most 50 genes, those with the largest score),
+each column a sample of the comparison, and the color the region’s
+normalized accessibility (log2 CPM, as tested by edgeR), centered and
+scaled across the samples (blue below the mean, red above, with the
+scale ending at the 95th percentile of |z|). Two genes that share a
+promoter region have the same row values.</li>
+</ul>
+<p>Human data use the human MSigDB collections; the default is Hallmark
+(<code>H</code>), the canonical pathways (<code>C2:CP</code>: Reactome,
+WikiPathways, KEGG MEDICUS, BioCarta, PID; not the legacy KEGG sets) and
+GO biological process (<code>C5:GO:BP</code>). Mouse data use the mouse
+MSigDB (<code>MH</code>, <code>M2:CP</code>, <code>M5:GO:BP</code>). As
+for the differential analysis, a run tag <code>&lt;tag&gt;</code> gives
+<code>Proj_&lt;no&gt;_&lt;tag&gt;_PathwayGSEA.xlsx</code>, and so
+on.</p>
+<h3 id="motif-enrichment-proj_no__motifenrichment.xlsx">Motif enrichment
+(<code>Proj_&lt;no&gt;__MotifEnrichment.xlsx</code>)</h3>
+<p>When requested, the regions of each comparison are also tested for
+enriched transcription factor binding motifs, the 879 vertebrate
+profiles of JASPAR 2024 (CORE, non-redundant). Each region is
+represented by 501 bp centered on its strongest peak summit, the summit
+with the smallest MACS2 p-value of all the samples’ peaks in the region.
+Two sets of regions are tested per comparison: those significantly more
+accessible (FDR &lt; 0.05, as in the differential analysis) in group 2
+(<code>up</code>) and those more accessible in group 1
+(<code>down</code>). The background of both is the other regions tested
+in the comparison (FDR &gt;= 0.05), weighted to match the set’s G+C
+content and short-sequence (k-mer) composition, so that a motif is not
+found enriched only because the set is GC-rich, as promoters are. A set
+of fewer than 50 regions is not tested. The width and the smallest set
+are defaults; the <code>Parameters</code> sheet gives the values
+used.</p>
+<ul>
+<li><code>Summary</code>: per comparison and direction,
+<code>HigherIn</code> (the group the set is more accessible in),
+<code>Peaks</code> (regions in the set), <code>Background</code>
+(regions in the background), <code>Status</code> (<code>tested</code>,
+or why not), <code>MotifsTested</code> and
+<code>MotifsPadj&lt;0.05</code>, the number of motifs enriched with
+adjusted p &lt; 0.05.</li>
+<li>One sheet per comparison with a tested set, named as in the
+differential analysis, with every motif tested for each set, first
+<code>up</code>, then <code>down</code>, each sorted by p-value.
+<strong>These sheets are NOT filtered for adjusted p &lt; 0.05</strong>:
+filter on <code>padj</code> to find the enriched motifs. Columns:
+<code>Direction</code>, <code>HigherIn</code>, <code>MotifID</code> (the
+JASPAR ID, e.g. <code>MA0099.4</code>; look it up at <a
+href="https://jaspar.elixir.no">https://jaspar.elixir.no</a>),
+<code>Motif</code> (the transcription factor, or two for a heterodimer
+such as <code>FOS::JUN</code>), <code>log2enr</code> (log2 of the
+fraction of set regions with a motif hit over that of the weighted
+background), <code>pval</code> (one-sided: more set regions with a hit
+than expected), <code>padj</code> (Benjamini-Hochberg within the set),
+<code>FgWithHit</code> and <code>BgWithHit</code> (percent of set and of
+weighted background regions with a hit) and <code>MotifGC</code>
+(percent G+C of the motif).</li>
+<li><code>Parameters</code>: the settings and the software
+versions.</li>
+</ul>
+<p>Related transcription factors bind similar motifs, so one change is
+often seen as a family of enriched motifs: for example AP-1 (FOS, JUN,
+ATF, BATF and their dimers) usually appear together. The test cannot
+tell which member of a family is the one binding.</p>
+<ul>
+<li><code>Proj_&lt;no&gt;__MotifEnrichment.pdf</code>: one page per
+comparison with at least one enriched motif, a heatmap of the log2
+enrichment of the top motifs (at most 20 per set, those with the
+smallest p-value), a column for each tested set; then, when two or more
+sets were tested, a page with the top motifs of all comparisons (at most
+50, those with the smallest adjusted p-value), a column for each tested
+set. The rows are clustered on the enrichment; a cell is grey where the
+motif has adjusted p &gt;= 0.05 in that set. The color scale runs from
+light to dark and is clipped to the 5th-95th percentile of the
+page.</li>
+</ul>
+<p>A run tag <code>&lt;tag&gt;</code> gives
+<code>Proj_&lt;no&gt;_&lt;tag&gt;_MotifEnrichment.xlsx</code> and
+<code>.pdf</code>.</p>
 </body>
 </html>

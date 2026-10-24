@@ -20,6 +20,14 @@ resolves its own location into `SDIR` and is run from a separate per-project
 analysis directory, where all outputs land (`out/`, `callpeaks/`, `SLURM.*/`,
 `atacSeq/`). Never assume the repo dir and the cwd are the same.
 
+Results go straight into `atacSeq/{atlas,bigwig,metrics,diff}`, and
+scripts read results from there; never write a result file to the top
+of the analysis directory. It holds only `out/` and `callpeaks/`
+(per-sample work, copied into `atacSeq/macs` and `atacSeq/metrics` at
+staging), `SLURM.*/`, `00.RUNSTATUS.txt` and the hand-edited
+`sampleManifest.csv`. `deliverResults.sh` delivers `atacSeq/` as is,
+but for `atacSeq/diff/*.rds`.
+
 Install MACS2 into a local venv once per repo checkout, from the repo
 root (`00.SETUP.sh` also installs IDR 2.0.3, which nothing runs;
 `00.FIXME.md` #29):
@@ -83,14 +91,19 @@ step as `COMPLETED`.
 
 Every stage job has a walltime class, the `CLASS` argument of `atacSub`,
 and `-M` as a hard total-memory cap. `SHORT` is `-W 1:59:00` with no qos;
-the shim sends it to `cmobic_short,cpushort`. `LONG` is `-W 12:00:00` with
+the shim sends it to `cmobic_short,cpushort`. `MID` is `-W 3:00:00` with
+`-q cmobic_short` and no qos (the partition allows 3:00:00, `cpushort`
+less, and the shim would send a job of two hours or more to
+`cmobic_cpu`); only POST uses it. `LONG` is `-W 12:00:00` with
 `SBATCH_QOS=priority` set on that one `bsub` call; the shim sends it to
 `cmobic_cpu`. Never give a `SHORT` job a qos: `cpushort` allows only
 `normal` and rejects the job. Never export `SBATCH_QOS` (`pipe.sh` unsets
 every `SBATCH_*` variable it inherits). POST, BW, CALLP, TSSE, Count and
-CountCheck choose their class per job with `runClass MIN_PER_GB FILE...`, which
+CountCheck choose their class per job with `runClass [-m] MIN_PER_GB FILE...`, which
 estimates the run time from the input size using the `RATE_*` values
-measured on a full-size run; the other stages are always `SHORT`. A new
+measured on a full-size run and picks `SHORT` (`MID` with `-m`, POST)
+up to half that class's walltime, `LONG` above; the other stages are
+always `SHORT`. A new
 stage whose run time grows with its input needs a measured `RATE_*`.
 
 `deliverResults.sh [-n] -d|DELIVERY_DIR[/r_NNN]`, run from the
@@ -139,8 +152,8 @@ the exact code, for internal use.
    bamToBed with the Tn5 shift (+4 on `+`, -5 on `-`), keeping only the
    contigs of `lib/genomes/<TAG>.genome` → `*.shifted.bed.gz`; also the
    mitochondrial fraction → `*___MITO.txt`
-2. `makeBigWigFromBEDZ.sh` — 10M-read-normalized bigWig via bedtools +
-   `bin/wigToBigWig`
+2. `makeBigWigFromBEDZ.sh GENOME BEDZ atacSeq/bigwig` — 10M-read-normalized
+   bigWig via bedtools + `bin/wigToBigWig`
 3. `callPeaks_ATACSeq.sh` — MACS2 on the BED (not BAM) with ENCODE's
    settings, `--nomodel --shift -75 --extsize 150 --keep-dup all
    --call-summits -p 0.01` (until v2.0.0 `--shift 75` and the default
@@ -157,25 +170,27 @@ the exact code, for internal use.
    output; write derived files under a new, readable name
 4. `mergePeaksToSAF.sh GENOME callpeaks` — merge all
    `*_peaks.blacklistFiltered.narrowPeak` (never MACS2's
-   `*_peaks.narrowPeak`) within 500bp into `macsPeaksMerged.saf` (the
+   `*_peaks.narrowPeak`) within 500bp into `atacSeq/atlas/macsPeaksMerged.saf` (the
    peak atlas), then subtract the blacklist again, since a merge can
    bridge a blacklisted region between two kept peaks. SAF is 1-based
    and inclusive: its `Start` is the BED start plus 1 (until v2.0.0 the
    BED start was written as is)
 5. `bin/countPeaks.sh` → `bin/featureCounts` (v2.1.1) — raw count matrix
-   `peaks_raw_fcCounts.txt` over the atlas, `-O -p --countReadPairs`, with
+   `atacSeq/atlas/peaks_raw_fcCounts.txt` over the atlas, `-O -p --countReadPairs`, with
    `-Q` set to the same MAPQ as stage 1, then Check A. Beside it, one
    `CountCheck` job per sample (`bin/assignedCheck.sh`) for Check B; the
    control job compares both with `bin/checkCounts.sh` (see "Count
    checks")
-6. `R/getDESeqScaleFactors.R` — DESeq2 size factors (written **inverted**, per
+6. `R/getDESeqScaleFactors.R` — DESeq2 size factors
+   `atacSeq/atlas/scaleFactorsDESeq2.csv` (written **inverted**, per
    R. Koche's convention; see NOTES.md)
 7. `bin/computeTSSEnrich.sh` → `R/TSSEnrich/tss_enrich.R` — ENCODE TSS
    enrichment, for every build
-8. `plotINSStats.R` and `R/analyzeATAC.R` — insert-size and QC/PCA reports;
-   `analyzeATAC.R` also writes the per-sample depth table
-   `*__ATACSeqDepth.csv`, a deliverable
-9. Staging into `atacSeq/{atlas,bigwig,macs,metrics}` for delivery
+8. `plotINSStats.R` and `R/analyzeATAC.R` — insert-size and QC/PCA
+   reports in `atacSeq/metrics`; `analyzeATAC.R` also writes the
+   per-sample depth table `*__ATACSeqDepth.csv`, a deliverable
+9. Staging: the per-sample MACS2 files of `callpeaks/` and the
+   metrics of `out/<SID>/` are copied into `atacSeq/{macs,metrics}`
 
 Differential analysis is a separate manual step (needs replicates), run
 from the analysis directory, which gives it the genome
@@ -184,7 +199,65 @@ from the analysis directory, which gives it the genome
 ```bash
 Rscript /path/to/ATAC-seq/R/diffAnalysisPairwise.R \
     sampleManifest.csv Comparisons.csv [RUNTAG]
+Rscript /path/to/ATAC-seq/R/pathwayGSEA.R [-c COLLECTIONS] [-m MODE] [RUNTAG]
+sbatch /path/to/ATAC-seq/motifEnrich.sh [-w WIDTH] [-m MINPEAKS] [RUNTAG]
 ```
+
+All three write to `atacSeq/diff`. `diffAnalysisPairwise.R` reads
+`atacSeq/atlas/peaks_raw_fcCounts.txt` and saves every tested peak of every comparison
+in `*_DiffPeaksEdgeR_V5.rds`, with each comparison's TMM logCPM matrix
+(`log_cpm`, `samples`) for the leading-edge heatmaps; `pathwayGSEA.R` reads only that file,
+so it can be rerun with other options without edgeR. It ranks genes
+(a peak belongs to every gene with a TSS within `--tss-window`, or in
+distance mode to all genes tied for the nearest TSS; per gene the
+peak with the largest `|sign(logFC) * -log10(P)|`) and runs `fgseaMultilevel` per
+collection item (BH within it). The significant sets are collapsed
+with `collapsePathways` (`CollapsedInto`); every plot shows only
+significant, independent sets, never a non-significant one, while
+the xlsx keeps every tested set. Plots are one PDF per type:
+`_PathwayGSEA.pdf` (bars), `_Dot`, `_Heatmap` (2+ comparisons) and
+`_Enrichment` (running score and leading-edge heatmap). Gene sets come from msigdbr; the
+MSigDB species (`MSIGDB_DB`) and the default collections
+(`MSIGDB_SETS`) are columns of `GENOMES.tsv`, so mouse uses the
+native mouse MSigDB (`MH`, `M2`, `M5`), not human orthologs. Match
+genes by Entrez ID (the knownGene `geneId`), never by symbol. Do not
+go back to ChIPseeker's `annotatePeak` for the GSEA genes: it gives a
+peak one gene and breaks ties at a shared TSS in a way that depends
+on the other peaks it is given, which made a comparison's results
+depend on the other comparisons and put 5-7% of ranked genes (mostly
+a protein-coding gene and an ncRNA at one promoter) on an arbitrary
+choice. The same kind of tie affects the gene named in the diff
+xlsx (`00.FIXME.md` #35).
+`motifEnrich.R` also reads only that file, plus the per-sample
+summits in `atacSeq/macs` and the build's `FASTA` (`GENOMES.tsv`,
+checked against `<TAG>.genome`). Each peak is `--width` bp around its
+strongest summit; the up and down sets (FDR < 0.05, sign of logFC)
+are tested with monaLisa `calcBinnedMotifEnrR` against the
+comparison's non-significant peaks as its zero bin (one scan per
+comparison; the background-vs-itself column is dropped and padj is
+recomputed with BH per set). The motifs are the JASPAR 2024 file in
+`lib/motifs` (`getJaspar.sh`), not the JASPAR2024 package. The run
+time grows with the sequences, every tested peak of each comparison
+with a set tested, at about 220 per second in all; more cores do
+not shorten it. Run it as a job (`--cores` defaults to
+`SLURM_CPUS_PER_TASK`).
+`motifEnrich.sh` is that job, submitted with `~/bin/sbatch` as
+`pipe.sh` is (`SDIR` from `SBATCH_SCRIPT_DIR`, else `$0`). Its
+`#SBATCH` lines ask for `-c 8 --mem=128G -t 6:00:00` on
+`cmobic_cpu` with `--qos=priority`, log `SLURM.MOTIF/%j.out`
+(Slurm creates the directory); flags on the `sbatch` command line
+override them. It sources `bin/loadTools.sh`, runs the R script with
+its arguments, and outside a job or with `-h` prints the `sbatch`
+line and how to choose `-w`, `-m` and the job size. Keep those notes
+and README's "Choosing the options and the job size" the same.
+Proj_18143 scanned 1.04 million sequences (6 comparisons) in 80 min
+on 8 cores, reaching its 64G cap (MaxRSS), and in 78 min on 24 cores
+with MaxRSS 121G; the script asks for 8 cores and 128G.
+`deliverResults.sh` delivers `atacSeq/diff` with the rest of
+`atacSeq/` (not the `.rds` files) and adds `tmpldeliveryEmail_02.txt`
+and `_03.txt` to the email when it finds the diff and GSEA files there,
+`_04.txt` when it finds `_PathwayGSEA_Heatmap.pdf`, and `_05.txt` when
+it finds the `_MotifEnrichment` files.
 
 ## Genome handling — read this before touching any genome code
 
@@ -300,6 +373,12 @@ The standalone subread binary is not Bioconductor.
   `edgeR::thinCounts(target.size=)`: it subtracts a multinomial draw
   made with replacement and clips at 0, so a sample thinned 10-fold
   gets about 10 times the variance of a real shallow library.
+- Colors come from `R/palettes.R` (hex palettes and the
+  `scale_sequential`/`scale_signed` helpers; its header has the
+  rules): no viridis, no ggplot default hue palette, grey only for
+  "none", no color written in a figure. Only `pathwayGSEA.R` and
+  `motifEnrich.R` use it so far; the other scripts still take colors from ggsci, pals and
+  ColorBrewer at run time.
 - `R/attic/` and `attic/` hold superseded versions kept for reference. Do not
   edit them; do not treat them as live code.
 

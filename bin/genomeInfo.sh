@@ -4,7 +4,8 @@
 #
 # Print FIELD of genome TAG from lib/genomes/GENOMES.tsv. A supported
 # genome is a row of that table; FIELD is one of its column names
-# (TAG, SPECIES, MACS_GSIZE, TXDB, ORGDB, ADD_CHR, MITO). An unknown tag
+# (TAG, SPECIES, MACS_GSIZE, TXDB, ORGDB, ADD_CHR, MITO, MSIGDB_DB,
+# MSIGDB_SETS). An unknown tag
 # or field is an error: the message lists what the table has, and the
 # exit code is 1.
 #

@@ -2,7 +2,7 @@
 
 #
 # Control job for IRIS/Slurm. Run it from the analysis directory; every
-# stage is fanned out with ~/bin/bsub, onto the short partitions unless
+# stage is fanned out with ~/bin/bsub, onto the short partitions (POST with up to 3 h) unless
 # its input is too large (see runClass), and the control job blocks
 # between stages with bSync/bCheck. The control job
 # itself can run for hours on full-size BAMs, so the directives below put
@@ -190,7 +190,7 @@ and rerun
 
     Rscript $SDIR/R/analyzeATAC.R sampleManifest.csv
 
-and copy output to atacSeq/metrics
+Both write to atacSeq/metrics.
 EOF
 }
 
@@ -423,12 +423,16 @@ for V in ${!SBATCH_@}; do
 done
 
 #
-# Walltime classes. Every stage job is SHORT or LONG.
+# Walltime classes. Every stage job is SHORT, MID or LONG.
 #
 #   SHORT  -W 1:59:00, no qos. ~/bin/bsub sends anything under two hours
 #          to cmobic_short,cpushort. cpushort allows only qos=normal and
 #          EnforcePartLimits=ALL is set, so a SHORT job must not carry
 #          a qos or it is rejected ("Invalid qos specification").
+#   MID    -W 3:00:00 and -q cmobic_short, no qos. cmobic_short allows
+#          3:00:00, cpushort less; bsub would send a job of two hours
+#          or more to cmobic_cpu, hence the explicit -q. Used by POST
+#          only (runClass -m).
 #   LONG   -W 12:00:00 and qos priority. bsub sends it to cmobic_cpu;
 #          SBATCH_QOS=priority is set on that one bsub call only.
 #
@@ -440,6 +444,8 @@ done
 # scheduling hint.
 #
 SHORT_W=1:59:00
+MID_W=3:00:00
+MID_Q=cmobic_short
 LONG_W=12:00:00
 
 #
@@ -469,20 +475,32 @@ RATE_CCHECK=1.5    # postProcess BAM               0.79 to 1.02
 # A job is SHORT if its estimated run time is at most SHORT_MAX_MIN, half
 # the SHORT walltime, to leave room for slower nodes and a loaded shared
 # filesystem. ATAC_SHORT_MAX_MIN overrides it (0 makes every estimated
-# stage LONG).
+# stage LONG). With runClass -m the same rule picks MID up to
+# MID_MAX_MIN, half the MID walltime (ATAC_MID_MAX_MIN). POST uses -m:
+# on 2026-10-22 a POST job estimated at 50 min ran over 1:59 on a node
+# running five POST jobs.
 #
 SHORT_MAX_MIN=${ATAC_SHORT_MAX_MIN:-60}
+MID_MAX_MIN=${ATAC_MID_MAX_MIN:-90}
 
 #
-# runClass MIN_PER_GB FILE [FILE ...]
+# runClass [-m] MIN_PER_GB FILE [FILE ...]
 #
-# Print SHORT or LONG for a job whose input is FILE..., and log the
-# estimate on stderr.
+# Print SHORT (MID with -m) or LONG for a job whose input is FILE...,
+# and log the estimate on stderr.
 #
 runClass() {
-    local rate=$1
+    local fast=SHORT
+    local max=$SHORT_MAX_MIN
     local bytes=0
-    local f size
+    local rate f size
+
+    if [ "$1" == "-m" ]; then
+        fast=MID
+        max=$MID_MAX_MIN
+        shift
+    fi
+    rate=$1
     shift
 
     for f in "$@"; do
@@ -490,9 +508,9 @@ runClass() {
         bytes=$((bytes + size))
     done
 
-    awk -v b=$bytes -v r=$rate -v m=$SHORT_MAX_MIN 'BEGIN {
+    awk -v b=$bytes -v r=$rate -v m=$max -v f=$fast 'BEGIN {
         est = b / 1e9 * r
-        class = (est <= m) ? "SHORT" : "LONG"
+        class = (est <= m) ? f : "LONG"
         printf "    runClass %.1f GB x %s min/GB = %.0f min -> %s\n", \
             b / 1e9, r, est, class >"/dev/stderr"
         print class
@@ -502,9 +520,9 @@ runClass() {
 #
 # atacSub STAGE SAMPLE LOGDIR CLASS "BSUB_OPTS" CMD [ARG ...]
 #
-# Submit one stage job as ${TAG}_STAGE_$$ in walltime class CLASS (SHORT
-# or LONG) through bin/runStage.sh, which appends #ATAC_EXIT=<rc> to the
-# job log, and record it in $JOBS.
+# Submit one stage job as ${TAG}_STAGE_$$ in walltime class CLASS (SHORT,
+# MID or LONG) through bin/runStage.sh, which appends #ATAC_EXIT=<rc> to
+# the job log, and record it in $JOBS.
 #
 atacSub() {
     local stage=$1
@@ -519,6 +537,10 @@ atacSub() {
     case $class in
         SHORT)
             runtime=$SHORT_W
+            ;;
+        MID)
+            runtime=$MID_W
+            opts="-q $MID_Q $opts"
             ;;
         LONG)
             runtime=$LONG_W
@@ -571,8 +593,16 @@ waitStage() {
 
 setStage SUBMIT
 
+#
+# The stages write the run's results straight into atacSeq/; only the
+# per-sample work (out/, callpeaks/), the run records and the
+# hand-edited sampleManifest.csv are in the analysis directory itself.
+#
+ATLAS=atacSeq/atlas
+mkdir -p $ATLAS atacSeq/bigwig atacSeq/macs atacSeq/metrics
+
 for BAM in $BAMS; do
-    CLASS=$(runClass $RATE_POST $BAM)
+    CLASS=$(runClass -m $RATE_POST $BAM)
     atacSub POST2 $(getSMTag $BAM) SLURM.01.POST $CLASS "-M 32G" \
         $SDIR/postMapBamProcessing_ATACSeq.sh -q $MAPQ $GENOME $BAM
 done
@@ -583,7 +613,7 @@ for BEDZ in out/*/*.bed.gz; do
     SID=$(basename $(dirname $BEDZ))
     CLASS=$(runClass $RATE_BW $BEDZ)
     atacSub BW2 $SID SLURM.02.BW $CLASS "-M 24G" \
-        $SDIR/makeBigWigFromBEDZ.sh $GENOME $BEDZ
+        $SDIR/makeBigWigFromBEDZ.sh $GENOME $BEDZ atacSeq/bigwig
     CLASS=$(runClass $RATE_CALLP $BEDZ)
     atacSub CALLP2 $SID SLURM.03.CALLP $CLASS "-n 3 -M 18G" \
         $SDIR/callPeaks_ATACSeq.sh $GENOME $BEDZ
@@ -604,7 +634,7 @@ waitStage CALLP2
 # DependencyNeverSatisfied.
 #
 atacSub MergePeaks all SLURM.04a.CALLP SHORT "-n 3 -M 24G" \
-    $SDIR/mergePeaksToSAF.sh $GENOME callpeaks \>macsPeaksMerged.saf
+    $SDIR/mergePeaksToSAF.sh $GENOME callpeaks \>$ATLAS/macsPeaksMerged.saf
 
 waitStage MergePeaks
 
@@ -626,19 +656,19 @@ waitStage Index
 PBAMS=$(ls out/*/*_postProcess.bam)
 CLASS=$(runClass $RATE_COUNT $PBAMS)
 atacSub Count all SLURM.04b.CALLP $CLASS "-n 8 -M 24G" \
-    $SDIR/bin/countPeaks.sh $MAPQ macsPeaksMerged.saf peaks_raw_fcCounts.txt \
+    $SDIR/bin/countPeaks.sh $MAPQ $ATLAS/macsPeaksMerged.saf $ATLAS/peaks_raw_fcCounts.txt \
         $PBAMS
 
 for PBAM in $PBAMS; do
     CLASS=$(runClass $RATE_CCHECK $PBAM)
     atacSub CountCheck $(basename $(dirname $PBAM)) SLURM.04d.CHECK $CLASS "-n 2 -M 12G" \
-        $SDIR/bin/assignedCheck.sh $PBAM macsPeaksMerged.saf ${PBAM%.bam}.atlasFragments.txt
+        $SDIR/bin/assignedCheck.sh $PBAM $ATLAS/macsPeaksMerged.saf ${PBAM%.bam}.atlasFragments.txt
 done
 
 waitStage Count
 waitStage CountCheck
 
-if ! CHECK_OUT=$($SDIR/bin/checkCounts.sh peaks_raw_fcCounts.txt.summary \
+if ! CHECK_OUT=$($SDIR/bin/checkCounts.sh $ATLAS/peaks_raw_fcCounts.txt.summary \
                      out/*/*_postProcess.atlasFragments.txt); then
     echo "$CHECK_OUT"
     RUN_MESSAGE="count check failed: $(echo "$CHECK_OUT" | grep -m1 FAIL || true)"
@@ -648,19 +678,23 @@ if ! CHECK_OUT=$($SDIR/bin/checkCounts.sh peaks_raw_fcCounts.txt.summary \
     exit 1
 fi
 echo "$CHECK_OUT"
-echo "$CHECK_OUT" >peaks_raw_fcCounts.checks.txt
+echo "$CHECK_OUT" >$ATLAS/peaks_raw_fcCounts.checks.txt
 
 atacSub DESEQ all SLURM.05.DESEQ SHORT "-M 24G" \
     Rscript --no-save $SDIR/R/getDESeqScaleFactors.R
 
 setStage MANIFEST
 
+#
+# MapID is the SM tag, SampleID the tag without a leading s_, Group the
+# SampleID without a trailing [-_]<digits>.
+#
 if [ ! -e "sampleManifest.csv" ]; then
     echo "MapID,SampleID,Group" > sampleManifest.csv
-    for file in out/*/*bam; do getSMTag $file; done | sort >mapid
-    cat mapid | sed 's/^s_//' >sid
-    cat sid | perl -pe 's/(-|_)\d+$//' >gid
-    paste mapid sid gid | tr '\t' ',' >> sampleManifest.csv
+    for file in out/*/*bam; do getSMTag $file; done \
+        | sort \
+        | perl -ne 'chomp; ($s = $_) =~ s/^s_//; ($g = $s) =~ s/(-|_)\d+$//; print "$_,$s,$g\n"' \
+        >> sampleManifest.csv
 fi
 
 waitStage DESEQ
@@ -683,8 +717,6 @@ postRunNotes
 
 setStage STAGING
 
-mkdir -p atacSeq/atlas atacSeq/bigwig atacSeq/macs atacSeq/metrics
-
 FAILED_JOBS=$(bCheckAll "$RUNRE")
 
 if [ "$FAILED_JOBS" != "" ]; then
@@ -695,12 +727,11 @@ if [ "$FAILED_JOBS" != "" ]; then
   exit 1
 fi
 
-mv macsPeaksMerged* atacSeq/atlas
-cp peaks_raw_fcCounts.txt* atacSeq/atlas/
-mv *_postProcess.shifted.10mNorm.bw atacSeq/bigwig
+#
+# The atlas, counts, bigWigs and reports are already in atacSeq/; only
+# the per-sample peak calls and metrics are copied there.
+#
 cp -val callpeaks/* atacSeq/macs
-cp *__postInsDistribution.pdf *__ATACSeqQC.pdf *__ATACSeqDepth.csv atacSeq/metrics
-
 cp -val out/*/*___INS.* out/*/*___MITO.txt atacSeq/metrics
 cp -val out/*/*enrich* atacSeq/metrics
 
@@ -719,11 +750,11 @@ checkFile() {
     fi
 }
 
-checkFile atacSeq/atlas/macsPeaksMerged.saf
-checkFile atacSeq/atlas/peaks_raw_fcCounts.txt
-checkFile atacSeq/atlas/peaks_raw_fcCounts.txt.summary
-checkFile peaks_raw_fcCounts.checks.txt
-checkFile scaleFactorsDESeq2.csv
+checkFile $ATLAS/macsPeaksMerged.saf
+checkFile $ATLAS/peaks_raw_fcCounts.txt
+checkFile $ATLAS/peaks_raw_fcCounts.txt.summary
+checkFile $ATLAS/peaks_raw_fcCounts.checks.txt
+checkFile $ATLAS/scaleFactorsDESeq2.csv
 
 for PATTERN in "atacSeq/metrics/*__postInsDistribution.pdf" "atacSeq/metrics/*__ATACSeqQC.pdf" \
                "atacSeq/metrics/*__ATACSeqDepth.csv"; do

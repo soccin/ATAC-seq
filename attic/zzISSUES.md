@@ -13,6 +13,24 @@ issues were renumbered on 2026-10-10 (old to new: #8 to #1, #9 to #2,
 refers to the old list unless it says otherwise. Entries from
 `00.FIXME.md` say so.
 
+## Closed — fixed on `feat/outdirs-01`
+
+**#11 of `00.FIXME.md`, `makeBigWigFromBEDZ.sh` scale-factor branch
+reads the wrong argument** (`bug` `pre-port`) — The script now takes
+`GENOME BEDZ OUTDIR [SCALEFACTOR]` and the branch reads `$4`. Still
+unused: `pipe.sh` passes three arguments.
+
+**#12 of `00.FIXME.md`, first part: the manifest step leaves `mapid`,
+`sid` and `gid`** (`cleanup` `pre-port`) — `pipe.sh` now builds
+`sampleManifest.csv` in one pipeline, with no intermediate files; the
+rows are the same (checked on test IDs). The `--dirty` part stays open
+as #12.
+
+**#16 of `00.FIXME.md`, part: the count checks and the scale factors
+are not staged** — Both are now written to `atacSeq/atlas` and
+delivered, with sections in `docs/output.md`. The rest of #16 stays
+open.
+
 ## Closed — fixed on `rel/2.0.0`
 
 **#28 of `00.FIXME.md`, atlas merges peaks within 500 bp** (was

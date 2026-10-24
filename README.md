@@ -1,9 +1,39 @@
 # ATAC-Seq pipeline
 
-## Version 2.0.0 - 2026-10-14
+## Quick Start
 
-Most outputs differ from those of v1.x; do not mix the two. See
-`CHANGELOG.md` for what changed and why.
+Run every command from the analysis directory. Details are in the
+sections below.
+
+```
+# Run the pipeline (Slurm control job; MACS2 venv must exist)
+sbatch /path/to/ATAC-seq/pipe.sh [-q MAPQ] BAM1 [BAM2 ...]
+
+# After editing sampleManifest.csv, redo the QC reports
+# (atacSeq/metrics); pipe.sh runs both once
+Rscript /path/to/ATAC-seq/plotINSStats.R
+Rscript /path/to/ATAC-seq/R/analyzeATAC.R sampleManifest.csv [RUNTAG]
+
+# Differential peaks (needs replicates; writes atacSeq/diff)
+Rscript /path/to/ATAC-seq/R/diffAnalysisPairwise.R \
+    sampleManifest.csv Comparisons.csv [RUNTAG]
+
+# Pathway GSEA of the diff results (same RUNTAG; writes atacSeq/diff)
+Rscript /path/to/ATAC-seq/R/pathwayGSEA.R [-c COLLECTIONS] [-m MODE] [RUNTAG]
+
+# Motif enrichment of the diff results (same RUNTAG; writes
+# atacSeq/diff), as a job. How to choose WIDTH, MINPEAKS and the
+# job size: motifEnrich.sh -h, or "Motif enrichment" below
+sbatch /path/to/ATAC-seq/motifEnrich.sh [-w WIDTH] [-m MINPEAKS] [RUNTAG]
+```
+
+## Version 2.1.0 - 2026-10-23
+
+v2.1.0 adds pathway enrichment (GSEA) and motif enrichment of the
+differential analysis and writes every result to `atacSeq/`
+directly; the results v2.0.0
+made do not change. Most outputs differ from those of v1.x; do not
+mix the two. See `CHANGELOG.md` for what changed and why.
 
 Input: paired-end BAMs aligned with PEMapper, duplicates marked. Peak
 calling and bigWigs use each read of a pair as a single read; the
@@ -47,8 +77,8 @@ The genome is detected from the BAM headers and recorded as `GENOME=` in
 must be one of `b37` (GRCh37, contigs `1`, `2`, ...), `hg38` (GRCh38,
 `chr1`, ...; called `b38` before v2.0.0) or `mm10`; otherwise the run
 stops before submitting any job, with the reason in `00.RUNSTATUS.txt`.
-See `docs/GENOMES.md`. hg38 and b37 have been tested on this version;
-no mm10 run has been made yet.
+See `docs/GENOMES.md`. hg38 and b37 were tested on v2.0.0, hg38 on
+this version; no mm10 run has been made yet.
 
 Peaks, bigWigs and the atlas use reads on the autosomes, X and Y only.
 Mitochondrial reads are left out for every build, as in the ENCODE
@@ -82,7 +112,7 @@ below, is in `atacSeq/metrics/*___MITO.txt`.
   peak atlas. Two checks must pass before the run continues (the
   fragment total against the mapped reads, and an independent samtools
   count of the fragments in peaks); the results are in
-  `peaks_raw_fcCounts.checks.txt`.
+  `atacSeq/atlas/peaks_raw_fcCounts.checks.txt`.
 
 - BigWig: coverage of the Tn5-shifted reads, with no read extension,
   scaled to 10 million reads (R. Koche's method, `NOTES.md`). The
@@ -114,18 +144,22 @@ below, is in `atacSeq/metrics/*___MITO.txt`.
 
 ## Output
 
-Delivered in `atacSeq/` in the analysis directory:
+Every result of the run, and of the differential analysis, is written
+to `atacSeq/` in the analysis directory, which is what is delivered:
 
 | Directory | Contents |
 | --- | --- |
-| `atlas/` | `macsPeaksMerged.saf` (the atlas; SAF, 1-based), `peaks_raw_fcCounts.txt` (raw counts) and its `.summary` |
+| `atlas/` | `macsPeaksMerged.saf` (the atlas; SAF, 1-based), `peaks_raw_fcCounts.txt` (raw counts) and its `.summary`, the count checks `peaks_raw_fcCounts.checks.txt`, the DESeq2 scale factors `scaleFactorsDESeq2.csv` (inverted, `NOTES.md`) |
 | `bigwig/` | `<SID>_postProcess.shifted.10mNorm.bw` |
 | `macs/<SID>_postProcess.shifted/` | MACS2's files and the two `blacklistFiltered` files |
 | `metrics/` | per sample `___INS.txt`/`.pdf`, `___MITO.txt`, `tss_enrich.csv`/`.pdf`, `large_tss_enrich.png`; for the run `*__postInsDistribution.pdf`, `*__ATACSeqQC.pdf` and `*__ATACSeqDepth.csv` |
+| `diff/` | the differential analysis and the pathway and motif enrichment, if run (below); the `.rds` files are not delivered |
 
-The count-check report `peaks_raw_fcCounts.checks.txt`, the DESeq2
-scale factors `scaleFactorsDESeq2.csv` (inverted, `NOTES.md`) and
-`sampleManifest.csv` stay in the analysis directory.
+The rest of the analysis directory is work and run records:
+`out/<SID>/` and `callpeaks/` (per-sample work; the delivered files
+are copied from them into `atacSeq/macs` and `atacSeq/metrics`),
+`SLURM.*/` (logs), `00.RUNSTATUS.txt`, and `sampleManifest.csv`, which
+you edit (below).
 
 `docs/output.md` describes every delivered file for the client and
 `docs/methods.md` the methods; both are rendered to HTML and PDF by
@@ -171,11 +205,166 @@ Holm's correction, which is much stricter. Samples whose `Group` starts
 with `EXC` are left out. Every count matrix column must have a manifest
 row (`MapID` is the BAM's SM tag), and every row a column.
 
+It reads the counts from `atacSeq/atlas` and writes to `atacSeq/diff`.
 The results are `<PROJ>_<RUNTAG>_DiffPeaksEdgeR_V5.xlsx` (a summary
 sheet and, per comparison, the significant peaks with their nearest
 gene) and `<PROJ>_<RUNTAG>_DiffPeaks_V5.pdf` (PCA, MA and volcano
 plots). `<PROJ>` is the last `Proj_*` or `B-<digits>` directory in
-the path of the analysis directory, else `ATAC`.
+the path of the analysis directory, else `ATAC`. It also writes
+`<PROJ>_<RUNTAG>_DiffPeaksEdgeR_V5.rds`, every tested peak of every
+comparison with the logCPM of its samples, the input of the pathway
+and motif enrichment; it is not delivered.
+
+### Pathway enrichment (GSEA)
+
+`R/pathwayGSEA.R` runs preranked GSEA (fgsea) of each comparison
+against MSigDB gene sets (msigdbr). Run it from the analysis
+directory after `diffAnalysisPairwise.R`, with the same RUNTAG:
+
+```
+Rscript /path/to/ATAC-seq/R/pathwayGSEA.R [options] [RUNTAG]
+
+  -c, --collections   default MSIGDB_SETS of GENOMES.tsv:
+                      H,C2:CP,-C2:CP:KEGG_LEGACY,C5:GO:BP (human),
+                      MH,M2:CP,M5:GO:BP (mouse)
+  -m, --mode          promoter (default) or distance
+  -w, --tss-window    promoter: every gene with a TSS within w (1000)
+  -d, --max-distance  distance: nearest-TSS gene(s) within d (50000)
+      --min-size, --max-size   gene set size (15, 500)
+  -o, --out-tag       added to the output names
+```
+
+Each atlas peak is assigned to genes by their TSSs (every transcript
+start of the knownGene TxDb, with GenomicRanges): in promoter mode to
+every gene with a TSS within `w`, so a promoter shared by two genes
+counts for both, in distance mode to the gene with the nearest TSS
+(all of them on a tie) within `d`. Each gene takes the
+`sign(logFC) * -log10(PValue)` of its tested peak with the largest
+absolute value. (Until this, ChIPseeker gave each peak one nearest
+gene and broke ties depending on the other peaks it annotated, so a
+comparison's results changed with the other comparisons run with
+it.) A collection is `COLL` or `COLL:SUBCOLL` as msigdbr
+names them; `C2:CP` matches `CP` and every `CP:*`, and an item with
+a leading `-` removes those sets from the others. A name msigdbr
+does not have stops the run and lists the valid ones. Each item is
+its own fgsea run, so `padj` is BH within it. A positive NES means
+more accessible in Group2.
+
+Human builds use the human MSigDB and mouse the mouse MSigDB
+(`MSIGDB_DB`), so the collection names differ (`H` vs `MH`, `C5` vs
+`M5`). The significant sets (padj < 0.05) of each comparison and
+collection are collapsed to independent ones (`collapsePathways`;
+`CollapsedInto` in the xlsx), and every plot shows only those. The
+output, in `atacSeq/diff` beside its input, is, all starting
+`<PROJ>_<RUNTAG>_PathwayGSEA`:
+
+| File | Contents |
+| --- | --- |
+| `.xlsx` | summary, a sheet per comparison with every tested set (not filtered by padj), parameters |
+| `.pdf` | NES bar chart, at most 15 sets per side; no page for a comparison and collection with no significant set |
+| `_Dot.pdf` | the same sets as a dot plot (size: genes in set; color: padj) |
+| `_Heatmap.pdf` | NES across comparisons, per collection, at most 50 sets; only with 2+ comparisons |
+| `_Enrichment.pdf` | running-score plots of the top 3 sets per side, and a leading-edge heatmap (logCPM z-score per sample, at most 50 genes) for each |
+| `.rds` | the gene ranks and full results; not delivered |
+
+The leading-edge heatmaps use the logCPM that
+`diffAnalysisPairwise.R` saves in its `.rds`; an `.rds` written
+before they were added has none, and they are left out with a
+warning (rerun `diffAnalysisPairwise.R`). Two runs
+with different options need different `--out-tag`s, or the second
+overwrites the first.
+
+msigdbr (CRAN, 26.1.1 here) downloads MSigDB 2026.1 (md5 checked)
+on first use into `tools::R_user_dir("msigdbr", "cache")`
+(`~/.cache/R/msigdbr`); it downloads to `tempdir()` first.
+
+### Motif enrichment
+
+`R/motifEnrich.R` tests the differential peaks of each comparison for
+enriched transcription factor motifs with monaLisa, against the
+JASPAR 2024 CORE vertebrate non-redundant profiles in `lib/motifs`
+(`lib/motifs/getJaspar.sh` downloads them again and checks the md5).
+Run it as a job from the analysis directory after
+`diffAnalysisPairwise.R`, with the same RUNTAG, through
+`motifEnrich.sh`, which loads the tools (`bin/loadTools.sh`, which
+keeps R's temp files out of `/tmp`) and runs the R script with the
+job's cores:
+
+```
+sbatch /path/to/ATAC-seq/motifEnrich.sh [-w WIDTH] [-m MINPEAKS] [RUNTAG]
+
+  -w WIDTH     bp around each peak's strongest summit, odd, >= 51 (501)
+  -m MINPEAKS  smallest up or down set tested (50)
+```
+
+Its `#SBATCH` lines ask for 8 cores, 128G and 6 h on `cmobic_cpu`
+with `--qos=priority`, named `MOTIF.ATAC`, with the log in
+`SLURM.MOTIF/<jobid>.out`; flags given to `sbatch` before the script
+override them, e.g. `sbatch -t 12:00:00
+/path/to/ATAC-seq/motifEnrich.sh`. As for `pipe.sh`, `sbatch` is the
+`~/bin` wrapper, which tells the job where the checkout is.
+`motifEnrich.sh -h`, or the script run outside a job, prints this
+line and the notes below. `Rscript R/motifEnrich.R --help` describes
+the method and output; its `-c CORES` defaults to the job's
+`SLURM_CPUS_PER_TASK`, which `sbatch -c` sets.
+
+Each tested peak is the `--width` bp centered on its strongest summit
+(the largest MACS2 -log10 p of the `*_summits.blacklistFiltered.bed`
+of all samples in `atacSeq/macs`), read from the `FASTA` of the build
+in `GENOMES.tsv`. For each comparison the up (FDR < 0.05, logFC > 0)
+and down (FDR < 0.05, logFC < 0) sets are tested against the
+comparison's other tested peaks, which monaLisa weights to each set's
+G+C and k-mer composition; `padj` is BH within the set.
+
+#### Choosing the options and the job size
+
+- **`-w WIDTH`** (501): the sequence scanned around each summit, the
+  same for the up, down and background peaks. 501 (summit ± 250) is
+  ArchR's fixed peak width and within chromVAR's recommended 250-500
+  bp for ATAC; chromVAR's vignette calls the method "fairly robust to
+  the exact choice of peak width". HOMER's default `-size 200` comes
+  from TF ChIP-seq. Keep 501 unless you have a reason: 201 (± 100)
+  keeps closer to the summit, a wider window adds more flanking
+  sequence. It must be odd so the summit is the center base. The scan
+  time grows with the width.
+- **`-m MINPEAKS`** (50): an up or down set with fewer peaks is not
+  tested, and the Summary sheet says so. 50 is a judgment, not a
+  published value: each set is tested for 879 motifs with BH. In
+  Proj_18143 ED1 vs EV (33 up, 17 down) was not tested; of the sets
+  tested, the smallest (244 peaks) gave no motif with padj < 0.05 and
+  the next (441) gave 92. Lower it to try a weak comparison and read
+  its hits with care; raising it only skips more sets.
+- **`-c` cores** (8): more cores do not shorten the run. Proj_18143
+  took 80 min with 8 cores and 78 min with 24; fewer than 8 has not
+  been measured. The time grows with the number of sequences: about
+  220 per second in all (195 to 290 per comparison). A comparison with at least one set tested
+  scans all its tested peaks (the background too); one with none is
+  skipped. The time is about (sum of tested peaks over those
+  comparisons) / 220 seconds. A comparison's tested peaks are the
+  "N peaks" on its MA and volcano plots in
+  `<PROJ>_<RUNTAG>_DiffPeaks_V5.pdf`. Proj_18143 scanned 6
+  comparisons, 64,000 to 240,000 peaks each, 1.04 million in all.
+- **`--mem`** (128G): Proj_18143 reached the 64G it was given with 8
+  cores and used 121G with 24 (sacct MaxRSS, which counts the pages
+  the forked workers share once per worker, so it grows with the
+  cores); 128G leaves room with 8 cores (the nodes have about 1 TB).
+- **`-t` walltime** (6:00:00): the time above with room; 6 h covers a
+  run the size of Proj_18143.
+
+The output, in `atacSeq/diff`, all starting
+`<PROJ>_<RUNTAG>_MotifEnrichment`:
+
+| File | Contents |
+| --- | --- |
+| `.xlsx` | summary, a sheet per comparison with every motif tested for each set (not filtered by padj), parameters |
+| `.pdf` | heatmap of the log2 enrichment of the top 20 motifs per set of each comparison, then of the top 50 across comparisons; no page for a comparison with no enriched motif |
+| `.rds` | the regions and full results; not delivered |
+
+monaLisa needs TFBSTools, whose dependency DirichletMultinomial
+compiles against GSL. IRIS has none; a static GSL 2.8 is in
+`/usersoftware/core001/common/RHEL_8/gsl/2.8`, needed only to
+install it:
+`PATH=/usersoftware/core001/common/RHEL_8/gsl/2.8/bin:$PATH Rscript -e 'BiocManager::install(c("monaLisa", "TFBSTools"))'`.
 
 ## Delivery
 
@@ -198,9 +387,10 @@ the run `COMPLETED` and you can read the delivery folder, then:
   `README.txt` found going up from the analysis directory to
   `Proj_<no>`;
 - copies, as `svc_core001_bot01`, `atacSeq/` to `r_NNN/atacSeq`,
-  `docs/output` and `docs/methods` of this checkout (PDF and HTML)
-  to `atacSeq/docs`, and the project's `*_DiffPeaksEdgeR_V5.xlsx` and
-  `*_DiffPeaks_V5.pdf` (any RUNTAG) to `atacSeq/diff`;
+  without the `.rds` files of `atacSeq/diff`, and `docs/output` and
+  `docs/methods` of this checkout (PDF and HTML) to `atacSeq/docs`.
+  Diff or GSEA files left in the analysis directory by an older
+  checkout are not delivered; the script warns and names them;
 - writes the email, from `tmpldeliveryEmail_*.txt`, to
   `deliveryEmail_<no>_r_NNN_<yymmdd>.txt`;
 - registers the run with the bicdelivery permissions database
@@ -210,8 +400,8 @@ the run `COMPLETED` and you can read the delivery folder, then:
 
 The email gives the release in `VERSION.md` of the checkout the
 script is run from (see "Releases") and links to the docs at that tag.
-Diff files with a RUNTAG (the email names the untagged files) give a
-`WARNING`: edit the email before sending it. A delivery folder other
+Diff, GSEA or motif files with a RUNTAG (the email names the
+untagged files) give a `WARNING`: edit the email before sending it. A delivery folder other
 than `<pi>/<invest>/Proj_<no>` for the PI and investigator of
 `README.txt`, the users the database is given, also gives a
 `WARNING`.
