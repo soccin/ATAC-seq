@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- `R/custom/`: templates for one-off client analyses, with
+  `README_CUSTOM.md`. The first is `plotESR1Locus.R`, accessibility
+  at one gene (coverage tracks, per-peak plot, peak table). Not part
+  of the pipeline; its outputs do not change.
+
 ## [v2.1.0] — 2026-10-23
 
 New: pathway enrichment (GSEA) and motif enrichment of the
