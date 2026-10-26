@@ -382,6 +382,21 @@ The standalone subread binary is not Bioconductor.
 - `R/attic/` and `attic/` hold superseded versions kept for reference. Do not
   edit them; do not treat them as live code.
 
+## Custom analyses (R/custom/)
+
+Scripts written for one client request, kept as templates; not run
+by `pipe.sh` or `deliverResults.sh`. Read `R/custom/README_CUSTOM.md`
+before writing a new one-off analysis: a request like it may already
+have a template.
+
+- `plotESR1Locus.R`: accessibility at one gene (tracks, per-peak
+  plot, xlsx), from Proj_18143. Copy it into the project and edit the
+  settings block. Lessons from that request: the gene track draws
+  only the gene asked about; the peak plot keeps to the gene span
+  (peaks in the flanks, inside another gene, are not elements of the
+  gene without other evidence); run it with `srun -n 1`, or `srun`
+  may start several copies that write the same files.
+
 ## External dependencies not in this repo
 
 `sbatch` (the `SBATCH_SCRIPT_DIR` wrapper), `bsub` (the openlava shim),
