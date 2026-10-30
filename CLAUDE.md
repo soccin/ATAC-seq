@@ -262,9 +262,24 @@ way. Its `#SBATCH` lines are for that case: `-c 8 --mem=128G -t
 `SLURM.MOTIF/%j.out` (Slurm creates the directory); flags on the
 `sbatch` command line override them and do not reach the tasks. Both
 ways give the same results. It sources `bin/loadTools.sh`, and
-outside a job or with `-h` prints the `sbatch` line and how to
-choose `-s`, `-w`, `-m` and the job size. Keep those notes and
-README's "Choosing the options and the job size" the same.
+with `-h` prints the `sbatch` line and how to choose `-s`, `-w`,
+`-m` and the job size. Keep those notes and README's "Choosing the
+options and the job size" the same.
+A run starts only when `SBATCH_SCRIPT_DIR` is set (the `~/bin/sbatch`
+wrapper); run any other way, by hand or in an interactive allocation
+(which sets `SLURM_JOB_ID` too), it only reports the state of the run
+of RUNTAG with `bin/motifStatus.sh` and exits 0 worked, 1 failed, 2
+running, 3 unknown (sacct failed, or files with no record), 4 no
+run. Each run is recorded in `SLURM.MOTIF/00.MOTIFSTATUS[_RUNTAG].txt`,
+appended `KEY=VALUE` lines: `motifEnrich.sh` writes `RUNNING`, the job
+ids, `SUBMITTED` (`COMPLETED` with `-s`) and `FAILED` from its EXIT
+trap; `motifEnrichJob.sh --status` adds `FAILED` when a job fails and
+`COMPLETED` when the combine job has written the files; `sacct`
+decides for a job killed outright. A new run of the same RUNTAG
+stops while a job of the last one is queued or running, or after it
+worked unless `-f`; it starts after a failed run, and moves the last
+record aside with `mv` and creates its own with `noclobber`, so two
+runs that start together cannot both proceed.
 Proj_18143 scanned 1.04 million sequences (6 comparisons) in 80 min
 on 8 cores, reaching its 64G cap (MaxRSS), and in 78 min on 24 cores
 with MaxRSS 121G; `-s` asks for 8 cores and 128G. Proj_18143_B (4

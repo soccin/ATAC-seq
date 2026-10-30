@@ -291,12 +291,31 @@ Run it as a job from the analysis directory after
 keeps R's temp files out of `/tmp`):
 
 ```
-sbatch /path/to/ATAC-seq/motifEnrich.sh [-s] [-w WIDTH] [-m MINPEAKS] [RUNTAG]
+sbatch /path/to/ATAC-seq/motifEnrich.sh [-f] [-s] [-w WIDTH] [-m MINPEAKS] [RUNTAG]
 
+  -f           run again although the last run of RUNTAG worked
   -s           every comparison in this one job, one after another
   -w WIDTH     bp around each peak's strongest summit, odd, >= 51 (501)
   -m MINPEAKS  smallest up or down set tested (50)
 ```
+
+Run without `sbatch`, by hand or in an interactive allocation, the
+script starts nothing: it reports the state of the run of RUNTAG and
+exits 0 worked, 1 failed, 2 still running, 3 unknown (`sacct` failed,
+or the files exist with no record of a run), 4 no run:
+
+```
+/path/to/ATAC-seq/motifEnrich.sh [RUNTAG]
+```
+
+Each run is recorded in `SLURM.MOTIF/00.MOTIFSTATUS[_RUNTAG].txt`
+(`KEY=VALUE` lines: the status, the job ids, the arguments), which
+`bin/motifStatus.sh` reads together with `sacct`. A new run of the
+same RUNTAG, submitted with `sbatch`, stops at once, with the reason
+in its log, while a job of the last run is queued or running, and
+after the last run worked unless `-f` is given; it starts after a
+failed run. The last run's record is kept as
+`00.MOTIFSTATUS[_RUNTAG].txt.<date>_<time>`.
 
 The comparisons are independent, so by default each is a job of its
 own. The job submitted counts them (`motifEnrich.R --count`, which
@@ -312,7 +331,8 @@ The tasks and the combine job run `bin/motifEnrichJob.sh` with
 `sbatch --wrap`. The logs are in `SLURM.MOTIF`: `<jobid>.out` of the
 job submitted, `<arrayid>_<N>.out` of comparison N and `<jobid>.out`
 of the combine job. The files are complete when the combine job is
-`COMPLETED` in `sacct`. The results are the same as with `-s`.
+`COMPLETED` in `sacct`, which the status check above reports. The
+results are the same as with `-s`.
 
 With `-s` the job submitted runs every comparison in turn, as the
 script did before the per-comparison jobs. The `#SBATCH` lines are
@@ -323,8 +343,9 @@ override them, e.g. `sbatch -t 12:00:00
 /path/to/ATAC-seq/motifEnrich.sh -s`. Without `-s` the job only
 counts and submits, for about a minute, and `sbatch` flags do not
 reach the tasks. As for `pipe.sh`, `sbatch` is the `~/bin` wrapper,
-which tells the job where the checkout is. `motifEnrich.sh -h`, or
-the script run outside a job, prints this line and the notes below.
+which tells the job where the checkout is (`SBATCH_SCRIPT_DIR`); that
+variable is also how the script tells a run from a status check.
+`motifEnrich.sh -h` prints this line and the notes below.
 `Rscript R/motifEnrich.R --help` describes the method and output;
 its `-c CORES` defaults to the job's `SLURM_CPUS_PER_TASK`, which
 `sbatch -c` sets.

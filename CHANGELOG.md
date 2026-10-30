@@ -10,6 +10,14 @@ All notable changes to this project will be documented in this file.
   `README_CUSTOM.md`. The first is `plotESR1Locus.R`, accessibility
   at one gene (coverage tracks, per-peak plot, peak table). Not part
   of the pipeline; its outputs do not change.
+- **Motif enrichment reports the state of its run.** Run without
+  `sbatch` (`/path/to/ATAC-seq/motifEnrich.sh [RUNTAG]`), the script
+  starts nothing: it reports the run of RUNTAG and exits 0 worked, 1
+  failed, 2 still running, 3 unknown, 4 no run. Each run is recorded
+  in `SLURM.MOTIF/00.MOTIFSTATUS[_RUNTAG].txt`. A new run of the same
+  RUNTAG stops while a job of the last run is queued or running, and
+  after it worked unless the new `-f` is given. Before this, the
+  script run in an interactive allocation started a run.
 
 ### Changed
 
