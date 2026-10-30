@@ -22,9 +22,10 @@ Rscript /path/to/ATAC-seq/R/diffAnalysisPairwise.R \
 Rscript /path/to/ATAC-seq/R/pathwayGSEA.R [-c COLLECTIONS] [-m MODE] [RUNTAG]
 
 # Motif enrichment of the diff results (same RUNTAG; writes
-# atacSeq/diff), as a job. How to choose WIDTH, MINPEAKS and the
-# job size: motifEnrich.sh -h, or "Motif enrichment" below
-sbatch /path/to/ATAC-seq/motifEnrich.sh [-w WIDTH] [-m MINPEAKS] [RUNTAG]
+# atacSeq/diff), one job per comparison (-s: all in one job). How to
+# choose WIDTH, MINPEAKS and the job size: motifEnrich.sh -h, or
+# "Motif enrichment" below
+sbatch /path/to/ATAC-seq/motifEnrich.sh [-s] [-w WIDTH] [-m MINPEAKS] [RUNTAG]
 ```
 
 ## Version 2.1.0 - 2026-10-23
@@ -287,26 +288,46 @@ JASPAR 2024 CORE vertebrate non-redundant profiles in `lib/motifs`
 Run it as a job from the analysis directory after
 `diffAnalysisPairwise.R`, with the same RUNTAG, through
 `motifEnrich.sh`, which loads the tools (`bin/loadTools.sh`, which
-keeps R's temp files out of `/tmp`) and runs the R script with the
-job's cores:
+keeps R's temp files out of `/tmp`):
 
 ```
-sbatch /path/to/ATAC-seq/motifEnrich.sh [-w WIDTH] [-m MINPEAKS] [RUNTAG]
+sbatch /path/to/ATAC-seq/motifEnrich.sh [-s] [-w WIDTH] [-m MINPEAKS] [RUNTAG]
 
+  -s           every comparison in this one job, one after another
   -w WIDTH     bp around each peak's strongest summit, odd, >= 51 (501)
   -m MINPEAKS  smallest up or down set tested (50)
 ```
 
-Its `#SBATCH` lines ask for 8 cores, 128G and 6 h on `cmobic_cpu`
-with `--qos=priority`, named `MOTIF.ATAC`, with the log in
+The comparisons are independent, so by default each is a job of its
+own. The job submitted counts them (`motifEnrich.R --count`, which
+also checks the inputs), submits an array job of one task per
+comparison and a combine job, prints their ids and exits. Each task
+(`--comparison N`) saves its results in `motif.<jobid>` under
+`${ATAC_SCRATCH_ROOT:-/scratch/core001/bic/$USER/ATACSeq}`. The
+combine job (`--combine`) runs when every task has completed
+(`afterok`), checks that each result was made from the same input
+and options, writes the output files and removes the directory. If a
+task fails, Slurm cancels the combine job and the directory is kept.
+The tasks and the combine job run `bin/motifEnrichJob.sh` with
+`sbatch --wrap`. The logs are in `SLURM.MOTIF`: `<jobid>.out` of the
+job submitted, `<arrayid>_<N>.out` of comparison N and `<jobid>.out`
+of the combine job. The files are complete when the combine job is
+`COMPLETED` in `sacct`. The results are the same as with `-s`.
+
+With `-s` the job submitted runs every comparison in turn, as the
+script did before the per-comparison jobs. The `#SBATCH` lines are
+for this case: 8 cores, 128G and 6 h on `cmobic_cpu` with
+`--qos=priority`, named `MOTIF.ATAC`, with the log in
 `SLURM.MOTIF/<jobid>.out`; flags given to `sbatch` before the script
 override them, e.g. `sbatch -t 12:00:00
-/path/to/ATAC-seq/motifEnrich.sh`. As for `pipe.sh`, `sbatch` is the
-`~/bin` wrapper, which tells the job where the checkout is.
-`motifEnrich.sh -h`, or the script run outside a job, prints this
-line and the notes below. `Rscript R/motifEnrich.R --help` describes
-the method and output; its `-c CORES` defaults to the job's
-`SLURM_CPUS_PER_TASK`, which `sbatch -c` sets.
+/path/to/ATAC-seq/motifEnrich.sh -s`. Without `-s` the job only
+counts and submits, for about a minute, and `sbatch` flags do not
+reach the tasks. As for `pipe.sh`, `sbatch` is the `~/bin` wrapper,
+which tells the job where the checkout is. `motifEnrich.sh -h`, or
+the script run outside a job, prints this line and the notes below.
+`Rscript R/motifEnrich.R --help` describes the method and output;
+its `-c CORES` defaults to the job's `SLURM_CPUS_PER_TASK`, which
+`sbatch -c` sets.
 
 Each tested peak is the `--width` bp centered on its strongest summit
 (the largest MACS2 -log10 p of the `*_summits.blacklistFiltered.bed`
@@ -334,7 +355,17 @@ G+C and k-mer composition; `padj` is BH within the set.
   tested, the smallest (244 peaks) gave no motif with padj < 0.05 and
   the next (441) gave 92. Lower it to try a weak comparison and read
   its hits with care; raising it only skips more sets.
-- **`-c` cores** (8): more cores do not shorten the run. Proj_18143
+- **Job size, by default**: each comparison `-c 4 --mem=96G -t
+  6:00:00` on `cmobic_cpu` with `--qos=priority`, the combine job `-c
+  1 --mem=32G -t 1:00:00` on `cpushort,cmobic_short` (`TASK_SBATCH`
+  and `COMBINE_SBATCH` in `motifEnrich.sh`). The run takes about as
+  long as its largest comparison. Proj_18143_B (4 comparisons, about
+  230,000 tested peaks each): the comparisons took 16 to 18 min each
+  on 4 cores (MaxRSS 54-56G with a 64G cap, hence 96G) and the
+  combine job 31 s (5G), 20 min in
+  all, against 52 min with `-s` (13.5 min per comparison on 8 cores,
+  MaxRSS 66G). The results were identical.
+- **`-c` cores with `-s`** (8): more cores do not shorten the run. Proj_18143
   took 80 min with 8 cores and 78 min with 24; fewer than 8 has not
   been measured. The time grows with the number of sequences: about
   220 per second in all (195 to 290 per comparison). A comparison with at least one set tested
@@ -344,12 +375,12 @@ G+C and k-mer composition; `padj` is BH within the set.
   "N peaks" on its MA and volcano plots in
   `<PROJ>_<RUNTAG>_DiffPeaks_V5.pdf`. Proj_18143 scanned 6
   comparisons, 64,000 to 240,000 peaks each, 1.04 million in all.
-- **`--mem`** (128G): Proj_18143 reached the 64G it was given with 8
+- **`--mem` with `-s`** (128G): Proj_18143 reached the 64G it was given with 8
   cores and used 121G with 24 (sacct MaxRSS, which counts the pages
   the forked workers share once per worker, so it grows with the
   cores); 128G leaves room with 8 cores (the nodes have about 1 TB).
-- **`-t` walltime** (6:00:00): the time above with room; 6 h covers a
-  run the size of Proj_18143.
+- **`-t` walltime with `-s`** (6:00:00): the sum of the comparisons'
+  times with room; 6 h covers a run the size of Proj_18143.
 
 The output, in `atacSeq/diff`, all starting
 `<PROJ>_<RUNTAG>_MotifEnrichment`:

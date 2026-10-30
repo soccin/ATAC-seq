@@ -11,6 +11,19 @@ All notable changes to this project will be documented in this file.
   at one gene (coverage tracks, per-peak plot, peak table). Not part
   of the pipeline; its outputs do not change.
 
+### Changed
+
+- **Motif enrichment runs one job per comparison.** The comparisons
+  are independent, and more cores did not shorten the single job
+  (80 min on 8 cores, 78 on 24, Proj_18143), so `motifEnrich.sh` now
+  submits an array job of one task per comparison and a combine job
+  that writes the xlsx, pdf and rds when every task has completed,
+  then exits. The run takes about as long as its largest comparison
+  instead of the sum of them. `-s` runs every comparison in the one
+  job, as before. The results are the same either way: on
+  Proj_18143_B (4 comparisons) the rds and xlsx of the two were
+  identical, and the run took 20 min instead of 52.
+
 ## [v2.1.0] — 2026-10-23
 
 New: pathway enrichment (GSEA) and motif enrichment of the

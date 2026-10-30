@@ -200,7 +200,7 @@ from the analysis directory, which gives it the genome
 Rscript /path/to/ATAC-seq/R/diffAnalysisPairwise.R \
     sampleManifest.csv Comparisons.csv [RUNTAG]
 Rscript /path/to/ATAC-seq/R/pathwayGSEA.R [-c COLLECTIONS] [-m MODE] [RUNTAG]
-sbatch /path/to/ATAC-seq/motifEnrich.sh [-w WIDTH] [-m MINPEAKS] [RUNTAG]
+sbatch /path/to/ATAC-seq/motifEnrich.sh [-s] [-w WIDTH] [-m MINPEAKS] [RUNTAG]
 ```
 
 All three write to `atacSeq/diff`. `diffAnalysisPairwise.R` reads
@@ -239,20 +239,39 @@ recomputed with BH per set). The motifs are the JASPAR 2024 file in
 `lib/motifs` (`getJaspar.sh`), not the JASPAR2024 package. The run
 time grows with the sequences, every tested peak of each comparison
 with a set tested, at about 220 per second in all; more cores do
-not shorten it. Run it as a job (`--cores` defaults to
-`SLURM_CPUS_PER_TASK`).
-`motifEnrich.sh` is that job, submitted with `~/bin/sbatch` as
-`pipe.sh` is (`SDIR` from `SBATCH_SCRIPT_DIR`, else `$0`). Its
-`#SBATCH` lines ask for `-c 8 --mem=128G -t 6:00:00` on
-`cmobic_cpu` with `--qos=priority`, log `SLURM.MOTIF/%j.out`
-(Slurm creates the directory); flags on the `sbatch` command line
-override them. It sources `bin/loadTools.sh`, runs the R script with
-its arguments, and outside a job or with `-h` prints the `sbatch`
-line and how to choose `-w`, `-m` and the job size. Keep those notes
-and README's "Choosing the options and the job size" the same.
+not shorten it (the scan is split over the motifs, but the per-bin
+step of `calcBinnedMotifEnrR` runs at most 3 workers; no gain from
+24 cores suggests that step takes most of the time). Run it as jobs
+(`--cores` defaults to `SLURM_CPUS_PER_TASK`).
+`motifEnrich.sh` is submitted with `~/bin/sbatch` as `pipe.sh` is
+(`SDIR` from `SBATCH_SCRIPT_DIR`, else `$0`). The comparisons are
+independent, so by default it is a control job: `motifEnrich.R
+--count` checks the inputs and prints `COMPARISONS=N`; it submits an
+array job, one task per comparison (`--comparison N`, results saved
+in `--parts`, `motif.<jobid>` under the scratch root), and a combine
+job (`--combine`, `afterok` on the array,
+`--kill-on-invalid-dep=yes`), then exits. The combine job stops
+unless each part was made from the same input, options, sequences
+and motifs, writes the xlsx, pdf and rds, and removes the parts. The
+tasks and the combine job run `bin/motifEnrichJob.sh` with
+`sbatch --wrap`, sized by `TASK_SBATCH` and `COMBINE_SBATCH`; the
+control job unsets `SLURM_*` and `SBATCH_*` first, as `pipe.sh`
+does. With `-s` it runs every comparison itself, in turn, the old
+way. Its `#SBATCH` lines are for that case: `-c 8 --mem=128G -t
+6:00:00` on `cmobic_cpu` with `--qos=priority`, log
+`SLURM.MOTIF/%j.out` (Slurm creates the directory); flags on the
+`sbatch` command line override them and do not reach the tasks. Both
+ways give the same results. It sources `bin/loadTools.sh`, and
+outside a job or with `-h` prints the `sbatch` line and how to
+choose `-s`, `-w`, `-m` and the job size. Keep those notes and
+README's "Choosing the options and the job size" the same.
 Proj_18143 scanned 1.04 million sequences (6 comparisons) in 80 min
 on 8 cores, reaching its 64G cap (MaxRSS), and in 78 min on 24 cores
-with MaxRSS 121G; the script asks for 8 cores and 128G.
+with MaxRSS 121G; `-s` asks for 8 cores and 128G. Proj_18143_B (4
+comparisons, about 230,000 peaks each) took 20 min by default (16-18
+min per comparison on 4 cores, MaxRSS 54-56G of a 64G cap; `TASK_SBATCH` asks for 96G) and 52
+min with `-s` (13.5 min per comparison on 8 cores); the rds and xlsx
+of the two were identical.
 `deliverResults.sh` delivers `atacSeq/diff` with the rest of
 `atacSeq/` (not the `.rds` files) and adds `tmpldeliveryEmail_02.txt`
 and `_03.txt` to the email when it finds the diff and GSEA files there,
