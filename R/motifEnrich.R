@@ -32,6 +32,13 @@ for more set sequences with a hit than expected from the weighted
 background (Fisher's exact test, one-sided). padj is Benjamini-Hochberg
 within the set (comparison and direction).
 
+By default every comparison is run here, one after another
+(motifEnrich.sh -s). motifEnrich.sh without -s runs each comparison
+as a job of its own, with the last four options below: --count prints
+the number of comparisons, --comparison N tests the Nth and saves its
+results in the --parts directory, and --combine reads them all and
+writes the output files. The results are the same.
+
 OUTPUT FILES (in atacSeq/diff):
   <PROJ>_<RUNTAG>_MotifEnrichment.xlsx  Summary, one sheet per comparison
                                         (every tested motif), Parameters
@@ -48,7 +55,15 @@ option_list <- list(
               help = "smallest set of peaks tested [default: %default]"),
   make_option(c("-c", "--cores"), type = "integer",
               default = as.integer(Sys.getenv("SLURM_CPUS_PER_TASK", "1")),
-              help = "cores for the motif scan [default: SLURM_CPUS_PER_TASK, else 1]")
+              help = "cores for the motif scan [default: SLURM_CPUS_PER_TASK, else 1]"),
+  make_option("--count", action = "store_true", default = FALSE,
+              help = "print COMPARISONS=<number of comparisons> and stop"),
+  make_option("--comparison", type = "integer", default = NA_integer_,
+              help = "test only comparison N (1 is the first) and save its results in --parts"),
+  make_option("--combine", action = "store_true", default = FALSE,
+              help = "write the output files from the results of every comparison in --parts"),
+  make_option("--parts", type = "character", default = NA_character_,
+              help = "directory of the per-comparison results of --comparison and --combine")
 )
 parsed <- parse_args(OptionParser(usage = usage, option_list = option_list),
                      positional_arguments = c(0, 1),
@@ -65,6 +80,20 @@ if (is.na(opts$min_peaks) || opts$min_peaks < 1) {
 }
 if (is.na(opts$cores) || opts$cores < 1) {
   stop("--cores must be at least 1, not ", opts$cores, call. = FALSE)
+}
+
+# MODE: serial (every comparison here), count, comparison or combine
+modes <- c(count = opts$count, comparison = !is.na(opts$comparison),
+           combine = opts$combine)
+if (sum(modes) > 1) {
+  stop("--count, --comparison and --combine exclude each other", call. = FALSE)
+}
+MODE <- if (any(modes)) names(modes)[modes] else "serial"
+if (MODE == "comparison" && opts$comparison < 1) {
+  stop("--comparison must be at least 1, not ", opts$comparison, call. = FALSE)
+}
+if (MODE %in% c("comparison", "combine") && is.na(opts$parts)) {
+  stop("--", MODE, " needs --parts", call. = FALSE)
 }
 
 cat("## START: motifEnrich.R\n")
@@ -140,6 +169,10 @@ if (diff_results$genome != GENOME) {
   stop(str_glue("{input_rds} is for {diff_results$genome}, the run is {GENOME}"),
        call. = FALSE)
 }
+if (MODE == "comparison" && opts$comparison > len(diff_results$comparisons)) {
+  stop(str_glue("--comparison {opts$comparison}: {input_rds} has ",
+                "{len(diff_results$comparisons)} comparisons"), call. = FALSE)
+}
 
 output_xlsx <- path(out_dir, cc(project_id, RUNTAG, "MotifEnrichment.xlsx"))
 output_pdf <- path(out_dir, cc(project_id, RUNTAG, "MotifEnrichment.pdf"))
@@ -185,6 +218,14 @@ summit_files <- dir_ls("atacSeq/macs", recurse = TRUE,
                        glob = "*_summits.blacklistFiltered.bed")
 if (len(summit_files) == 0) {
   stop("no *_summits.blacklistFiltered.bed in atacSeq/macs", call. = FALSE)
+}
+
+# For motifEnrich.sh, which submits one job per comparison; the inputs
+# have been checked above
+if (MODE == "count") {
+  cat("COMPARISONS=", len(diff_results$comparisons), "\n", sep = "")
+  cat("## END: motifEnrich.R\n")
+  quit(save = "no")
 }
 cat("Reading", len(summit_files), "summit files ...")
 summits <- summit_files |>
@@ -246,6 +287,14 @@ cat("Motifs:", len(pwms), "from", JASPAR_FILE, "\n")
 
 bpparam <- if (opts$cores > 1) MulticoreParam(opts$cores) else SerialParam()
 cat("Cores =", opts$cores, "\n")
+
+# A comparison's results saved by --comparison, and what --combine
+# requires of them: the same input, options, sequences and motifs as
+# its own
+part_file <- function(i) path(opts$parts, str_glue("comparison_{i}.rds"))
+part_check <- list(input = path_abs(input_rds), width = opts$width,
+                   min_peaks = opts$min_peaks, sequences = names(seqs),
+                   motifs = names(pwms))
 
 #' Motif enrichment of the up and down sets of one comparison
 #'
@@ -342,7 +391,51 @@ run_motifs <- function(comp) {
        group2 = comp$group2, sets = sets, results = results)
 }
 
-motif_list <- map(diff_results$comparisons, run_motifs)
+#' The results of every comparison, saved by --comparison
+#'
+#' Stops if one is missing, or was made from another input, options,
+#' sequences or motifs, or for another comparison.
+#'
+#' @param files Character, the part file of each comparison, in order
+#' @return List as from run_motifs, one element per comparison
+read_parts <- function(files) {
+  missing <- files[!file_exists(files)]
+  if (len(missing) > 0) {
+    stop(str_glue("no results in {opts$parts} for ",
+                  "{str_c(path_file(missing), collapse = ' ')}"),
+         call. = FALSE)
+  }
+  map2(files, diff_results$comparisons, \(f, comp) {
+    part <- readRDS(f)
+    if (!identical(part$check, part_check) || part$motifs$tag != comp$tag) {
+      stop(str_glue("{f} is not from this input, these options or ",
+                    "comparison {comp$tag}"), call. = FALSE)
+    }
+    cat("Read", f, "\n")
+    part$motifs
+  })
+}
+
+if (MODE == "comparison") {
+  i <- opts$comparison
+  part <- list(check = part_check,
+               motifs = run_motifs(diff_results$comparisons[[i]]))
+  # Written under another name and renamed, so that --combine never
+  # reads a partial file
+  tmp_file <- str_c(part_file(i), ".tmp")
+  saveRDS(part, tmp_file)
+  file_move(tmp_file, part_file(i))
+  cat("Wrote", part_file(i), "\n")
+  cat("## END: motifEnrich.R\n")
+  quit(save = "no")
+}
+
+if (MODE == "combine") {
+  part_files <- map_chr(seq_along(diff_results$comparisons), part_file)
+  motif_list <- read_parts(part_files)
+} else {
+  motif_list <- map(diff_results$comparisons, run_motifs)
+}
 cat("========================================================\n\n")
 
 # Summary: per comparison and direction, the set, its background and
@@ -557,4 +650,13 @@ if (n_sets > 1) {
 dev.off()
 
 cat("Wrote", output_xlsx, output_pdf, output_rds, "\n")
+
+# The per-comparison results are now in the output rds. Remove them
+# and their directory, which file.remove deletes only when empty; it
+# is kept when a job fails
+if (MODE == "combine") {
+  file_delete(part_files)
+  file.remove(opts$parts)
+  cat("Removed", opts$parts, "\n")
+}
 cat("## END: motifEnrich.R\n")
