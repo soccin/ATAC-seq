@@ -449,8 +449,8 @@ are defaults; the `Parameters` sheet gives the values used.
 - `Summary`: per comparison and direction, `HigherIn` (the group the
   set is more accessible in), `Peaks` (regions in the set),
   `Background` (regions in the background), `Status` (`tested`, or
-  why not), `MotifsTested` and the number of motifs enriched with
-  adjusted p < 0.05.
+  why not), `MotifsTested` and `MotifsPadj<0.05`, the number of
+  motifs enriched with adjusted p < 0.05.
 - One sheet per comparison with a tested set, named as in the
   differential analysis, with every motif tested for each set, first
   `up`, then `down`, each sorted by p-value. **These sheets are NOT
@@ -475,12 +475,12 @@ cannot tell which member of a family is the one binding.
 - `Proj_<no>__MotifEnrichment.pdf`: one page per comparison with at
   least one enriched motif, a heatmap of the log2 enrichment of the
   top motifs (at most 20 per set, those with the smallest p-value), a
-  column for each set; then a page with the top motifs of all
-  comparisons (at most 50, those with the smallest adjusted p-value),
-  a column for each tested set. The rows are clustered on the
-  enrichment; a cell is grey where the motif has adjusted p >= 0.05
-  in that set, or the set was not tested. The color scale runs from
-  light to dark and is clipped to the 5th-95th percentile of the
+  column for each tested set; then, when two or more sets were
+  tested, a page with the top motifs of all comparisons (at most 50,
+  those with the smallest adjusted p-value), a column for each tested
+  set. The rows are clustered on the enrichment; a cell is grey where
+  the motif has adjusted p >= 0.05 in that set. The color scale runs
+  from light to dark and is clipped to the 5th-95th percentile of the
   page.
 
 A run tag `<tag>` gives `Proj_<no>_<tag>_MotifEnrichment.xlsx` and

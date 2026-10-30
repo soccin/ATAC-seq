@@ -2,7 +2,37 @@
 
 All notable changes to this project will be documented in this file.
 
-## [v2.1.0] — 2026-10-22
+## [Unreleased]
+
+### Added
+
+- `R/custom/`: templates for one-off client analyses, with
+  `README_CUSTOM.md`. The first is `plotESR1Locus.R`, accessibility
+  at one gene (coverage tracks, per-peak plot, peak table). Not part
+  of the pipeline; its outputs do not change.
+- **Motif enrichment reports the state of its run.** Run without
+  `sbatch` (`/path/to/ATAC-seq/motifEnrich.sh [RUNTAG]`), the script
+  starts nothing: it reports the run of RUNTAG and exits 0 worked, 1
+  failed, 2 still running, 3 unknown, 4 no run. Each run is recorded
+  in `SLURM.MOTIF/00.MOTIFSTATUS[_RUNTAG].txt`. A new run of the same
+  RUNTAG stops while a job of the last run is queued or running, and
+  after it worked unless the new `-f` is given. Before this, the
+  script run in an interactive allocation started a run.
+
+### Changed
+
+- **Motif enrichment runs one job per comparison.** The comparisons
+  are independent, and more cores did not shorten the single job
+  (80 min on 8 cores, 78 on 24, Proj_18143), so `motifEnrich.sh` now
+  submits an array job of one task per comparison and a combine job
+  that writes the xlsx, pdf and rds when every task has completed,
+  then exits. The run takes about as long as its largest comparison
+  instead of the sum of them. `-s` runs every comparison in the one
+  job, as before. The results are the same either way: on
+  Proj_18143_B (4 comparisons) the rds and xlsx of the two were
+  identical, and the run took 20 min instead of 52.
+
+## [v2.1.0] — 2026-10-23
 
 New: pathway enrichment (GSEA) and motif enrichment of the
 differential analysis, with their own email sections. The results v2.0.0 made do not change: the
@@ -101,7 +131,8 @@ and results are written to `atacSeq/` directly (below).
   section (`tmpldeliveryEmail_05.txt`). Proj_18143 (7 comparisons,
   12 sets tested, ED1 vs EV's 33 and 17 peaks not; 1.04 million
   sequences scanned) took 80 min on 8 cores, with MaxRSS at the 64G
-  requested; the README asks for 128G.
+  requested, and 78 min on 24 cores, with MaxRSS 121G: more cores do
+  not shorten the run. The job asks for 8 cores and 128G.
 
 #### Internal
 
@@ -148,9 +179,12 @@ and results are written to `atacSeq/` directly (below).
 - `motifEnrich.R` was run on hg38 only (Proj_18143, 7 comparisons);
   not on b37 or mm10, whose `FASTA` entries were checked only against
   the contig lengths of their `.genome` files.
-- The pipeline with the `atacSeq/` layout was run once, at full size,
-  on Proj_18143 (`v2.0.0-18-g43d55e5`, the pipeline code of this
-  version). `diffAnalysisPairwise.R` with the logCPM in its `.rds`
+- The pipeline with the `atacSeq/` layout was run at full size on
+  Proj_18143 only: at `v2.0.0-18-g43d55e5`, and with the POST `MID`
+  class at `v2.1-rc1-2-g208df13` (2026-10-22, `COMPLETED`; the
+  pipeline code of this version). In that run the 15 POST jobs ran
+  on `cmobic_short` with 3:00:00, the longest for 1:51.
+  `diffAnalysisPairwise.R` with the logCPM in its `.rds`
   and the current `pathwayGSEA.R` were run by hand on a scratch copy
   of its counts.
 - `deliverResults.sh` was run only with `-n`; the copy as

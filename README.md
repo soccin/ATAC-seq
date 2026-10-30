@@ -22,15 +22,17 @@ Rscript /path/to/ATAC-seq/R/diffAnalysisPairwise.R \
 Rscript /path/to/ATAC-seq/R/pathwayGSEA.R [-c COLLECTIONS] [-m MODE] [RUNTAG]
 
 # Motif enrichment of the diff results (same RUNTAG; writes
-# atacSeq/diff), as a job. How to choose WIDTH, MINPEAKS and the
-# job size: motifEnrich.sh -h, or "Motif enrichment" below
-sbatch /path/to/ATAC-seq/motifEnrich.sh [-w WIDTH] [-m MINPEAKS] [RUNTAG]
+# atacSeq/diff), one job per comparison (-s: all in one job). How to
+# choose WIDTH, MINPEAKS and the job size: motifEnrich.sh -h, or
+# "Motif enrichment" below
+sbatch /path/to/ATAC-seq/motifEnrich.sh [-s] [-w WIDTH] [-m MINPEAKS] [RUNTAG]
 ```
 
-## Version 2.1.0 - 2026-10-22
+## Version 2.1.0 - 2026-10-23
 
-v2.1.0 adds pathway enrichment (GSEA) of the differential analysis
-and writes every result to `atacSeq/` directly; the results v2.0.0
+v2.1.0 adds pathway enrichment (GSEA) and motif enrichment of the
+differential analysis and writes every result to `atacSeq/`
+directly; the results v2.0.0
 made do not change. Most outputs differ from those of v1.x; do not
 mix the two. See `CHANGELOG.md` for what changed and why.
 
@@ -76,8 +78,8 @@ The genome is detected from the BAM headers and recorded as `GENOME=` in
 must be one of `b37` (GRCh37, contigs `1`, `2`, ...), `hg38` (GRCh38,
 `chr1`, ...; called `b38` before v2.0.0) or `mm10`; otherwise the run
 stops before submitting any job, with the reason in `00.RUNSTATUS.txt`.
-See `docs/GENOMES.md`. hg38 and b37 have been tested on this version;
-no mm10 run has been made yet.
+See `docs/GENOMES.md`. hg38 and b37 were tested on v2.0.0, hg38 on
+this version; no mm10 run has been made yet.
 
 Peaks, bigWigs and the atlas use reads on the autosomes, X and Y only.
 Mitochondrial reads are left out for every build, as in the ENCODE
@@ -152,7 +154,7 @@ to `atacSeq/` in the analysis directory, which is what is delivered:
 | `bigwig/` | `<SID>_postProcess.shifted.10mNorm.bw` |
 | `macs/<SID>_postProcess.shifted/` | MACS2's files and the two `blacklistFiltered` files |
 | `metrics/` | per sample `___INS.txt`/`.pdf`, `___MITO.txt`, `tss_enrich.csv`/`.pdf`, `large_tss_enrich.png`; for the run `*__postInsDistribution.pdf`, `*__ATACSeqQC.pdf` and `*__ATACSeqDepth.csv` |
-| `diff/` | the differential analysis and pathway enrichment, if run (below); the `.rds` files are not delivered |
+| `diff/` | the differential analysis and the pathway and motif enrichment, if run (below); the `.rds` files are not delivered |
 
 The rest of the analysis directory is work and run records:
 `out/<SID>/` and `callpeaks/` (per-sample work; the delivered files
@@ -212,7 +214,7 @@ plots). `<PROJ>` is the last `Proj_*` or `B-<digits>` directory in
 the path of the analysis directory, else `ATAC`. It also writes
 `<PROJ>_<RUNTAG>_DiffPeaksEdgeR_V5.rds`, every tested peak of every
 comparison with the logCPM of its samples, the input of the pathway
-enrichment; it is not delivered.
+and motif enrichment; it is not delivered.
 
 ### Pathway enrichment (GSEA)
 
@@ -286,26 +288,67 @@ JASPAR 2024 CORE vertebrate non-redundant profiles in `lib/motifs`
 Run it as a job from the analysis directory after
 `diffAnalysisPairwise.R`, with the same RUNTAG, through
 `motifEnrich.sh`, which loads the tools (`bin/loadTools.sh`, which
-keeps R's temp files out of `/tmp`) and runs the R script with the
-job's cores:
+keeps R's temp files out of `/tmp`):
 
 ```
-sbatch /path/to/ATAC-seq/motifEnrich.sh [-w WIDTH] [-m MINPEAKS] [RUNTAG]
+sbatch /path/to/ATAC-seq/motifEnrich.sh [-f] [-s] [-w WIDTH] [-m MINPEAKS] [RUNTAG]
 
+  -f           run again although the last run of RUNTAG worked
+  -s           every comparison in this one job, one after another
   -w WIDTH     bp around each peak's strongest summit, odd, >= 51 (501)
   -m MINPEAKS  smallest up or down set tested (50)
 ```
 
-Its `#SBATCH` lines ask for 8 cores, 128G and 6 h on `cmobic_cpu`
-with `--qos=priority`, named `MOTIF.ATAC`, with the log in
+Run without `sbatch`, by hand or in an interactive allocation, the
+script starts nothing: it reports the state of the run of RUNTAG and
+exits 0 worked, 1 failed, 2 still running, 3 unknown (`sacct` failed,
+or the files exist with no record of a run), 4 no run:
+
+```
+/path/to/ATAC-seq/motifEnrich.sh [RUNTAG]
+```
+
+Each run is recorded in `SLURM.MOTIF/00.MOTIFSTATUS[_RUNTAG].txt`
+(`KEY=VALUE` lines: the status, the job ids, the arguments), which
+`bin/motifStatus.sh` reads together with `sacct`. A new run of the
+same RUNTAG, submitted with `sbatch`, stops at once, with the reason
+in its log, while a job of the last run is queued or running, and
+after the last run worked unless `-f` is given; it starts after a
+failed run. The last run's record is kept as
+`00.MOTIFSTATUS[_RUNTAG].txt.<date>_<time>`.
+
+The comparisons are independent, so by default each is a job of its
+own. The job submitted counts them (`motifEnrich.R --count`, which
+also checks the inputs), submits an array job of one task per
+comparison and a combine job, prints their ids and exits. Each task
+(`--comparison N`) saves its results in `motif.<jobid>` under
+`${ATAC_SCRATCH_ROOT:-/scratch/core001/bic/$USER/ATACSeq}`. The
+combine job (`--combine`) runs when every task has completed
+(`afterok`), checks that each result was made from the same input
+and options, writes the output files and removes the directory. If a
+task fails, Slurm cancels the combine job and the directory is kept.
+The tasks and the combine job run `bin/motifEnrichJob.sh` with
+`sbatch --wrap`. The logs are in `SLURM.MOTIF`: `<jobid>.out` of the
+job submitted, `<arrayid>_<N>.out` of comparison N and `<jobid>.out`
+of the combine job. The files are complete when the combine job is
+`COMPLETED` in `sacct`, which the status check above reports. The
+results are the same as with `-s`.
+
+With `-s` the job submitted runs every comparison in turn, as the
+script did before the per-comparison jobs. The `#SBATCH` lines are
+for this case: 8 cores, 128G and 6 h on `cmobic_cpu` with
+`--qos=priority`, named `MOTIF.ATAC`, with the log in
 `SLURM.MOTIF/<jobid>.out`; flags given to `sbatch` before the script
-override them, e.g. `sbatch -c 16 --mem=256G -t 12:00:00
-/path/to/ATAC-seq/motifEnrich.sh`. As for `pipe.sh`, `sbatch` is the
-`~/bin` wrapper, which tells the job where the checkout is.
-`motifEnrich.sh -h`, or the script run outside a job, prints this
-line and the notes below. `Rscript R/motifEnrich.R --help` describes
-the method and output; its `-c CORES` defaults to the job's
-`SLURM_CPUS_PER_TASK`, which `sbatch -c` sets.
+override them, e.g. `sbatch -t 12:00:00
+/path/to/ATAC-seq/motifEnrich.sh -s`. Without `-s` the job only
+counts and submits, for about a minute, and `sbatch` flags do not
+reach the tasks. As for `pipe.sh`, `sbatch` is the `~/bin` wrapper,
+which tells the job where the checkout is (`SBATCH_SCRIPT_DIR`); that
+variable is also how the script tells a run from a status check.
+`motifEnrich.sh -h` prints this line and the notes below.
+`Rscript R/motifEnrich.R --help` describes the method and output;
+its `-c CORES` defaults to the job's `SLURM_CPUS_PER_TASK`, which
+`sbatch -c` sets.
 
 Each tested peak is the `--width` bp centered on its strongest summit
 (the largest MACS2 -log10 p of the `*_summits.blacklistFiltered.bed`
@@ -333,21 +376,32 @@ G+C and k-mer composition; `padj` is BH within the set.
   tested, the smallest (244 peaks) gave no motif with padj < 0.05 and
   the next (441) gave 92. Lower it to try a weak comparison and read
   its hits with care; raising it only skips more sets.
-- **`-c` cores** (8): the motif scan takes most of the time, about 26
-  sequences per second per core on a cmobic_cpu node. A comparison
-  with at least one set tested scans all its tested peaks (the
-  background too); one with none is skipped. The time is about (sum
-  of tested peaks over those comparisons) / (26 × cores) seconds. A
-  comparison's tested peaks are the "N peaks" on its MA and volcano
-  plots in `<PROJ>_<RUNTAG>_DiffPeaks_V5.pdf`. Proj_18143 (6
-  comparisons scanned, 64,000 to 240,000 peaks each, 1.04 million in
-  all) took 80 min with 8 cores.
-- **`--mem`** (128G): Proj_18143 reached the 64G it was given with 8
-  cores (sacct MaxRSS 64.0G, which counts the pages the forked workers
-  share once per worker); 128G leaves room (the nodes have about
-  1 TB). More cores need more; how much has not been measured.
-- **`-t` walltime** (6:00:00): the time above with room; 6 h covers a
-  run the size of Proj_18143.
+- **Job size, by default**: each comparison `-c 4 --mem=96G -t
+  6:00:00` on `cmobic_cpu` with `--qos=priority`, the combine job `-c
+  1 --mem=32G -t 1:00:00` on `cpushort,cmobic_short` (`TASK_SBATCH`
+  and `COMBINE_SBATCH` in `motifEnrich.sh`). The run takes about as
+  long as its largest comparison. Proj_18143_B (4 comparisons, about
+  230,000 tested peaks each): the comparisons took 16 to 18 min each
+  on 4 cores (MaxRSS 54-56G with a 64G cap, hence 96G) and the
+  combine job 31 s (5G), 20 min in
+  all, against 52 min with `-s` (13.5 min per comparison on 8 cores,
+  MaxRSS 66G). The results were identical.
+- **`-c` cores with `-s`** (8): more cores do not shorten the run. Proj_18143
+  took 80 min with 8 cores and 78 min with 24; fewer than 8 has not
+  been measured. The time grows with the number of sequences: about
+  220 per second in all (195 to 290 per comparison). A comparison with at least one set tested
+  scans all its tested peaks (the background too); one with none is
+  skipped. The time is about (sum of tested peaks over those
+  comparisons) / 220 seconds. A comparison's tested peaks are the
+  "N peaks" on its MA and volcano plots in
+  `<PROJ>_<RUNTAG>_DiffPeaks_V5.pdf`. Proj_18143 scanned 6
+  comparisons, 64,000 to 240,000 peaks each, 1.04 million in all.
+- **`--mem` with `-s`** (128G): Proj_18143 reached the 64G it was given with 8
+  cores and used 121G with 24 (sacct MaxRSS, which counts the pages
+  the forked workers share once per worker, so it grows with the
+  cores); 128G leaves room with 8 cores (the nodes have about 1 TB).
+- **`-t` walltime with `-s`** (6:00:00): the sum of the comparisons'
+  times with room; 6 h covers a run the size of Proj_18143.
 
 The output, in `atacSeq/diff`, all starting
 `<PROJ>_<RUNTAG>_MotifEnrichment`:
@@ -398,8 +452,8 @@ the run `COMPLETED` and you can read the delivery folder, then:
 
 The email gives the release in `VERSION.md` of the checkout the
 script is run from (see "Releases") and links to the docs at that tag.
-Diff or GSEA files with a RUNTAG (the email names the untagged
-files) give a `WARNING`: edit the email before sending it. A delivery folder other
+Diff, GSEA or motif files with a RUNTAG (the email names the
+untagged files) give a `WARNING`: edit the email before sending it. A delivery folder other
 than `<pi>/<invest>/Proj_<no>` for the PI and investigator of
 `README.txt`, the users the database is given, also gives a
 `WARNING`.
